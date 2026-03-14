@@ -1,0 +1,174 @@
+<html class="dark"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#5b13ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#0f0a19",
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "2xl": "2rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+    .glass-panel {
+        background: rgba(46, 40, 57, 0.4);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .text-gradient {
+        background: linear-gradient(135deg, #ffffff 0%, #a69db9 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .masonry-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-auto-rows: 100px;
+        gap: 12px;
+    }
+    .item-tall {
+        grid-row: span 3;
+    }
+    .item-short {
+        grid-row: span 2;
+    }
+</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display text-slate-100 antialiased overflow-x-hidden">
+<div class="relative flex min-h-screen w-full flex-col bg-background-dark pb-28">
+<div class="sticky top-0 z-40 bg-background-dark/80 backdrop-blur-md pt-12 pb-4 px-6">
+<div class="flex items-center justify-between mb-6">
+<h1 class="text-2xl font-extrabold tracking-tight text-white">Discovery</h1>
+<div class="flex items-center gap-3">
+<div class="glass-panel px-3 py-1 rounded-full">
+<p class="text-[10px] font-bold tracking-widest text-slate-400">KOR / <span class="text-primary">ENG</span></p>
+</div>
+<div class="size-8 rounded-full border border-primary/30 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="User profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDehU8vtmOe_kzFXeXUq5uvkK1eYjGLudVbitAP71slxbnRmQdOX8fhT7SWMilUbjVCzmIOqnpXj8GYwzwSeHoMnEZ-8Y9UC0yZYiELfyUykxnXHRxrliMxdoj3QrStc2l03ySidtUu8li1GLxEizHg0pBSwcbH-p33cZsbfuI3pq5yeaHtNwDP3s1Il39Vkex_9dKJyQIdZuqAD49QFwxoKuzcmfozfCUiG5TW0Xa-vRFRfucKXP9rUHj45cyLcR5yCc3bNLMTmA"/>
+</div>
+</div>
+</div>
+<div class="relative mb-6">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
+<input class="w-full h-12 pl-12 pr-4 bg-slate-800/40 border-none rounded-2xl text-sm focus:ring-1 focus:ring-primary/50 text-white placeholder:text-slate-500 glass-panel" placeholder="Search choreography, dancers..." type="text"/>
+</div>
+<div class="flex overflow-x-auto gap-2 no-scrollbar -mx-6 px-6">
+<button class="whitespace-nowrap px-5 py-2 rounded-full bg-primary text-white text-xs font-bold">All</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full glass-panel text-slate-300 text-xs font-medium">Contemporary</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full glass-panel text-slate-300 text-xs font-medium">Hip-hop</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full glass-panel text-slate-300 text-xs font-medium">Ballet</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full glass-panel text-slate-300 text-xs font-medium">Jazz</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full glass-panel text-slate-300 text-xs font-medium">Experimental</button>
+</div>
+</div>
+<div class="px-6 mt-4">
+<div class="masonry-grid">
+<div class="item-tall relative rounded-2xl overflow-hidden glass-panel group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-110" data-alt="Dance movement" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXE6qwdSbDPutfwDiB8LNKFdhyPW_6OieztmmDYe9pIt16MwqRkgh96rhamNL8WoC6xc-bfab9azEywq5MPi1KWDyZ4NMCUu2fMBkjgSY8eUSPAhVxH_PtrV6jeJBRgLqq4D1mOmWLYzG0ISE8R3zGnMJMfExiEaMQilJ8-R9QqKq6t8WN3KtoPfSXF4mlKCWtr1Xi46UqdQu7QZ_-KxTdeq-ED5MFDU4dTE8mihi5TIaxePzV1_zwUbqsoiEEFzo1V4viC4_cbA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+<div class="absolute top-3 left-3 flex gap-1">
+<div class="bg-black/40 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-bold text-white uppercase tracking-wider">3D Model</div>
+</div>
+<div class="absolute bottom-3 left-3 right-3">
+<p class="text-white text-xs font-bold truncate">Urban Kinetic</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[10px] text-primary">auto_awesome</span>
+<p class="text-slate-400 text-[9px]">@leo_dance</p>
+</div>
+</div>
+</div>
+<div class="item-short relative rounded-2xl overflow-hidden glass-panel group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-110" data-alt="Dance movement" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0MrZpBDEK_y7jL8T4qVGj-CzqStkLhjU3oakguMIc0tTKjzm0kPOobI7ynzDjKtXV9zakujz8YeQXW2f57IyrfzscQJOF6ZAvR1C1mUN5h2nkrgJ0KZL3bWrNWc3wfD_zgiu3L_gqqzqMiT9xLwlcUmUID0o8-N_alFf2G9Z-F4b9p-LWB7kLlz3HFQZPB46vycMW7NADG2N656B08Ic5XANmtC3BSb5wcX8TfICK_fey5fQxQ-KAq6DtfxAy7Z0fygj8a2nFtg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+<div class="absolute bottom-3 left-3 right-3">
+<p class="text-white text-xs font-bold truncate">Neon Pulse</p>
+<p class="text-slate-400 text-[9px] mt-0.5">@mira_ai</p>
+</div>
+</div>
+<div class="item-short relative rounded-2xl overflow-hidden glass-panel group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-110" data-alt="Dance movement" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjNiUzAod5vPLKQymH5BkGCIOnHsELxjb7bMkqTbHFKyjflvi-bHvtTgV7TiD6WAIz_YVd3-1HEPlg6KGuk_4-BMygRWofovqZyDgzSW4T43ZKuEk5YpxPp-Fc7zelTg-Np3ASBQkvLgKS5bwVuRMACAyGyBw1lh-ysxOeIb7BDwFxQQLo4Aas0xzKfjXUpyTgQX0M7LTZGTBHI3Hh28kJYqWqt_zsFWHvQcIcsj6dVXeMAEqwIR98Rt0aDX4VGCaMo8jzcBDjYQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+<div class="absolute bottom-3 left-3 right-3">
+<p class="text-white text-xs font-bold truncate">Fluidity #9</p>
+<p class="text-slate-400 text-[9px] mt-0.5">@flux_dancer</p>
+</div>
+</div>
+<div class="item-tall relative rounded-2xl overflow-hidden glass-panel group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-110" data-alt="Dance movement" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATo1NG19Rt5g4x2eojodNB3BkIRKGKoIRirHCzAi4iyB950KaYecpg36Z3PIsukW4FF6kTJlZOHEwp8TD4Acbn71FyFSIjhye2NW3YpK6U9Q--xB0YPiZUjfzAyFhTsX64cJDqqml39-UzNDPCKKzFhZHk0nYCdC0gXwxwP6UJLH9CSsW-3NSj7UTBjYpLhy90P3zrUwgxdKHDB-8-UFT-Ncw3f2e6Xh8pmSRfTCjuL4iKOrMatIbg5IoAknwdKrSXlJ_-Hullbg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+<div class="absolute top-3 right-3 bg-white/20 backdrop-blur-md rounded-full p-1">
+<span class="material-symbols-outlined text-sm text-white">play_arrow</span>
+</div>
+<div class="absolute bottom-3 left-3 right-3">
+<p class="text-white text-xs font-bold truncate">Digital Echo</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[10px] text-primary">bolt</span>
+<p class="text-slate-400 text-[9px]">Trending</p>
+</div>
+</div>
+</div>
+<div class="item-short relative rounded-2xl overflow-hidden glass-panel group">
+<div class="absolute inset-0 bg-primary/20 flex flex-col items-center justify-center p-4 text-center">
+<span class="material-symbols-outlined text-primary text-3xl mb-2">auto_fix_high</span>
+<p class="text-[10px] font-bold text-white leading-tight">Create your own movement</p>
+</div>
+</div>
+<div class="item-short relative rounded-2xl overflow-hidden glass-panel group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-90" data-alt="Dancer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDehU8vtmOe_kzFXeXUq5uvkK1eYjGLudVbitAP71slxbnRmQdOX8fhT7SWMilUbjVCzmIOqnpXj8GYwzwSeHoMnEZ-8Y9UC0yZYiELfyUykxnXHRxrliMxdoj3QrStc2l03ySidtUu8li1GLxEizHg0pBSwcbH-p33cZsbfuI3pq5yeaHtNwDP3s1Il39Vkex_9dKJyQIdZuqAD49QFwxoKuzcmfozfCUiG5TW0Xa-vRFRfucKXP9rUHj45cyLcR5yCc3bNLMTmA"/>
+<div class="absolute inset-0 bg-black/60"></div>
+<div class="absolute inset-0 flex items-center justify-center p-3 text-center">
+<p class="text-[9px] font-medium text-slate-200">Featured Artist: Sarah K.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="fixed bottom-0 w-full z-50 pb-8 px-6 bg-gradient-to-t from-background-dark via-background-dark/95 to-transparent">
+<div class="glass-panel rounded-full h-16 flex items-center justify-around px-2 border border-white/10 shadow-2xl">
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined text-2xl">home</span>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1">explore</span>
+</a>
+<div class="flex-1 flex justify-center -mt-10">
+<div class="size-14 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/40 border-4 border-background-dark">
+<span class="material-symbols-outlined text-white text-3xl">add</span>
+</div>
+</div>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined text-2xl">movie</span>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+</a>
+</div>
+</div>
+</div>
+
+</body></html>

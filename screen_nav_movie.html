@@ -1,0 +1,222 @@
+<html class="dark"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#5b13ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#0a0712",
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #ffffff 0%, #a69db9 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display text-slate-100 antialiased overflow-x-hidden">
+<div class="relative flex min-h-screen w-full flex-col bg-background-dark pb-24">
+<div class="fixed inset-0 z-0 pointer-events-none">
+<div class="absolute top-[-10%] right-[-10%] size-80 bg-primary/20 rounded-full blur-[100px]"></div>
+<div class="absolute bottom-[-10%] left-[-10%] size-80 bg-blue-500/10 rounded-full blur-[100px]"></div>
+</div>
+<div class="relative z-20 flex items-center justify-between p-6 pt-12">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-xl glass-panel flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 1">folder_open</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight">My Creative Library</h1>
+</div>
+<div class="flex items-center gap-4">
+<div class="glass-panel px-3 py-1.5 rounded-full border border-white/10">
+<p class="text-[10px] font-bold tracking-widest text-slate-400">KOR / <span class="text-white">ENG</span></p>
+</div>
+<div class="size-10 rounded-full border-2 border-primary/30 overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDehU8vtmOe_kzFXeXUq5uvkK1eYjGLudVbitAP71slxbnRmQdOX8fhT7SWMilUbjVCzmIOqnpXj8GYwzwSeHoMnEZ-8Y9UC0yZYiELfyUykxnXHRxrliMxdoj3QrStc2l03ySidtUu8li1GLxEizHg0pBSwcbH-p33cZsbfuI3pq5yeaHtNwDP3s1Il39Vkex_9dKJyQIdZuqAD49QFwxoKuzcmfozfCUiG5TW0Xa-vRFRfucKXP9rUHj45cyLcR5yCc3bNLMTmA"/>
+</div>
+</div>
+</div>
+<div class="relative z-20 mt-4">
+<div class="px-6 mb-4 flex items-center justify-between">
+<h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Recently Exported</h2>
+<span class="text-primary text-xs font-bold">See all</span>
+</div>
+<div class="flex overflow-x-auto gap-3 px-6 no-scrollbar pb-2">
+<div class="min-w-[140px] p-3 rounded-2xl glass-panel flex flex-col gap-2">
+<div class="aspect-video rounded-lg overflow-hidden relative">
+<img class="w-full h-full object-cover opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0MrZpBDEK_y7jL8T4qVGj-CzqStkLhjU3oakguMIc0tTKjzm0kPOobI7ynzDjKtXV9zakujz8YeQXW2f57IyrfzscQJOF6ZAvR1C1mUN5h2nkrgJ0KZL3bWrNWc3wfD_zgiu3L_gqqzqMiT9xLwlcUmUID0o8-N_alFf2G9Z-F4b9p-LWB7kLlz3HFQZPB46vycMW7NADG2N656B08Ic5XANmtC3BSb5wcX8TfICK_fey5fQxQ-KAq6DtfxAy7Z0fygj8a2nFtg"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-white/80">play_circle</span>
+</div>
+</div>
+<div>
+<p class="text-xs font-medium text-white truncate">Final_Solo_v2</p>
+<p class="text-[10px] text-slate-500">.mp4 • 24MB</p>
+</div>
+</div>
+<div class="min-w-[140px] p-3 rounded-2xl glass-panel flex flex-col gap-2">
+<div class="aspect-video rounded-lg bg-white/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary/60 text-3xl">3d_rotation</span>
+</div>
+<div>
+<p class="text-xs font-medium text-white truncate">Rigged_Model_A</p>
+<p class="text-[10px] text-slate-500">.gltf • 8.4MB</p>
+</div>
+</div>
+<div class="min-w-[140px] p-3 rounded-2xl glass-panel flex flex-col gap-2">
+<div class="aspect-video rounded-lg overflow-hidden relative">
+<img class="w-full h-full object-cover opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATo1NG19Rt5g4x2eojodNB3BkIRKGKoIRirHCzAi4iyB950KaYecpg36Z3PIsukW4FF6kTJlZOHEwp8TD4Acbn71FyFSIjhye2NW3YpK6U9Q--xB0YPiZUjfzAyFhTsX64cJDqqml39-UzNDPCKKzFhZHk0nYCdC0gXwxwP6UJLH9CSsW-3NSj7UTBjYpLhy90P3zrUwgxdKHDB-8-UFT-Ncw3f2e6Xh8pmSRfTCjuL4iKOrMatIbg5IoAknwdKrSXlJ_-Hullbg"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-white/80">play_circle</span>
+</div>
+</div>
+<div>
+<p class="text-xs font-medium text-white truncate">Teaser_Draft</p>
+<p class="text-[10px] text-slate-500">.mp4 • 12MB</p>
+</div>
+</div>
+</div>
+</div>
+<div class="relative z-20 px-6 mt-8">
+<div class="flex gap-6 border-b border-white/5 pb-2 mb-6">
+<button class="text-white font-bold text-sm relative">
+                    Projects
+                    <span class="absolute -bottom-[10px] left-0 w-full h-0.5 bg-primary"></span>
+</button>
+<button class="text-slate-500 font-medium text-sm">Moodboards</button>
+<button class="text-slate-500 font-medium text-sm">Presentations</button>
+</div>
+<div class="grid grid-cols-1 gap-4">
+<div class="glass-panel p-4 rounded-2xl flex items-center gap-4">
+<div class="size-20 rounded-xl overflow-hidden bg-slate-800 flex-shrink-0 border border-white/5">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjNiUzAod5vPLKQymH5BkGCIOnHsELxjb7bMkqTbHFKyjflvi-bHvtTgV7TiD6WAIz_YVd3-1HEPlg6KGuk_4-BMygRWofovqZyDgzSW4T43ZKuEk5YpxPp-Fc7zelTg-Np3ASBQkvLgKS5bwVuRMACAyGyBw1lh-ysxOeIb7BDwFxQQLo4Aas0xzKfjXUpyTgQX0M7LTZGTBHI3Hh28kJYqWqt_zsFWHvQcIcsj6dVXeMAEqwIR98Rt0aDX4VGCaMo8jzcBDjYQ"/>
+</div>
+<div class="flex-grow min-w-0">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-sm font-bold text-white truncate">Urban Flow AI Study</h3>
+<span class="material-symbols-outlined text-slate-500 text-lg">more_vert</span>
+</div>
+<p class="text-[11px] text-slate-400 flex items-center gap-1 mb-2">
+<span class="material-symbols-outlined text-[12px]">schedule</span>
+                            Edited 2h ago
+                        </p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[9px] font-bold uppercase tracking-wider">Choreography</span>
+<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-bold uppercase tracking-wider">Active</span>
+</div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-2xl flex items-center gap-4">
+<div class="size-20 rounded-xl overflow-hidden bg-slate-800 flex-shrink-0 border border-white/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">drive_presentation</span>
+</div>
+<div class="flex-grow min-w-0">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-sm font-bold text-white truncate">Production Pitch Deck</h3>
+<span class="material-symbols-outlined text-slate-500 text-lg">more_vert</span>
+</div>
+<p class="text-[11px] text-slate-400 flex items-center gap-1 mb-2">
+<span class="material-symbols-outlined text-[12px]">schedule</span>
+                            Edited Oct 24
+                        </p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[9px] font-bold uppercase tracking-wider">Automated PPT</span>
+</div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-2xl flex items-center gap-4">
+<div class="size-20 rounded-xl overflow-hidden bg-slate-800 flex-shrink-0 border border-white/5">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXE6qwdSbDPutfwDiB8LNKFdhyPW_6OieztmmDYe9pIt16MwqRkgh96rhamNL8WoC6xc-bfab9azEywq5MPi1KWDyZ4NMCUu2fMBkjgSY8eUSPAhVxH_PtrV6jeJBRgLqq4D1mOmWLYzG0ISE8R3zGnMJMfExiEaMQilJ8-R9QqKq6t8WN3KtoPfSXF4mlKCWtr1Xi46UqdQu7QZ_-KxTdeq-ED5MFDU4dTE8mihi5TIaxePzV1_zwUbqsoiEEFzo1V4viC4_cbA"/>
+</div>
+<div class="flex-grow min-w-0">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-sm font-bold text-white truncate">Midnight Silhouette</h3>
+<span class="material-symbols-outlined text-slate-500 text-lg">more_vert</span>
+</div>
+<p class="text-[11px] text-slate-400 flex items-center gap-1 mb-2">
+<span class="material-symbols-outlined text-[12px]">schedule</span>
+                            Edited 2 days ago
+                        </p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[9px] font-bold uppercase tracking-wider">Moodboard</span>
+</div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-2xl flex items-center gap-4">
+<div class="size-20 rounded-xl overflow-hidden bg-slate-800 flex-shrink-0 border border-white/5">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0MrZpBDEK_y7jL8T4qVGj-CzqStkLhjU3oakguMIc0tTKjzm0kPOobI7ynzDjKtXV9zakujz8YeQXW2f57IyrfzscQJOF6ZAvR1C1mUN5h2nkrgJ0KZL3bWrNWc3wfD_zgiu3L_gqqzqMiT9xLwlcUmUID0o8-N_alFf2G9Z-F4b9p-LWB7kLlz3HFQZPB46vycMW7NADG2N656B08Ic5XANmtC3BSb5wcX8TfICK_fey5fQxQ-KAq6DtfxAy7Z0fygj8a2nFtg"/>
+</div>
+<div class="flex-grow min-w-0">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-sm font-bold text-white truncate">Contemporary AI Fusion</h3>
+<span class="material-symbols-outlined text-slate-500 text-lg">more_vert</span>
+</div>
+<p class="text-[11px] text-slate-400 flex items-center gap-1 mb-2">
+<span class="material-symbols-outlined text-[12px]">schedule</span>
+                            Edited 1 week ago
+                        </p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[9px] font-bold uppercase tracking-wider">Choreography</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="fixed bottom-0 w-full z-40 pb-6 px-4">
+<div class="glass-panel rounded-full h-16 flex items-center justify-around px-2 border border-white/10">
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">home</span>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">explore</span>
+</a>
+<div class="flex-1 flex justify-center -mt-10">
+<div class="size-14 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/40 border-4 border-background-dark">
+<span class="material-symbols-outlined text-white text-3xl">add</span>
+</div>
+</div>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1">folder</span>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+</a>
+</div>
+</div>
+</div>
+
+</body></html>

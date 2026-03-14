@@ -1,0 +1,197 @@
+<html class="dark"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#5b13ec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#161022",
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        .glass-panel {
+            background: rgba(46, 40, 57, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #ffffff 0%, #a69db9 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display text-slate-100 antialiased overflow-x-hidden">
+<div class="relative flex min-h-screen w-full flex-col bg-background-dark pb-24">
+<div class="relative z-20 flex items-center justify-between p-6 pt-12">
+<button class="size-10 rounded-full glass-panel flex items-center justify-center border border-slate-700/50 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-slate-300">settings</span>
+</button>
+<div class="glass-panel px-3 py-1 rounded-full border border-slate-700/50">
+<p class="text-[10px] font-bold tracking-widest text-slate-300">KOR / <span class="text-primary">ENG</span></p>
+</div>
+</div>
+<div class="relative z-20 flex flex-col items-center px-6 mt-4">
+<div class="relative">
+<div class="size-28 rounded-full border-2 border-primary p-1">
+<img class="w-full h-full object-cover rounded-full" data-alt="User profile picture of a professional dancer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDehU8vtmOe_kzFXeXUq5uvkK1eYjGLudVbitAP71slxbnRmQdOX8fhT7SWMilUbjVCzmIOqnpXj8GYwzwSeHoMnEZ-8Y9UC0yZYiELfyUykxnXHRxrliMxdoj3QrStc2l03ySidtUu8li1GLxEizHg0pBSwcbH-p33cZsbfuI3pq5yeaHtNwDP3s1Il39Vkex_9dKJyQIdZuqAD49QFwxoKuzcmfozfCUiG5TW0Xa-vRFRfucKXP9rUHj45cyLcR5yCc3bNLMTmA"/>
+</div>
+<div class="absolute bottom-1 right-1 size-7 bg-primary rounded-full flex items-center justify-center border-2 border-background-dark">
+<span class="material-symbols-outlined text-[14px] text-white">edit</span>
+</div>
+</div>
+<h1 class="text-2xl font-bold mt-4">Elena Rossi</h1>
+<p class="text-primary text-sm font-medium">Contemporary Artist</p>
+<p class="text-slate-400 text-xs text-center mt-3 max-w-[280px] leading-relaxed">
+                Exploring the intersection of fluid movement and generative algorithms. Former Soloist at Milan Dance Lab.
+            </p>
+</div>
+<div class="px-6 mt-8 grid grid-cols-3 gap-3">
+<div class="glass-panel rounded-2xl p-3 flex flex-col items-center justify-center text-center">
+<span class="text-white font-bold text-lg">124</span>
+<span class="text-[10px] text-slate-400 uppercase tracking-wider">Hours</span>
+</div>
+<div class="glass-panel rounded-2xl p-3 flex flex-col items-center justify-center text-center">
+<span class="text-white font-bold text-lg">18</span>
+<span class="text-[10px] text-slate-400 uppercase tracking-wider">Projects</span>
+</div>
+<div class="glass-panel rounded-2xl p-3 flex flex-col items-center justify-center text-center">
+<span class="text-white font-bold text-lg">92%</span>
+<span class="text-[10px] text-slate-400 uppercase tracking-wider">Score</span>
+</div>
+</div>
+<div class="mt-10 px-6">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-white font-bold text-sm uppercase tracking-widest">Achievements</h3>
+<span class="text-primary text-xs font-bold">View all</span>
+</div>
+<div class="flex gap-4 overflow-x-auto no-scrollbar py-2">
+<div class="flex-shrink-0 flex flex-col items-center gap-2">
+<div class="size-14 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 p-[2px]">
+<div class="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-500" style="font-variation-settings: 'FILL' 1">military_tech</span>
+</div>
+</div>
+<span class="text-[10px] text-slate-400">Streak King</span>
+</div>
+<div class="flex-shrink-0 flex flex-col items-center gap-2">
+<div class="size-14 rounded-full bg-gradient-to-br from-blue-400 to-primary p-[2px]">
+<div class="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-400" style="font-variation-settings: 'FILL' 1">auto_awesome</span>
+</div>
+</div>
+<span class="text-[10px] text-slate-400">AI Pioneer</span>
+</div>
+<div class="flex-shrink-0 flex flex-col items-center gap-2">
+<div class="size-14 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 p-[2px]">
+<div class="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-500" style="font-variation-settings: 'FILL' 1">psychology</span>
+</div>
+</div>
+<span class="text-[10px] text-slate-400">Quick Learner</span>
+</div>
+<div class="flex-shrink-0 flex flex-col items-center gap-2">
+<div class="size-14 rounded-full bg-slate-700/50 p-[2px]">
+<div class="w-full h-full rounded-full bg-background-dark/50 flex items-center justify-center opacity-40">
+<span class="material-symbols-outlined text-slate-500">lock</span>
+</div>
+</div>
+<span class="text-[10px] text-slate-600">Locked</span>
+</div>
+</div>
+</div>
+<div class="mt-10 px-6">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-white font-bold text-sm uppercase tracking-widest">My Portfolio</h3>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-primary text-xl">grid_view</span>
+<span class="material-symbols-outlined text-slate-500 text-xl">reorder</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="aspect-[4/5] rounded-2xl overflow-hidden glass-panel relative group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-80" data-alt="Choreography Thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0MrZpBDEK_y7jL8T4qVGj-CzqStkLhjU3oakguMIc0tTKjzm0kPOobI7ynzDjKtXV9zakujz8YeQXW2f57IyrfzscQJOF6ZAvR1C1mUN5h2nkrgJ0KZL3bWrNWc3wfD_zgiu3L_gqqzqMiT9xLwlcUmUID0o8-N_alFf2G9Z-F4b9p-LWB7kLlz3HFQZPB46vycMW7NADG2N656B08Ic5XANmtC3BSb5wcX8TfICK_fey5fQxQ-KAq6DtfxAy7Z0fygj8a2nFtg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-3 left-3">
+<p class="text-white text-xs font-bold">Midnight Pulse</p>
+<p class="text-slate-400 text-[10px]">Jan 12, 2024</p>
+</div>
+</div>
+<div class="aspect-[4/5] rounded-2xl overflow-hidden glass-panel relative group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-80" data-alt="Choreography Thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjNiUzAod5vPLKQymH5BkGCIOnHsELxjb7bMkqTbHFKyjflvi-bHvtTgV7TiD6WAIz_YVd3-1HEPlg6KGuk_4-BMygRWofovqZyDgzSW4T43ZKuEk5YpxPp-Fc7zelTg-Np3ASBQkvLgKS5bwVuRMACAyGyBw1lh-ysxOeIb7BDwFxQQLo4Aas0xzKfjXUpyTgQX0M7LTZGTBHI3Hh28kJYqWqt_zsFWHvQcIcsj6dVXeMAEqwIR98Rt0aDX4VGCaMo8jzcBDjYQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-3 left-3">
+<p class="text-white text-xs font-bold">Aether Flow</p>
+<p class="text-slate-400 text-[10px]">Dec 28, 2023</p>
+</div>
+</div>
+<div class="aspect-[4/5] rounded-2xl overflow-hidden glass-panel relative group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-80" data-alt="Choreography Thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATo1NG19Rt5g4x2eojodNB3BkIRKGKoIRirHCzAi4iyB950KaYecpg36Z3PIsukW4FF6kTJlZOHEwp8TD4Acbn71FyFSIjhye2NW3YpK6U9Q--xB0YPiZUjfzAyFhTsX64cJDqqml39-UzNDPCKKzFhZHk0nYCdC0gXwxwP6UJLH9CSsW-3NSj7UTBjYpLhy90P3zrUwgxdKHDB-8-UFT-Ncw3f2e6Xh8pmSRfTCjuL4iKOrMatIbg5IoAknwdKrSXlJ_-Hullbg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-3 left-3">
+<p class="text-white text-xs font-bold">Kinetic Soul</p>
+<p class="text-slate-400 text-[10px]">Dec 15, 2023</p>
+</div>
+</div>
+<div class="aspect-[4/5] rounded-2xl border-2 border-dashed border-slate-700/50 flex flex-col items-center justify-center gap-2 group cursor-pointer active:bg-slate-800/20 transition-colors">
+<div class="size-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">add</span>
+</div>
+<span class="text-[10px] text-slate-500 uppercase font-bold">Upload New</span>
+</div>
+</div>
+</div>
+<div class="fixed bottom-0 w-full z-40 pb-6 px-4 pointer-events-none">
+<div class="glass-panel rounded-full h-16 flex items-center justify-around px-2 border border-slate-700/50 pointer-events-auto">
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">home</span>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">explore</span>
+</a>
+<div class="flex-1 flex justify-center -mt-10">
+<div class="size-14 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/40 border-4 border-background-dark">
+<span class="material-symbols-outlined text-white text-3xl">add</span>
+</div>
+</div>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined text-2xl">movie</span>
+</a>
+<a class="flex flex-1 flex-col items-center justify-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1">person</span>
+</a>
+</div>
+</div>
+</div>
+
+</body></html>

@@ -1,0 +1,191 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import useStore from '../../store/useStore';
+import { ensureStageFlow, interpolateAtTime, parseDurationToSec } from '../../services/stageFlowEngine';
+import StageCanvas2D from './StageCanvas2D';
+import StageControls from './StageControls';
+import TimelineScrubber from './TimelineScrubber';
+
+export default function StageFlowPlayer({
+  teamSize = 5,
+  flowDataFromDraft = null,
+  timeline = [],
+  durationLabel = '03:00',
+  currentPlan = 'free',
+  policy = null,
+  dancerRoles = [],
+  selectedTime = null,
+  onTimeChange = null,
+  onSelectDancerRole = null,
+}) {
+  const language = useStore((s) => s.language);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(parseDurationToSec(durationLabel || '03:00'));
+  const [stageFlow, setStageFlow] = useState([]);
+  const [dancers, setDancers] = useState([]);
+  const [selectedSection, setSelectedSection] = useState('');
+
+  const rafRef = useRef(null);
+  const prevRef = useRef(null);
+
+  const flowInput = useMemo(() => {
+    const flowPattern = Array.isArray(flowDataFromDraft?.flow_pattern)
+      ? flowDataFromDraft.flow_pattern
+      : [];
+    const stageFlowFromData = Array.isArray(flowDataFromDraft?.stageFlow)
+      ? flowDataFromDraft.stageFlow
+      : [];
+
+    const resolved = ensureStageFlow({
+      stageFlow: stageFlowFromData,
+      flowPattern,
+      timeline,
+      teamSize: Math.max(1, Number(teamSize || 1)),
+      durationLabel,
+    });
+    return resolved;
+  }, [flowDataFromDraft, timeline, teamSize, durationLabel]);
+
+  useEffect(() => {
+    setStageFlow(flowInput);
+    const resolvedDuration = parseDurationToSec(durationLabel || '03:00');
+    setDuration(resolvedDuration);
+    setCurrentTime(0);
+    setIsPlaying(false);
+  }, [flowInput, durationLabel, setCurrentTime, setDuration, setIsPlaying, setStageFlow]);
+
+  useEffect(() => {
+    if (typeof selectedTime === 'number' && Number.isFinite(selectedTime)) {
+      setCurrentTime(selectedTime);
+    }
+  }, [selectedTime]);
+
+  useEffect(() => {
+    const f = interpolateAtTime(stageFlow, currentTime);
+    setDancers(f.dancers);
+    setSelectedSection(f.label || f.section || '');
+    onTimeChange?.(currentTime, f);
+  }, [stageFlow, currentTime, setDancers, setSelectedSection]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      prevRef.current = null;
+      return;
+    }
+
+    const tick = (ts) => {
+      if (prevRef.current == null) prevRef.current = ts;
+      const delta = (ts - prevRef.current) / 1000;
+      prevRef.current = ts;
+
+      setCurrentTime((prev) => {
+        const next = prev + delta;
+        if (next >= duration) {
+          setIsPlaying(false);
+          return duration;
+        }
+        return next;
+      });
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [isPlaying, duration, setCurrentTime, setIsPlaying]);
+
+  const isFreeSimple = currentPlan === 'free';
+  const interactiveScrubber = !isFreeSimple;
+  const showSectionJump = !isFreeSimple;
+  const showTrail = currentPlan === 'studio';
+
+  const isKr = language === 'KR';
+
+  return (
+    <div className="w-full bg-[#161618]/90 backdrop-blur-xl border border-white/5 p-8 relative overflow-hidden flex flex-col gap-6 font-sans shadow-2xl">
+      <div className="flex justify-between items-center gap-3">
+        <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center gap-3">
+          <span className="w-6 h-[1px] bg-primary/50" />
+          2D Stage (Flow Pattern)
+        </h2>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-slate-500 font-mono tracking-widest">{Math.floor(currentTime)}s</span>
+          <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full uppercase tracking-widest font-bold">
+            {selectedSection || (isKr ? '구간 대기' : 'Section')}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3">
+          <StageCanvas2D
+            dancers={dancers}
+            sectionLabel={selectedSection}
+            showTrail={showTrail}
+            onSelectDancer={(dancer) => {
+              const role = (dancerRoles || []).find((item) => item.dancerId === dancer.id) || null;
+              onSelectDancerRole?.(role || { dancerId: dancer.id, role: 'ensemble', movementFocus: [], stageResponsibility: '-' });
+            }}
+          />
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="bg-white/5 border border-white/5 p-5 flex flex-col gap-3">
+            <span className="text-[9px] uppercase tracking-widest text-primary font-bold">Current Section</span>
+            <div className="text-lg font-light italic text-white leading-tight">{selectedSection || '-'}</div>
+            <div className="w-full h-[1px] bg-white/10 my-1" />
+            <span className="text-[9px] uppercase tracking-widest text-slate-500">Team Size</span>
+            <p className="text-xs text-slate-300">{teamSize} {isKr ? '명' : 'dancers'}</p>
+            <span className="text-[9px] uppercase tracking-widest text-slate-500">Plan</span>
+            <p className="text-xs text-slate-300">{String(currentPlan || 'free').toUpperCase()}</p>
+            {!policy?.canUseCompetitionMode ? (
+              <p className="text-[10px] text-slate-500">{isKr ? 'Free는 단순 재생, Pro부터 스크러버 지원' : 'Free uses simple playback; scrubber on Pro+'}</p>
+            ) : null}
+          </div>
+
+          {showSectionJump ? (
+            <div className="bg-white/5 border border-white/5 p-3">
+              <div className="text-[9px] uppercase tracking-widest text-slate-500 mb-2">Section Jump</div>
+              <div className="flex flex-wrap gap-2">
+                {(stageFlow || []).slice(0, 6).map((seg, idx) => (
+                  <button
+                    key={`${seg.label}-${idx}`}
+                    className="px-2 py-1 text-[10px] bg-black/40 border border-white/10 hover:border-primary/40"
+                    onClick={() => setCurrentTime(seg.timeStart)}
+                  >
+                    {seg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-5 pt-2">
+        <TimelineScrubber
+          currentTime={currentTime}
+          duration={duration}
+          interactive={interactiveScrubber}
+          onSeek={(t) => setCurrentTime(Math.max(0, Math.min(duration, t)))}
+        />
+
+        <StageControls
+          isPlaying={isPlaying}
+          onPlay={() => {
+            if (currentTime >= duration) setCurrentTime(0);
+            setIsPlaying(true);
+          }}
+          onPause={() => setIsPlaying(false)}
+          onReset={() => {
+            setIsPlaying(false);
+            setCurrentTime(0);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
