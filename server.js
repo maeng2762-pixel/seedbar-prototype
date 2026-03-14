@@ -35,7 +35,7 @@ function validateEnv() {
 validateEnv();
 
 const PORT = Number(process.env.PORT || 3001);
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 const app = createApp();
 
 app.listen(PORT, HOST, () => {
