@@ -7,12 +7,12 @@ services:
     startCommand: npm run server
     envVars:
       - key: SUPABASE_URL
-        value: placeholder
+        value: placeholder-url-for-later
       - key: SUPABASE_SERVICE_ROLE_KEY
-        value: placeholder
+        value: placeholder-key-for-later-long-enough
       - key: OPENAI_API_KEY
-        value: placeholder
+        value: placeholder-key
       - key: JWT_SECRET
-        value: placeholder
+        value: seedbar-secret-key-very-long-123456
       - key: DATABASE_PATH    
         value: ./backend/db/seedbar.sqlite
