@@ -1,6 +1,7 @@
 services:
   - type: web
     name: seedbar-backend
+    plan: free
     env: node
     buildCommand: npm install
     startCommand: npm run server
