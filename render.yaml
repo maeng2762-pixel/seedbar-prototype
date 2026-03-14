@@ -13,9 +13,5 @@ services:
         value: placeholder
       - key: JWT_SECRET
         value: placeholder
-      - key: DATABASE_PATH    # SQLite 유지 시 (Render Persistent Disk 사용) 지원용
-        value: /data/seedbar.sqlite
-    disk:     # Supabase를 쓰기 전까지 데이터를 보존하기 위한 디스크 (필요 없으면 삭제 가능)
-      name: seedbar-data
-      mountPath: /data
-      sizeGB: 1
+      - key: DATABASE_PATH    
+        value: ./backend/db/seedbar.sqlite
