@@ -970,8 +970,8 @@ export class ChoreographyAIPipeline {
                 tags: ["ambient", "counterpoint", "heavy-body"]
             },
             {
-                track_title: "Stillness in Motion",
-                artist: "Nils Frahm",
+                track_title: "Deleted",
+                artist: "Deleted",
                 genre: "neo-classical minimal piano",
                 duration: "4:45",
                 actual_audio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
@@ -1137,24 +1137,24 @@ export class ChoreographyAIPipeline {
                 },
             ];
             return {
-                music_recommendations: selected.slice(0, 1),
+                music_recommendations: [],
                 acousticRationale: this._pickRandom(compMusicRationale),
                 style: "Competition Tactical Counterpoint",
                 soundTexture: { en: "Textural electronic with strategic silence insertions at climax — body as percussion instrument. No predictable piano.", kr: "절정부 전략적 침묵 삽입이 있는 텍스처 전자음 — 신체가 타악기. 예측 가능한 피아노 배제." },
-                referenceArtists: selected.slice(0, 1).map(t => t.artist).join(', '),
-                counterpointRule: "Competition Rule D: Silence at Climax → Technique Spotlight",
-                silenceInserted: true, // 콩쿠르에서는 항상 침묵 구간 삽입
+                referenceArtists: '',
+                counterpointRule: "",
+                silenceInserted: false,
             };
         }
 
         return {
-            music_recommendations: selected,
-            acousticRationale: this._pickRandom(overallRationales),
-            style: "Counterpoint Abstract Experimental",
-            soundTexture: this._pickRandom(soundTextures),
-            referenceArtists: selected.map(t => t.artist).join(', '),
-            counterpointRule: isHeavy || isFast ? "Rule 1: Heavy Body → Minimal Sound" : "Rule 2: Light Body → Industrial Sound",
-            silenceInserted: Math.random() > 0.5, // 50% 확률로 침묵 레이어 권장
+            music_recommendations: [],
+            acousticRationale: '',
+            style: '',
+            soundTexture: '',
+            referenceArtists: '',
+            counterpointRule: '',
+            silenceInserted: false,
         };
     }
 

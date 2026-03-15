@@ -756,47 +756,9 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 <DancerRolePanel roleData={selectedDancerRole} />
             </div>
 
-            {/* AI MUSIC ENGINE: Doris Humphrey Counterpoint Engine v2.0 */}
+            {/* AI MUSIC ENGINE: Spotify + YouTube Only */}
             <div className="bg-black/20 backdrop-blur-md border border-white/5 p-8 flex flex-col my-8 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#5B13EC] to-transparent" />
-                <div className="mb-2 flex items-center justify-between gap-3">
-                    <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center gap-3">
-                        <span className="w-4 h-[1px] bg-slate-400"></span>
-                        {isKr ? "AI 음악 엔진 — 대위법 사운드 디자인" : "AI Music Engine — Counterpoint Sound Design"}
-                    </h2>
-                    {renderSectionAction('music')}
-                </div>
-                <p className="text-[9px] italic font-serif text-[#5B13EC]/70 mb-6 ml-7">
-                    &ldquo;{isKr ? "춤은 음악의 노예가 아니다 — 도리스 험프리" : "Dance is not a slave to music — Doris Humphrey"}&rdquo;
-                </p>
-                {draftData.music?.counterpointRule && (
-                    <div className="flex flex-wrap gap-2 mb-6">
-                        <span className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest font-sans px-3 py-1 bg-[#5B13EC]/20 border border-[#5B13EC]/40 text-[#5B13EC]">
-                            ⚖ {draftData.music.counterpointRule}
-                        </span>
-                        {draftData.music.silenceInserted && (
-                            <span className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest font-sans px-3 py-1 bg-slate-800/50 border border-white/10 text-slate-400">
-                                ◯ {isKr ? "침묵 레이어 삽입 권장" : "Silence Layer Inserted"}
-                            </span>
-                        )}
-                    </div>
-                )}
-                {draftData.music?.acousticRationale && (
-                    <div className="mb-8 p-5 bg-white/[0.03] border border-white/[0.08]">
-                        <span className="text-[8px] uppercase tracking-[0.25em] font-sans text-slate-500 block mb-2">
-                            {isKr ? "✦ 음악적 의도 (Acoustic Rationale)" : "✦ Acoustic Rationale"}
-                        </span>
-                        <p className="text-sm font-serif italic text-slate-300 leading-relaxed">
-                            {t(draftData.music.acousticRationale)}
-                        </p>
-                        {draftData.music.soundTexture && (
-                            <div className="mt-4 pt-3 border-t border-white/[0.08]">
-                                <span className="text-[8px] uppercase tracking-widest font-sans text-slate-500 mr-2">Sound Texture:</span>
-                                <span className="text-xs text-slate-400 font-mono">{t(draftData.music.soundTexture)}</span>
-                            </div>
-                        )}
-                    </div>
-                )}
                 <MusicRecommendationPanel
                     genre={musicInput.genre}
                     mood={musicInput.mood}

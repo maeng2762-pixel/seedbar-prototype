@@ -5,7 +5,6 @@ import { apiUrl } from '../lib/apiClient';
 const initialRecommendations = {
   trend: [],
   balanced: [],
-  counterpoint: [],
 };
 
 const useMusicRecommendationStore = create((set) => ({
@@ -18,7 +17,6 @@ const useMusicRecommendationStore = create((set) => ({
   strategy: {
     trend: null,
     balanced: null,
-    counterpoint: null,
   },
 
   reset: () => set({
@@ -28,7 +26,7 @@ const useMusicRecommendationStore = create((set) => ({
     fingerprint: null,
     competitionMode: false,
     recommendations: initialRecommendations,
-    strategy: { trend: null, balanced: null, counterpoint: null },
+    strategy: { trend: null, balanced: null },
   }),
 
   fetchRecommendations: async ({ genre, mood, keywords, duration, competitionMode }) => {
@@ -100,7 +98,7 @@ const useMusicRecommendationStore = create((set) => ({
         fingerprint: data.fingerprint,
         competitionMode: Boolean(data.competitionMode),
         recommendations: data.recommendations || initialRecommendations,
-        strategy: data.strategy || { trend: null, balanced: null, counterpoint: null },
+        strategy: data.strategy || { trend: null, balanced: null },
       });
     } catch (error) {
       set({ loading: false, error: error.message || 'Music recommendation failed' });

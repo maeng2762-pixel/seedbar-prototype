@@ -18,7 +18,7 @@ const CLICHE_TERMS = [
   'dance monkey',
 ];
 
-const STRATEGY_ORDER = ['trend', 'balanced', 'counterpoint'];
+const STRATEGY_ORDER = ['trend', 'balanced'];
 
 function fingerprint(input) {
   const normalized = {
@@ -140,7 +140,6 @@ async function createMusicStrategy(input) {
   const strategy = {
     trend: normalizeStrategyEntry(payload?.trend, fallbackStrategy.trend),
     balanced: normalizeStrategyEntry(payload?.balanced, fallbackStrategy.balanced),
-    counterpoint: normalizeStrategyEntry(payload?.counterpoint, fallbackStrategy.counterpoint),
   };
 
   return strategy;

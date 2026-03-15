@@ -4,7 +4,6 @@ import useMusicRecommendationStore from '../store/useMusicRecommendationStore';
 const STRATEGY_LABEL = {
   trend: { ko: '트렌드 반영', en: 'Trend' },
   balanced: { ko: '균형형', en: 'Balanced' },
-  counterpoint: { ko: '대위/차별화', en: 'Counterpoint' },
 };
 
 function TrackCard({ track, strategy }) {
@@ -27,16 +26,39 @@ function TrackCard({ track, strategy }) {
         </div>
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-slate-300">{track.rationale}</p>
-      {hasPreview ? (
+      
+      {track.source === 'youtube' && track.youtube_video_id ? (
+        <div className="mt-3 w-full rounded-md overflow-hidden bg-black/20">
+          <iframe 
+            width="100%" 
+            height="150" 
+            src={`https://www.youtube.com/embed/${track.youtube_video_id}`} 
+            title={track.track_title} 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowFullScreen
+          ></iframe>
+        </div>
+      ) : track.source === 'spotify' && track.source_url ? (
+        <div className="mt-3 w-full rounded-md overflow-hidden bg-black/20">
+          <iframe 
+            src={track.source_url.replace('/track/', '/embed/track/')} 
+            width="100%" 
+            height="80" 
+            frameBorder="0" 
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+            loading="lazy"
+          ></iframe>
+        </div>
+      ) : hasPreview ? (
         <div className="mt-2 flex items-center gap-2">
-          <audio controls preload="none" className="h-8 w-full">
-            <source src={track.actual_audio} />
-          </audio>
+          <audio controls preload="none" className="h-8 w-full" src={track.actual_audio} />
         </div>
       ) : (
         <div className="mt-2 text-[10px] text-slate-500">Preview unavailable. Use source link.</div>
       )}
-      {track.source_url ? (
+
+      {!(track.source === 'spotify' || track.source === 'youtube') && track.source_url ? (
         <a className="mt-1 inline-block text-[11px] text-indigo-300 hover:underline" target="_blank" rel="noreferrer" href={track.source_url}>
           {sourceLabel}
         </a>
@@ -110,9 +132,9 @@ export default function MusicRecommendationPanel({
       ) : null}
 
       {hasResult ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {['trend', 'balanced', 'counterpoint'].map((strategy) => (
-            <div key={strategy} className="space-y-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {['trend', 'balanced'].map((strategy) => (
+             <div key={strategy} className="space-y-2">
               {(recommendations?.[strategy] || []).slice(0, 1).map((track, idx) => (
                 <TrackCard key={`${strategy}-${idx}`} track={track} strategy={strategy} />
               ))}
