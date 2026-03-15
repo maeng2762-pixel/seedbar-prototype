@@ -192,6 +192,16 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         try {
             const res = await rewriteSection(section);
             applySectionPatch(section, res.content);
+            // 자동 스크롤
+            setTimeout(() => {
+                const el = document.getElementById(`section-${section}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // 하이라이트 효과 (옵션)
+                    el.classList.add('ring-2', 'ring-primary', 'transition-all');
+                    setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 2000);
+                }
+            }, 100);
         } catch (error) {
             onOpenUpgrade?.(error.message);
         }
@@ -492,7 +502,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             )}
 
             {/* STEP 2: Concept Generator */}
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-none p-10 relative overflow-hidden">
+            <div id="section-story" className="bg-white/5 backdrop-blur-md border border-white/10 rounded-none p-10 relative overflow-hidden transition-all duration-700">
                 <div className="absolute top-0 left-0 w-1 h-full bg-white/20"></div>
                 <div className="mb-6 flex items-center justify-between gap-3">
                     <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 flex items-center gap-3">
@@ -566,7 +576,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 </div>
 
                 {/* AI Choreography Timing Engine */}
-                <div className="bg-white/5 backdrop-blur-md border border-white/10 p-8 flex flex-col relative overflow-hidden">
+                <div id="section-movement" className="bg-white/5 backdrop-blur-md border border-white/10 p-8 flex flex-col relative overflow-hidden transition-all duration-700">
                     <div className="absolute top-0 left-0 w-1 h-full bg-[#5B13EC]"></div>
                     <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-300 mb-6 flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -708,7 +718,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* AI STAGE MAP ENGINE (2D Flow Visualization) */}
-            <div className="w-full flex flex-col gap-4 my-8">
+            <div id="section-formation" className="w-full flex flex-col gap-4 my-8 transition-all duration-700">
                  <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center justify-between">
                      <div className="flex items-center gap-3">
                          <span className="w-4 h-[1px] bg-slate-400"></span>
@@ -762,7 +772,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* AI MUSIC ENGINE: Spotify + YouTube Only */}
-            <div className="bg-black/20 backdrop-blur-md border border-white/5 p-8 flex flex-col my-8 relative overflow-hidden">
+            <div id="section-music" className="bg-black/20 backdrop-blur-md border border-white/5 p-8 flex flex-col my-8 relative overflow-hidden transition-all duration-700">
                 <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#5B13EC] to-transparent" />
                 <MusicRecommendationPanel
                     genre={musicInput.genre}
@@ -830,37 +840,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     onGenerate={handleGenerateVariation}
                 />
 
-                {/* Rewrite Buttons Grid */}
-                <div className="border-t border-white/10 pt-5">
-                    <h3 className="text-[10px] uppercase tracking-[0.2em] text-slate-500 mb-3 font-semibold">
-                        {isKr ? '섹션별 재작성' : 'Section Rewrite'}
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {[
-                            { key: 'story', label: isKr ? '🎭 스토리' : '🎭 Story', labelKr: '스토리 재작성' },
-                            { key: 'movement', label: isKr ? '💃 움직임' : '💃 Movement', labelKr: '움직임 재작성' },
-                            { key: 'formation', label: isKr ? '📐 대형' : '📐 Formation', labelKr: '대형 재작성' },
-                            { key: 'music', label: isKr ? '🎵 음악' : '🎵 Music', labelKr: '음악 재작성' },
-                            { key: 'stage', label: isKr ? '🎨 무대' : '🎨 Stage', labelKr: '무대 재작성' },
-                            { key: 'artist_note', label: isKr ? '📝 아티스트 노트' : '📝 Artist Note', labelKr: '노트 재작성' },
-                        ].map((item) => (
-                            <button
-                                key={item.key}
-                                onClick={() => handleRewriteSection(item.key)}
-                                disabled={!policy?.canRegenerateSections || sectionLoading?.[item.key]}
-                                className="text-left px-4 py-3 rounded-lg bg-black/30 border border-white/10 hover:border-primary/40 hover:bg-primary/5 disabled:opacity-40 transition-all group"
-                            >
-                                <div className="text-xs font-semibold text-white group-hover:text-indigo-200 transition-colors">{item.label}</div>
-                                <div className="text-[9px] text-slate-500 mt-1">
-                                    {sectionLoading?.[item.key]
-                                        ? '⏳ 재작성 중...'
-                                        : (policy?.canRegenerateSections ? '섹션만 재생성' : 'Pro/Studio 전용')}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
+                {/* (Removed duplicate old Rewrite Buttons Grid) */}
                 <div className="border-t border-white/10 pt-5">
                     <h3 className="text-sm font-semibold text-white mb-3">{isKr ? 'Mood Sliders' : 'Mood Sliders'}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -926,7 +906,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* VISUALS: Stage & Costume */}
-            <div className="grid grid-cols-1 gap-8 mb-8">
+            <div id="section-stage" className="grid grid-cols-1 gap-8 mb-8 transition-all duration-700">
                 <div className="bg-white/5 border border-white/10 p-8 backdrop-blur-sm">
                     <div className="mb-6 flex items-center justify-between gap-3">
                         <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center gap-3">
@@ -944,7 +924,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* STEP 7: Pamphlet Designer (Exhibition Print Format) */}
-            <div className="bg-slate-200 text-slate-900 p-12 mt-4 relative">
+            <div id="section-artist_note" className="bg-slate-200 text-slate-900 p-12 mt-4 relative transition-all duration-700">
                 <div className="absolute top-4 right-6 text-[10px] uppercase tracking-[0.3em] font-sans text-slate-400">Step 7: Print Ready Pamphlet</div>
                 <div className="absolute top-4 left-6">
                     {renderSectionAction('artist_note')}
