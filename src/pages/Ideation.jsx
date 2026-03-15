@@ -127,6 +127,17 @@ const pipeline = new ChoreographyAIPipeline();
 const UPGRADE_HINT_RE = /(monthly limit|upgrade|pro\/studio|studio plan|available on)/i;
 const BACKEND_MISSING_RE = /(api route not found|non_json|failed to fetch|networkerror|network error)/i;
 
+function sanitizeGeneratedPayload(payload) {
+    const next = JSON.parse(JSON.stringify(payload || {}));
+    if (next?.music && typeof next.music === 'object') {
+        next.music.music_recommendations = [];
+    }
+    if (Array.isArray(next?.music_recommendations)) {
+        next.music_recommendations = [];
+    }
+    return next;
+}
+
 const Ideation = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -223,7 +234,7 @@ const Ideation = () => {
                 theme: projectName || "Untitled Creation",
                 keywords: moodKeywords.length > 0 ? moodKeywords : ["#Creative"]
             });
-            const payload = {
+            const payload = sanitizeGeneratedPayload({
                 ...result,
                 seedbarInput: {
                     genre: genre || "Contemporary Dance",
@@ -234,7 +245,7 @@ const Ideation = () => {
                     competitionMode: isCompetition,
                     projectName: projectName || "Untitled Creation",
                 },
-            };
+            });
             let created = null;
             try {
                 created = await initializeProject({
@@ -319,7 +330,7 @@ const Ideation = () => {
         fetchProject(studioProjectId)
             .then((payload) => {
                 if (payload?.project?.currentContent) {
-                    setGeneratedData({
+                    setGeneratedData(sanitizeGeneratedPayload({
                         ...payload.project.currentContent,
                         projectId: payload.project.id,
                         projectStatus: payload.project.status,
@@ -327,7 +338,7 @@ const Ideation = () => {
                         beatMarkers: payload.beatMarkers || [],
                         dancerRoles: payload.dancerRoles || [],
                         stageFlow: payload.stageFlow || payload.project.currentContent?.stageFlow,
-                    });
+                    }));
                     setShowRegenerateMode(false);
                 }
             })

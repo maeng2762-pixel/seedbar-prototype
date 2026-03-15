@@ -70,10 +70,11 @@ export async function generateStep2Expansion(input, context, options = {}) {
         style: input.competitionMode ? 'Competition Strategic' : 'Contemporary Textural',
         soundTexture: { en: 'Cinematic tension with breathable negative space', kr: '호흡 가능한 네거티브 스페이스의 시네마틱 텐션' },
         referenceArtists: external.trend.slice(0, 2).map((x) => x.artist).join(', '),
-        music_recommendations: [
-          ...external.trend.slice(0, 1).map((x) => ({ ...x, tierTag: { en: '🏆 Trend-Aware', kr: '🏆 트렌드 반영' } })),
-          ...external.differentiated.slice(0, 1).map((x) => ({ ...x, tierTag: { en: '⚡ Differentiated', kr: '⚡ 차별화' } })),
-        ],
+        music_recommendations: [],
+        providerRecommendations: {
+          trend: external.trend.slice(0, 1).map((x) => ({ ...x, tierTag: { en: '🏆 Trend-Aware', kr: '🏆 트렌드 반영' } })),
+          differentiated: external.differentiated.slice(0, 1).map((x) => ({ ...x, tierTag: { en: '⚡ Differentiated', kr: '⚡ 차별화' } })),
+        },
         acousticRationale: { en: 'Internal direction first, external API only on narrowed candidates.', kr: '내부 방향성 확정 후 외부 API를 제한 호출합니다.' },
       },
       stage: {
