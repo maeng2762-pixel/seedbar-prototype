@@ -131,6 +131,13 @@ function sanitizeGeneratedPayload(payload) {
     const next = JSON.parse(JSON.stringify(payload || {}));
     if (next?.music && typeof next.music === 'object') {
         next.music.music_recommendations = [];
+        delete next.music.acousticRationale;
+        delete next.music.counterpointRule;
+        delete next.music.searchQuery;
+        delete next.music.bpm_timeline;
+        if (next.music.providerRecommendations && typeof next.music.providerRecommendations === 'object') {
+            delete next.music.providerRecommendations;
+        }
     }
     if (Array.isArray(next?.music_recommendations)) {
         next.music_recommendations = [];

@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "preserver": "npm run build",
     "server": "node server.js",
     "seed:accounts": "node backend/scripts/seedAccounts.js",
     "dev": "vite",
