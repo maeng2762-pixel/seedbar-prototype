@@ -4,10 +4,14 @@ import useMusicRecommendationStore from '../store/useMusicRecommendationStore';
 const STRATEGY_LABEL = {
   trend: { ko: '트렌드 반영', en: 'Trend' },
   balanced: { ko: '균형형', en: 'Balanced' },
+  counterpoint: { ko: '차별화', en: 'Counterpoint' },
 };
 
 function TrackCard({ track, strategy }) {
+  const [showYoutube, setShowYoutube] = React.useState(false);
   const hasPreview = Boolean(track.actual_audio);
+  const isSpotify = track.source === 'spotify';
+  const isYouTube = track.source === 'youtube' && track.youtube_video_id;
   const sourceLabel = track.source === 'spotify' ? 'Open in Spotify' : track.source === 'youtube' ? 'Open in YouTube' : 'Open Source';
 
   return (
@@ -26,20 +30,37 @@ function TrackCard({ track, strategy }) {
         </div>
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-slate-300">{track.rationale}</p>
-      
-      {track.source === 'youtube' && track.youtube_video_id ? (
+
+      {isYouTube ? (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowYoutube((prev) => !prev)}
+            className="rounded-md bg-primary/20 px-3 py-1.5 text-[11px] font-semibold text-indigo-100 hover:bg-primary/30"
+          >
+            {showYoutube ? 'Hide Player' : 'Play Here'}
+          </button>
+          <a className="text-[11px] text-indigo-300 hover:underline" target="_blank" rel="noreferrer" href={track.source_url}>
+            {sourceLabel}
+          </a>
+        </div>
+      ) : null}
+
+      {isYouTube && showYoutube ? (
         <div className="mt-3 w-full rounded-md overflow-hidden bg-black/20">
           <iframe 
             width="100%" 
             height="150" 
-            src={`https://www.youtube.com/embed/${track.youtube_video_id}`} 
+            src={`https://www.youtube.com/embed/${track.youtube_video_id}?autoplay=1&rel=0&modestbranding=1`}
             title={track.track_title} 
             frameBorder="0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowFullScreen
           ></iframe>
         </div>
-      ) : track.source === 'spotify' && track.source_url ? (
+      ) : null}
+
+      {isSpotify && track.source_url ? (
         <div className="mt-3 w-full rounded-md overflow-hidden bg-black/20">
           <iframe 
             src={track.source_url.replace('/track/', '/embed/track/')} 
@@ -50,15 +71,19 @@ function TrackCard({ track, strategy }) {
             loading="lazy"
           ></iframe>
         </div>
-      ) : hasPreview ? (
+      ) : null}
+
+      {!isYouTube && hasPreview ? (
         <div className="mt-2 flex items-center gap-2">
           <audio controls preload="none" className="h-8 w-full" src={track.actual_audio} />
         </div>
-      ) : (
-        <div className="mt-2 text-[10px] text-slate-500">Preview unavailable. Use source link.</div>
-      )}
+      ) : null}
 
-      {!(track.source === 'spotify' || track.source === 'youtube') && track.source_url ? (
+      {!isYouTube && !isSpotify && !hasPreview ? (
+        <div className="mt-2 text-[10px] text-slate-500">Preview unavailable. Use source link.</div>
+      ) : null}
+
+      {!(isSpotify || isYouTube) && track.source_url ? (
         <a className="mt-1 inline-block text-[11px] text-indigo-300 hover:underline" target="_blank" rel="noreferrer" href={track.source_url}>
           {sourceLabel}
         </a>
@@ -133,9 +158,12 @@ export default function MusicRecommendationPanel({
 
       {hasResult ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {['trend', 'balanced'].map((strategy) => (
+          {['trend', 'balanced', 'counterpoint'].map((strategy) => (
              <div key={strategy} className="space-y-2">
-              {(recommendations?.[strategy] || []).slice(0, 1).map((track, idx) => (
+              {(recommendations?.[strategy] || [])
+                .filter((track) => track?.source === 'spotify' || track?.source === 'youtube')
+                .slice(0, 1)
+                .map((track, idx) => (
                 <TrackCard key={`${strategy}-${idx}`} track={track} strategy={strategy} />
               ))}
             </div>

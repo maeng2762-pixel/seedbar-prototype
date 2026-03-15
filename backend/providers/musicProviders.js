@@ -51,7 +51,16 @@ async function searchSpotify(query, limit = 5) {
 async function searchYouTube(query, maxResults = 5) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return [];
-  const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${maxResults}&q=${encodeURIComponent(query)}&key=${apiKey}`);
+  const url = new URL('https://www.googleapis.com/youtube/v3/search');
+  url.searchParams.set('part', 'snippet');
+  url.searchParams.set('type', 'video');
+  url.searchParams.set('videoEmbeddable', 'true');
+  url.searchParams.set('videoSyndicated', 'true');
+  url.searchParams.set('maxResults', String(maxResults));
+  url.searchParams.set('q', query);
+  url.searchParams.set('key', apiKey);
+
+  const res = await fetch(url.toString());
   if (!res.ok) throw new Error('YouTube search failed');
   const data = await res.json();
   metricsService.inc('external_api.youtube');

@@ -18,7 +18,7 @@ const CLICHE_TERMS = [
   'dance monkey',
 ];
 
-const STRATEGY_ORDER = ['trend', 'balanced'];
+const STRATEGY_ORDER = ['trend', 'balanced', 'counterpoint'];
 
 function fingerprint(input) {
   const normalized = {
@@ -48,6 +48,12 @@ function filterTracks(items = [], excludes = []) {
     const s = `${item.track_title || ''} ${item.artist || ''}`.toLowerCase();
     return !blocked.some((term) => term && s.includes(term));
   });
+}
+
+function isPlayableTrack(item = {}) {
+  if (item.source === 'youtube' && item.youtube_video_id) return true;
+  if (item.source === 'spotify' && item.actual_audio) return true;
+  return false;
 }
 
 function fallbackPayload(input) {
@@ -140,6 +146,7 @@ async function createMusicStrategy(input) {
   const strategy = {
     trend: normalizeStrategyEntry(payload?.trend, fallbackStrategy.trend),
     balanced: normalizeStrategyEntry(payload?.balanced, fallbackStrategy.balanced),
+    counterpoint: normalizeStrategyEntry(payload?.counterpoint, fallbackStrategy.counterpoint),
   };
 
   return strategy;
@@ -165,19 +172,24 @@ async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, yout
   }
 
   const spotifyFiltered = filterTracks(dedupeTracks(spotify), excludes);
+  const spotifyPlayableCount = spotifyFiltered.filter(isPlayableTrack).length;
 
   try {
-    const needYoutube = youtubeBudget.allow && spotifyFiltered.length < youtubeBudget.minTracksBeforeSkip;
+    const needYoutube = youtubeBudget.remaining > 0 && (spotifyFiltered.length < youtubeBudget.minTracksBeforeSkip || spotifyPlayableCount < 1);
     if (needYoutube && youtubeQuery) {
       youtube = await musicProviders.search('youtube', youtubeQuery);
-      youtubeBudget.allow = false;
+      youtubeBudget.remaining -= 1;
     }
   } catch (error) {
     metricsService.track({ type: 'music_provider_error', provider: 'youtube', strategy: strategyName, error: error.message });
   }
 
   const merged = filterTracks(dedupeTracks([...spotifyFiltered, ...youtube]), excludes);
-  const selected = merged.slice(0, 3);
+  const playableFirst = [
+    ...merged.filter(isPlayableTrack),
+    ...merged.filter((item) => !isPlayableTrack(item)),
+  ];
+  const selected = playableFirst.slice(0, 3);
 
   const result = selected;
   cacheService.set(queryCacheKey, result, CACHE_TTL.externalMusicSearch);
@@ -196,7 +208,7 @@ export async function getMusicRecommendations(input = {}, context = {}) {
   metricsService.inc('music.cache_miss');
 
   const strategy = await createMusicStrategy(input);
-  const youtubeBudget = { allow: true, minTracksBeforeSkip: 2 }; // quota 절약: 전략별 무조건 호출 금지
+  const youtubeBudget = { remaining: 2, minTracksBeforeSkip: 2 }; // quota 절약: 최대 2회만 조회
 
   const recommendations = {};
   for (const name of STRATEGY_ORDER) {
