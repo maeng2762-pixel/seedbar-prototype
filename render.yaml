@@ -11,7 +11,13 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         value: placeholder-key-for-later-long-enough
       - key: OPENAI_API_KEY
-        value: placeholder-key
+        value: placeholder-key-for-openai
+      - key: SPOTIFY_CLIENT_ID
+        value: placeholder-key-for-spotify-id
+      - key: SPOTIFY_CLIENT_SECRET
+        value: placeholder-key-for-spotify-secret
+      - key: YOUTUBE_API_KEY
+        value: placeholder-key-for-youtube
       - key: JWT_SECRET
         value: seedbar-secret-key-very-long-123456
       - key: DATABASE_PATH    
