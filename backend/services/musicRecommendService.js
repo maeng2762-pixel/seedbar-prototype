@@ -56,20 +56,78 @@ function isPlayableTrack(item = {}) {
   return false;
 }
 
+const FALLBACK_TRACKS = {
+  trend: [
+    {
+      track_title: 'Weightless Movement',
+      artist: 'Ambient Lab',
+      duration: '4:15',
+      album_art: 'https://api.dicebear.com/7.x/shapes/svg?seed=trend1&backgroundColor=0d0a1c&shapeColor=f43f5e',
+      actual_audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+      source: 'youtube',
+      youtube_video_id: 'UfcAVejslrU', // Weightless Marconi union
+      source_url: 'https://www.youtube.com/watch?v=UfcAVejslrU',
+    },
+    {
+      track_title: 'Pulse of the City',
+      artist: 'Kinetic Flow',
+      duration: '3:45',
+      album_art: 'https://api.dicebear.com/7.x/shapes/svg?seed=trend2&backgroundColor=0d0a1c&shapeColor=f43f5e',
+      actual_audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+      source: 'spotify',
+      source_url: 'https://open.spotify.com/track/6RQ1wUoQ7zVevs6jYkigA6',
+      youtube_video_id: '',
+    }
+  ],
+  balanced: [
+    {
+      track_title: 'Static Architecture',
+      artist: 'Space & Time',
+      duration: '5:10',
+      album_art: 'https://api.dicebear.com/7.x/shapes/svg?seed=balanced1&backgroundColor=0d0a1c&shapeColor=10b981',
+      actual_audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+      source: 'youtube',
+      youtube_video_id: 'V_vjoRk_WqA', // Metamorphosis 1
+      source_url: 'https://www.youtube.com/watch?v=V_vjoRk_WqA',
+    },
+    {
+      track_title: 'Organic Rhythms',
+      artist: 'Earth Canvas',
+      duration: '4:00',
+      album_art: 'https://api.dicebear.com/7.x/shapes/svg?seed=balanced2&backgroundColor=0d0a1c&shapeColor=10b981',
+      actual_audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+      source: 'spotify',
+      source_url: 'https://open.spotify.com/track/713vXm78Y89Qv4XWeN7vIt',
+      youtube_video_id: '',
+    }
+  ],
+  counterpoint: [
+    {
+      track_title: 'Abstract Silence',
+      artist: 'Void Form',
+      duration: '6:20',
+      album_art: 'https://api.dicebear.com/7.x/shapes/svg?seed=counter1&backgroundColor=0d0a1c&shapeColor=8b5cf6',
+      actual_audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+      source: 'youtube',
+      youtube_video_id: 'XxjB6VWe9tY', // Brian Eno An Ending
+      source_url: 'https://www.youtube.com/watch?v=XxjB6VWe9tY',
+    },
+    {
+      track_title: 'Friction & Form',
+      artist: 'Deconstructed',
+      duration: '3:30',
+      album_art: 'https://api.dicebear.com/7.x/shapes/svg?seed=counter2&backgroundColor=0d0a1c&shapeColor=8b5cf6',
+      actual_audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+      source: 'spotify',
+      source_url: 'https://open.spotify.com/track/2RlgNHKcqcHRnUK6Sn4snV',
+      youtube_video_id: '',
+    }
+  ]
+};
+
 function buildQueryFallbackTrack(strategyName, strategy = {}) {
-  const spotifyQuery = strategy?.searchQueries?.spotify || '';
-  const youtubeQuery = strategy?.searchQueries?.youtube || '';
-  const query = youtubeQuery || spotifyQuery || `${strategyName} contemporary dance`;
-  return {
-    track_title: `${strategyName[0].toUpperCase()}${strategyName.slice(1)} Search`,
-    artist: 'Seedbar Discovery',
-    duration: '3:00',
-    album_art: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(strategyName)}&backgroundColor=0d0a1c&shapeColor=5B13EC`,
-    actual_audio: '',
-    source: 'youtube',
-    source_url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
-    youtube_video_id: '',
-  };
+  // Use pre-crafted rich fallbacks instead of a dead search query
+  return FALLBACK_TRACKS[strategyName] || FALLBACK_TRACKS['trend'];
 }
 
 function fallbackPayload(input) {
@@ -205,8 +263,14 @@ async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, yout
     ...merged.filter(isPlayableTrack),
     ...merged.filter((item) => !isPlayableTrack(item)),
   ];
-  const selected = playableFirst.slice(0, 3);
-  const result = selected.length ? selected : [buildQueryFallbackTrack(strategyName, strategy)];
+  let selected = playableFirst.slice(0, 3);
+  
+  // If API search yields zero playable tracks (or throws), insert rich fallbacks
+  if (selected.length === 0) {
+    selected = buildQueryFallbackTrack(strategyName, strategy);
+  }
+
+  const result = selected;
 
   cacheService.set(queryCacheKey, result, CACHE_TTL.externalMusicSearch);
   return result;
