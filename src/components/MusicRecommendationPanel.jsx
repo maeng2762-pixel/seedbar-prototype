@@ -135,6 +135,9 @@ export default function MusicRecommendationPanel({
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+      <p className="mb-2 text-xs font-semibold tracking-[0.24em] text-slate-400">
+        음악 추천
+      </p>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-sm font-bold uppercase tracking-widest text-slate-300">Spotify + YouTube Music Engine</h3>
         {!hideActionButton ? (
@@ -171,7 +174,9 @@ export default function MusicRecommendationPanel({
         </div>
       ) : (
         <p className="text-xs text-slate-400">
-          {autoRecommend ? 'Analyzing choreography input and preparing music...' : 'No recommendations yet. Click "Recommend Music".'}
+          {loading
+            ? 'Analyzing choreography input and preparing music...'
+            : (autoRecommend ? 'Preparing music recommendations...' : 'No recommendations yet. Click "Recommend Music".')}
         </p>
       )}
     </div>

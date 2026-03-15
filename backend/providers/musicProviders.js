@@ -51,20 +51,31 @@ async function searchSpotify(query, limit = 5) {
 async function searchYouTube(query, maxResults = 5) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return [];
-  const url = new URL('https://www.googleapis.com/youtube/v3/search');
-  url.searchParams.set('part', 'snippet');
-  url.searchParams.set('type', 'video');
-  url.searchParams.set('videoEmbeddable', 'true');
-  url.searchParams.set('videoSyndicated', 'true');
-  url.searchParams.set('maxResults', String(maxResults));
-  url.searchParams.set('q', query);
-  url.searchParams.set('key', apiKey);
+  async function fetchSearch(strict = true) {
+    const url = new URL('https://www.googleapis.com/youtube/v3/search');
+    url.searchParams.set('part', 'snippet');
+    url.searchParams.set('type', 'video');
+    if (strict) {
+      url.searchParams.set('videoEmbeddable', 'true');
+      url.searchParams.set('videoSyndicated', 'true');
+    }
+    url.searchParams.set('maxResults', String(maxResults));
+    url.searchParams.set('q', query);
+    url.searchParams.set('key', apiKey);
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error('YouTube search failed');
+    return res.json();
+  }
 
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error('YouTube search failed');
-  const data = await res.json();
+  let data = await fetchSearch(true);
+  let items = data?.items || [];
+  if (!items.length) {
+    data = await fetchSearch(false);
+    items = data?.items || [];
+  }
+
   metricsService.inc('external_api.youtube');
-  return (data?.items || []).map((x) => ({
+  return items.map((x) => ({
     track_title: x?.snippet?.title || 'YouTube Result',
     artist: x?.snippet?.channelTitle || 'YouTube',
     duration: '3:00',

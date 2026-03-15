@@ -56,6 +56,22 @@ function isPlayableTrack(item = {}) {
   return false;
 }
 
+function buildQueryFallbackTrack(strategyName, strategy = {}) {
+  const spotifyQuery = strategy?.searchQueries?.spotify || '';
+  const youtubeQuery = strategy?.searchQueries?.youtube || '';
+  const query = youtubeQuery || spotifyQuery || `${strategyName} contemporary dance`;
+  return {
+    track_title: `${strategyName[0].toUpperCase()}${strategyName.slice(1)} Search`,
+    artist: 'Seedbar Discovery',
+    duration: '3:00',
+    album_art: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(strategyName)}&backgroundColor=0d0a1c&shapeColor=5B13EC`,
+    actual_audio: '',
+    source: 'youtube',
+    source_url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
+    youtube_video_id: '',
+  };
+}
+
 function fallbackPayload(input) {
   const comp = Boolean(input.competitionMode);
   const notes = comp
@@ -190,8 +206,8 @@ async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, yout
     ...merged.filter((item) => !isPlayableTrack(item)),
   ];
   const selected = playableFirst.slice(0, 3);
+  const result = selected.length ? selected : [buildQueryFallbackTrack(strategyName, strategy)];
 
-  const result = selected;
   cacheService.set(queryCacheKey, result, CACHE_TTL.externalMusicSearch);
   return result;
 }
