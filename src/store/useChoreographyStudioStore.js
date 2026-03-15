@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getPlanHeaders } from '../lib/subscriptionContext';
+import { apiUrl } from '../lib/apiClient';
 
 const defaultSliders = {
   intensity: 50,
@@ -36,20 +37,22 @@ const useChoreographyStudioStore = create((set, get) => ({
   setSlider: (key, value) => set((state) => ({ sliders: { ...state.sliders, [key]: value } })),
 
   listProjects: async () => {
-    const res = await fetch('/api/choreography/projects', {
+    const url = apiUrl('/api/choreography/projects');
+    const res = await fetch(url, {
       headers: { ...getPlanHeaders() },
     });
-    const data = await parseResponseJson(res, '/api/choreography/projects');
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load projects');
     set({ projects: data.projects || [] });
     return data.projects || [];
   },
 
   fetchProject: async (projectId) => {
-    const res = await fetch(`/api/choreography/projects/${projectId}`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}`);
+    const res = await fetch(url, {
       headers: { ...getPlanHeaders() },
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load project');
     return data;
   },
@@ -57,7 +60,8 @@ const useChoreographyStudioStore = create((set, get) => ({
   initializeProject: async ({ title, generatedContent }) => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch('/api/choreography/projects', {
+      const url = apiUrl('/api/choreography/projects');
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +69,7 @@ const useChoreographyStudioStore = create((set, get) => ({
         },
         body: JSON.stringify({ title, generatedContent }),
       });
-      const data = await parseResponseJson(res, '/api/choreography/projects');
+      const data = await parseResponseJson(res, url);
       if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to create project');
       set({
         loading: false,
@@ -83,10 +87,11 @@ const useChoreographyStudioStore = create((set, get) => ({
   refreshVersions: async () => {
     const projectId = get().projectId;
     if (!projectId) return [];
-    const res = await fetch(`/api/choreography/projects/${projectId}/versions`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}/versions`);
+    const res = await fetch(url, {
       headers: { ...getPlanHeaders() },
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}/versions`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load versions');
     set((state) => ({
       versions: data.versions || [],
@@ -98,7 +103,8 @@ const useChoreographyStudioStore = create((set, get) => ({
   createVersion: async (generatedContent, label) => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const res = await fetch(`/api/choreography/projects/${projectId}/versions`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}/versions`);
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -106,7 +112,7 @@ const useChoreographyStudioStore = create((set, get) => ({
       },
       body: JSON.stringify({ generatedContent, label }),
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}/versions`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to create version');
     set({
       versions: data.versions || [],
@@ -118,7 +124,8 @@ const useChoreographyStudioStore = create((set, get) => ({
   generateVariations: async () => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const res = await fetch(`/api/choreography/projects/${projectId}/variations`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}/variations`);
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -126,7 +133,7 @@ const useChoreographyStudioStore = create((set, get) => ({
       },
       body: JSON.stringify({ projectId }),
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}/variations`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to generate variations');
     set({
       versions: data.versions || [],
@@ -141,7 +148,8 @@ const useChoreographyStudioStore = create((set, get) => ({
 
     set((state) => ({ sectionLoading: { ...state.sectionLoading, [section]: true }, error: null }));
     try {
-      const res = await fetch(endpoint, {
+      const url = apiUrl(endpoint);
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +157,7 @@ const useChoreographyStudioStore = create((set, get) => ({
         },
         body: JSON.stringify({ projectId, section }),
       });
-      const data = await parseResponseJson(res, endpoint);
+      const data = await parseResponseJson(res, url);
       if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to regenerate section');
       return data;
     } finally {
@@ -164,7 +172,8 @@ const useChoreographyStudioStore = create((set, get) => ({
     if (!projectId) throw new Error('Project is not initialized');
     set({ loading: true, error: null });
     try {
-      const res = await fetch('/api/choreography/tune', {
+      const url = apiUrl('/api/choreography/tune');
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,7 +184,7 @@ const useChoreographyStudioStore = create((set, get) => ({
           sliders: get().sliders,
         }),
       });
-      const data = await parseResponseJson(res, '/api/choreography/tune');
+      const data = await parseResponseJson(res, url);
       if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to tune choreography');
       set({ loading: false });
       return data;
@@ -188,10 +197,11 @@ const useChoreographyStudioStore = create((set, get) => ({
   fetchFullPackage: async () => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const res = await fetch(`/api/choreography/projects/${projectId}/full-package`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}/full-package`);
+    const res = await fetch(url, {
       headers: { ...getPlanHeaders() },
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}/full-package`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to fetch package');
     set({ packageData: data.package });
     return data.package;
@@ -200,7 +210,8 @@ const useChoreographyStudioStore = create((set, get) => ({
   updateProject: async (updates) => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const res = await fetch(`/api/choreography/projects/${projectId}`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}`);
+    const res = await fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -208,17 +219,18 @@ const useChoreographyStudioStore = create((set, get) => ({
       },
       body: JSON.stringify(updates || {}),
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to update project');
     return data.project;
   },
 
   deleteProject: async (projectId) => {
-    const res = await fetch(`/api/choreography/projects/${projectId}`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}`);
+    const res = await fetch(url, {
       method: 'DELETE',
       headers: { ...getPlanHeaders() },
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to delete project');
     set((state) => ({
       projects: state.projects.filter((p) => p.id !== projectId),
@@ -231,7 +243,8 @@ const useChoreographyStudioStore = create((set, get) => ({
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
     set({ autosaveState: 'saving' });
-    const res = await fetch(`/api/choreography/projects/${projectId}/autosave`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}/autosave`);
+    const res = await fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -239,7 +252,7 @@ const useChoreographyStudioStore = create((set, get) => ({
       },
       body: JSON.stringify({ autosaveData }),
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}/autosave`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) {
       set({ autosaveState: 'failed' });
       throw new Error(data?.error || 'Failed to autosave project');
@@ -251,10 +264,11 @@ const useChoreographyStudioStore = create((set, get) => ({
   getAutosave: async () => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const res = await fetch(`/api/choreography/projects/${projectId}/autosave`, {
+    const url = apiUrl(`/api/choreography/projects/${projectId}/autosave`);
+    const res = await fetch(url, {
       headers: { ...getPlanHeaders() },
     });
-    const data = await parseResponseJson(res, `/api/choreography/projects/${projectId}/autosave`);
+    const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load autosave');
     return data.autosave;
   },

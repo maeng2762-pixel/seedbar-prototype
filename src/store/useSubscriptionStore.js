@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getClientPlan, getClientUserId, getPlanHeaders, setClientPlan } from '../lib/subscriptionContext';
+import { apiUrl } from '../lib/apiClient';
 
 const initial = {
   currentPlan: getClientPlan(),
@@ -33,12 +34,13 @@ const useSubscriptionStore = create((set, get) => ({
   refreshCapabilities: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch('/api/plans/capabilities', {
+      const url = apiUrl('/api/plans/capabilities');
+      const res = await fetch(url, {
         headers: {
           ...getPlanHeaders(),
         },
       });
-      const data = await parseResponseJson(res, '/api/plans/capabilities');
+      const data = await parseResponseJson(res, url);
       if (!res.ok) throw new Error(data?.error || 'Failed to load plan capabilities.');
       set({
         loading: false,
@@ -56,8 +58,8 @@ const useSubscriptionStore = create((set, get) => ({
   },
 
   consumeGeneration: async () => {
-    const url = '/api/plans/consume-generation';
-    const res = await fetch('/api/plans/consume-generation', {
+    const url = apiUrl('/api/plans/consume-generation');
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

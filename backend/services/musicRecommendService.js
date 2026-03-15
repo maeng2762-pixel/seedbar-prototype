@@ -19,23 +19,6 @@ const CLICHE_TERMS = [
 ];
 
 const STRATEGY_ORDER = ['trend', 'balanced', 'counterpoint'];
-const INTERNAL_FALLBACK_LIBRARY = {
-  trend: [
-    { title: 'Pulse Under Skin', artist: 'Lena Kovar', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-    { title: 'Concrete Breath', artist: 'Taro Min', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
-    { title: 'Neon Tension Arc', artist: 'Iris Hall', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
-  ],
-  balanced: [
-    { title: 'Silent Geometry', artist: 'Noah Feld', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-    { title: 'Low Mist / Slow Pulse', artist: 'Mina Roth', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
-    { title: 'Drifted Lines', artist: 'Ryu Park', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
-  ],
-  counterpoint: [
-    { title: 'Baroque Fracture', artist: 'Etienne Vale', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-    { title: 'Hollow Spotlight', artist: 'S. Tadesse', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
-    { title: 'Stillness Against Fire', artist: 'Yuna Drex', audio: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
-  ],
-};
 
 function fingerprint(input) {
   const normalized = {
@@ -65,20 +48,6 @@ function filterTracks(items = [], excludes = []) {
     const s = `${item.track_title || ''} ${item.artist || ''}`.toLowerCase();
     return !blocked.some((term) => term && s.includes(term));
   });
-}
-
-function fallbackTrack(seed = 'seedbar', idx = 0, strategyName = 'trend') {
-  const pool = INTERNAL_FALLBACK_LIBRARY[strategyName] || INTERNAL_FALLBACK_LIBRARY.trend;
-  const pick = pool[idx % pool.length];
-  return {
-    track_title: pick?.title || `Seedbar ${strategyName} fallback`,
-    artist: pick?.artist || 'Seedbar Curated',
-    duration: '3:00',
-    album_art: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(seed + idx)}`,
-    actual_audio: pick?.audio || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    source: 'internal-fallback',
-    source_url: '',
-  };
 }
 
 function fallbackPayload(input) {
@@ -125,9 +94,9 @@ function fallbackPayload(input) {
       },
     },
     recommendations: {
-      trend: [fallbackTrack('trend', 0, 'trend')],
-      balanced: [fallbackTrack('balanced', 1, 'balanced')],
-      counterpoint: [fallbackTrack('counterpoint', 2, 'counterpoint')],
+      trend: [],
+      balanced: [],
+      counterpoint: [],
     },
   };
 }
@@ -211,8 +180,7 @@ async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, yout
   const merged = filterTracks(dedupeTracks([...spotifyFiltered, ...youtube]), excludes);
   const selected = merged.slice(0, 3);
 
-  const fallbackIndex = parseInt(cacheKeyPrefix.slice(-2), 16) || STRATEGY_ORDER.indexOf(strategyName);
-  const result = selected.length ? selected : [fallbackTrack(strategyName, fallbackIndex, strategyName)];
+  const result = selected;
   cacheService.set(queryCacheKey, result, CACHE_TTL.externalMusicSearch);
   return result;
 }

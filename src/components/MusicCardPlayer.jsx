@@ -16,7 +16,13 @@ export default function MusicCardPlayer({ track }) {
         return val || "";
     };
 
+    const hasPreview = Boolean(track?.actual_audio);
+
     const togglePlay = () => {
+        if (!hasPreview) {
+            if (track?.source_url) window.open(track.source_url, '_blank', 'noopener,noreferrer');
+            return;
+        }
         if (isPlaying) {
             audioRef.current.pause();
         } else {
@@ -68,9 +74,9 @@ export default function MusicCardPlayer({ track }) {
                      <span className="text-white font-bold text-sm truncate">{track.track_title}</span>
                      <span className="text-slate-400 text-xs truncate">{track.artist}</span>
                  </div>
-                 <button onClick={togglePlay} className="w-10 h-10 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center text-primary hover:bg-primary hover:text-white active:scale-95 transition-all shadow-md shrink-0 focus:outline-none">
-                     <span className="material-symbols-outlined text-xl">{isPlaying ? 'pause' : 'play_arrow'}</span>
-                 </button>
+                     <button onClick={togglePlay} className="w-10 h-10 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center text-primary hover:bg-primary hover:text-white active:scale-95 transition-all shadow-md shrink-0 focus:outline-none">
+                         <span className="material-symbols-outlined text-xl">{isPlaying ? 'pause' : 'play_arrow'}</span>
+                     </button>
              </div>
 
              {/* BPM Timeline & Sync Visualization */}
@@ -103,7 +109,7 @@ export default function MusicCardPlayer({ track }) {
                      />
                      
                      {/* Markers */}
-                     {track.bpm_timeline.map((point, idx) => {
+                     {(track.bpm_timeline || []).map((point, idx) => {
                          const pos = getMarkerPercentage(point.time, track.duration);
                          
                          // Determine if active (within a 10-second window of playback)
@@ -144,13 +150,15 @@ export default function MusicCardPlayer({ track }) {
              ></div>
 
              {/* HTML5 Audio - we use loop so tests run better */}
-             <audio 
-                 ref={audioRef} 
-                 src={track.actual_audio} 
-                 onTimeUpdate={handleTimeUpdate}
-                 onEnded={() => setIsPlaying(false)}
-                 preload="metadata"
-             />
+             {hasPreview ? (
+                <audio 
+                    ref={audioRef} 
+                    src={track.actual_audio} 
+                    onTimeUpdate={handleTimeUpdate}
+                    onEnded={() => setIsPlaying(false)}
+                    preload="metadata"
+                />
+             ) : null}
         </div>
     );
 }

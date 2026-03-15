@@ -1,8 +1,6 @@
 import React, { useState, useRef } from 'react';
 import useStore from '../store/useStore';
 import FlowPatternSimulator from './FlowPatternSimulator';
-import MusicCardPlayer from './MusicCardPlayer';
-import CompetitionMusicCard from './CompetitionMusicCard';
 import MusicRecommendationPanel from './MusicRecommendationPanel';
 import RewriteButton from './studio/RewriteButton';
 import VariationGenerator from './studio/VariationGenerator';
@@ -11,6 +9,7 @@ import DancerRolePanel from './studio/DancerRolePanel';
 import AutosaveIndicator from './studio/AutosaveIndicator';
 import { generateFlowFromTimeline } from '../services/aiPipeline';
 import { getPlanHeaders } from '../lib/subscriptionContext';
+import { apiUrl } from '../lib/apiClient';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
 import {
     Chart as ChartJS,
@@ -240,7 +239,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 exportData.timing.timeline = timelineItems;
             }
 
-            const createJobResponse = await fetch('/api/export/jobs', {
+            const createJobResponse = await fetch(apiUrl('/api/export/jobs'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...getPlanHeaders() },
                 body: JSON.stringify({ 
@@ -262,7 +261,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             let retries = 0;
             while (!done && retries < 60) {
                 retries += 1;
-                const statusResponse = await fetch(`/api/export/jobs/${jobId}`, {
+                const statusResponse = await fetch(apiUrl(`/api/export/jobs/${jobId}`), {
                     headers: { ...getPlanHeaders() },
                 });
                 const statusData = await statusResponse.json();
@@ -807,36 +806,6 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     autoRecommend={true}
                     hideActionButton={true}
                 />
-                <div className="flex flex-col gap-8">
-                    {draftData.music?.music_recommendations ? (
-                        draftData.music.music_recommendations.map((track, idx) => (
-                            <div key={idx} className="flex flex-col gap-3">
-                                {isCompetitionMode && track?.tierTag ? (
-                                    <CompetitionMusicCard track={track} />
-                                ) : (
-                                    <MusicCardPlayer track={track} />
-                                )}
-                                {track.rationale && (
-                                    <div className="ml-2 px-4 py-3 bg-[#5B13EC]/5 border-l-2 border-[#5B13EC]/30">
-                                        <span className="text-[8px] uppercase tracking-widest text-[#5B13EC]/60 block mb-1">
-                                            {isKr ? "선곡 의도" : "Curation Rationale"}
-                                        </span>
-                                        <p className="text-[11px] font-serif italic text-slate-400 leading-relaxed">
-                                            {t(track.rationale)}
-                                        </p>
-                                        {track.searchQuery && (
-                                            <p className="text-[9px] font-mono text-slate-600 mt-2">
-                                                Query: &ldquo;{track.searchQuery}&rdquo;
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    ) : (
-                        <div className="text-xs text-slate-500">Audio tracks not available for this session.</div>
-                    )}
-                </div>
             </div>
 
             {/* AI Choreography Studio Controls */}

@@ -9,6 +9,7 @@ import {
   setStoredUser,
 } from '../lib/authClient';
 import { setClientPlan } from '../lib/subscriptionContext';
+import { apiUrl } from '../lib/apiClient';
 
 async function parseResponseJson(res, url) {
   const contentType = res.headers.get('content-type') || '';
@@ -37,8 +38,9 @@ const useAuthStore = create((set, get) => ({
     }
 
     try {
-      const res = await fetch('/api/auth/me', { headers: { ...getAuthHeaders() } });
-      const data = await parseResponseJson(res, '/api/auth/me');
+      const url = apiUrl('/api/auth/me');
+      const res = await fetch(url, { headers: { ...getAuthHeaders() } });
+      const data = await parseResponseJson(res, url);
       if (!res.ok || !data.ok) throw new Error(data?.error || 'Session expired.');
 
       setStoredUser(data.user);
@@ -55,12 +57,13 @@ const useAuthStore = create((set, get) => ({
   signup: async ({ email, password }) => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch('/api/auth/signup', {
+      const url = apiUrl('/api/auth/signup');
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await parseResponseJson(res, '/api/auth/signup');
+      const data = await parseResponseJson(res, url);
       if (!res.ok || !data.ok) throw new Error(data?.error || 'Signup failed.');
 
       setAccessToken(data.accessToken);
@@ -77,12 +80,13 @@ const useAuthStore = create((set, get) => ({
   login: async ({ email, password }) => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch('/api/auth/login', {
+      const url = apiUrl('/api/auth/login');
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await parseResponseJson(res, '/api/auth/login');
+      const data = await parseResponseJson(res, url);
       if (!res.ok || !data.ok) throw new Error(data?.error || 'Login failed.');
 
       setAccessToken(data.accessToken);
@@ -98,7 +102,7 @@ const useAuthStore = create((set, get) => ({
 
   logout: async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(apiUrl('/api/auth/logout'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

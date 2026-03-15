@@ -8,6 +8,9 @@ const STRATEGY_LABEL = {
 };
 
 function TrackCard({ track, strategy }) {
+  const hasPreview = Boolean(track.actual_audio);
+  const sourceLabel = track.source === 'spotify' ? 'Open in Spotify' : track.source === 'youtube' ? 'Open in YouTube' : 'Open Source';
+
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -24,14 +27,18 @@ function TrackCard({ track, strategy }) {
         </div>
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-slate-300">{track.rationale}</p>
-      <div className="mt-2 flex items-center gap-2">
-        <audio controls preload="none" className="h-8 w-full">
-          <source src={track.actual_audio} />
-        </audio>
-      </div>
+      {hasPreview ? (
+        <div className="mt-2 flex items-center gap-2">
+          <audio controls preload="none" className="h-8 w-full">
+            <source src={track.actual_audio} />
+          </audio>
+        </div>
+      ) : (
+        <div className="mt-2 text-[10px] text-slate-500">Preview unavailable. Use source link.</div>
+      )}
       {track.source_url ? (
         <a className="mt-1 inline-block text-[11px] text-indigo-300 hover:underline" target="_blank" rel="noreferrer" href={track.source_url}>
-          Open Source
+          {sourceLabel}
         </a>
       ) : null}
     </div>

@@ -7,15 +7,6 @@ function mmss(sec = 0) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function fallbackAudio(index = 0) {
-  const arr = [
-    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-  ];
-  return arr[index % arr.length];
-}
-
 async function getSpotifyToken() {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
@@ -46,12 +37,12 @@ async function searchSpotify(query, limit = 5) {
   if (!res.ok) throw new Error('Spotify search failed');
   const data = await res.json();
   metricsService.inc('external_api.spotify');
-  return (data?.tracks?.items || []).map((x, i) => ({
+  return (data?.tracks?.items || []).map((x) => ({
     track_title: x.name,
     artist: (x.artists || []).map((a) => a.name).join(', '),
     duration: mmss((x.duration_ms || 0) / 1000),
     album_art: x.album?.images?.[0]?.url || '',
-    actual_audio: x.preview_url || fallbackAudio(i),
+    actual_audio: x.preview_url || '',
     source: 'spotify',
     source_url: x.external_urls?.spotify || '',
   }));
@@ -64,14 +55,15 @@ async function searchYouTube(query, maxResults = 5) {
   if (!res.ok) throw new Error('YouTube search failed');
   const data = await res.json();
   metricsService.inc('external_api.youtube');
-  return (data?.items || []).map((x, i) => ({
+  return (data?.items || []).map((x) => ({
     track_title: x?.snippet?.title || 'YouTube Result',
     artist: x?.snippet?.channelTitle || 'YouTube',
     duration: '3:00',
     album_art: x?.snippet?.thumbnails?.high?.url || '',
-    actual_audio: fallbackAudio(i + 1),
+    actual_audio: '',
     source: 'youtube',
     source_url: x?.id?.videoId ? `https://www.youtube.com/watch?v=${x.id.videoId}` : '',
+    youtube_video_id: x?.id?.videoId || '',
   }));
 }
 

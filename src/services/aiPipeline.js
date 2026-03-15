@@ -20,6 +20,7 @@ import {
     UniquenessChecker 
 } from './chanceOperationEngine.js';
 import { getPlanHeaders } from '../lib/subscriptionContext';
+import { apiUrl } from '../lib/apiClient';
 
 export class ChoreographyAIPipeline {
     constructor(userId) {
@@ -903,7 +904,7 @@ export class ChoreographyAIPipeline {
             const moodFromKeywords = Array.isArray(input.keywords) && input.keywords.length
                 ? input.keywords.join(', ')
                 : (input.mood || '');
-            const response = await fetch('/api/music/recommend', {
+            const response = await fetch(apiUrl('/api/music/recommend'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...getPlanHeaders() },
                 body: JSON.stringify({
