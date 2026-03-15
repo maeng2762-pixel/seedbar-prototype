@@ -915,6 +915,7 @@ export class ChoreographyAIPipeline {
                     duration: input.duration,
                     dancersCount: input.dancersCount,
                     narrative,
+                    competitionMode: this.isCompetition,
                     isCompetition: this.isCompetition,
                     avoidArtists: ['Max Richter', 'Ludovico Einaudi', 'Hans Zimmer'],
                 }),
@@ -922,15 +923,78 @@ export class ChoreographyAIPipeline {
 
             if (response.ok) {
                 const data = await response.json();
-                if (Array.isArray(data?.music_recommendations) && data.music_recommendations.length > 0) {
-                    return data;
+                const recommendationBuckets = data?.recommendations;
+                if (data?.ok !== false && recommendationBuckets && typeof recommendationBuckets === 'object') {
+                    const orderedStrategies = ['trend', 'balanced', 'counterpoint'];
+                    const flattenedTracks = orderedStrategies
+                        .flatMap((strategyName) => (recommendationBuckets?.[strategyName] || []).slice(0, 1))
+                        .filter(Boolean);
+                    const trendRationale = data?.strategy?.trend?.rationale || '';
+                    const balancedRationale = data?.strategy?.balanced?.rationale || '';
+                    const counterpointRationale = data?.strategy?.counterpoint?.rationale || '';
+
+                    return {
+                        music_recommendations: flattenedTracks,
+                        recommendations: recommendationBuckets,
+                        strategy: data?.strategy || {},
+                        acousticRationale: {
+                            en: trendRationale || balancedRationale || 'Provider-based music recommendations aligned to the choreography.',
+                            kr: trendRationale || balancedRationale || '안무 구조에 맞춰 외부 음악 추천을 정렬했습니다.',
+                        },
+                        style: 'Spotify + YouTube Curated Engine',
+                        soundTexture: {
+                            en: balancedRationale || trendRationale || 'Provider-driven music texture planning',
+                            kr: balancedRationale || trendRationale || '프로바이더 기반 음악 텍스처 설계',
+                        },
+                        referenceArtists: '',
+                        counterpointRule: counterpointRationale,
+                        silenceInserted: false,
+                    };
                 }
             } else {
                 console.warn('[MUSIC ANALYSIS] backend response not ok:', response.status);
             }
         } catch (error) {
-            console.warn('[MUSIC ANALYSIS] backend unavailable; falling back to local library:', error);
+            console.warn('[MUSIC ANALYSIS] backend unavailable; skipping legacy local library:', error);
         }
+
+        if (this.isCompetition) {
+            return {
+                music_recommendations: [],
+                recommendations: {},
+                strategy: {},
+                acousticRationale: {
+                    en: 'Competition music providers are temporarily unavailable. Retry to fetch live Spotify and YouTube picks.',
+                    kr: '콩쿠르 음악 프로바이더 결과를 아직 불러오지 못했습니다. 다시 시도하면 실시간 Spotify/YouTube 추천을 가져옵니다.',
+                },
+                style: 'Spotify + YouTube Curated Engine',
+                soundTexture: {
+                    en: 'Competition provider fallback',
+                    kr: '콩쿠르 프로바이더 대기 상태',
+                },
+                referenceArtists: '',
+                counterpointRule: '',
+                silenceInserted: false,
+            };
+        }
+
+        return {
+            music_recommendations: [],
+            recommendations: {},
+            strategy: {},
+            acousticRationale: {
+                en: 'Provider-based music recommendations are temporarily unavailable.',
+                kr: '현재 외부 음악 추천 결과를 불러오지 못했습니다.',
+            },
+            style: 'Spotify + YouTube Curated Engine',
+            soundTexture: {
+                en: 'Waiting for provider results',
+                kr: '프로바이더 결과 대기 중',
+            },
+            referenceArtists: '',
+            counterpointRule: '',
+            silenceInserted: false,
+        };
 
         const dur = parseInt(input.duration) || 5;
         const mood = (input.mood || "tension").toLowerCase();
