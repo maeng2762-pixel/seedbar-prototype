@@ -313,3 +313,141 @@ export function buildStudioMeta(project) {
     lastEdited: project.updatedAt,
   };
 }
+
+// ─── Fast Rewrite: minimal prompt, section-only AI call ───
+export async function rewriteSectionFast({ project, section, context }) {
+  const current = clone(project.currentContent);
+  const resolvedSection = section === 'formation' ? 'movement' : section;
+  const existing = getSectionContent(current, resolvedSection);
+
+  // Minimal system prompt for speed
+  const system = `Rewrite ONLY the "${resolvedSection}" section. Return JSON. Be concise. Keep style continuity with project "${project.title}".`;
+
+  const generated = await llmProvider.lowCostJson({
+    system,
+    user: {
+      task: 'rewrite',
+      section: resolvedSection,
+      current: existing,
+      projectTitle: project.title,
+      competitionMode: Boolean(current?.isCompetition),
+    },
+    fallback: () => {
+      // Instant fallback: modify existing text slightly
+      const ts = new Date().toISOString().slice(11, 16);
+      return addRewriteMarker(existing, resolvedSection, ts);
+    },
+  });
+
+  const normalized = generated?.content ? generated.content : generated;
+  const merged = mergeSectionContent(current, resolvedSection, normalized);
+  choreographyProjectModel.updateProjectContent(project.id, merged);
+  return { section: resolvedSection, content: getSectionContent(merged, resolvedSection), project: merged };
+}
+
+function addRewriteMarker(existing, section, ts) {
+  if (section === 'story') {
+    return {
+      storyConcept: {
+        ...existing?.storyConcept,
+        artisticPhilosophy: {
+          en: `[Rewritten ${ts}] ${existing?.storyConcept?.artisticPhilosophy?.en || 'Refined narrative with sharper thematic focus.'}`,
+          kr: `[${ts} 재작성] ${existing?.storyConcept?.artisticPhilosophy?.kr || '더 뾰족한 주제 집중으로 정제된 서사.'}`,
+        },
+      },
+      narrativeArc: existing?.narrativeArc || {},
+    };
+  }
+  if (section === 'movement') {
+    return {
+      choreographyStructure: existing?.choreographyStructure || {},
+      movementVocabulary: existing?.movementVocabulary || {},
+      formationDesign: existing?.formationDesign || [],
+    };
+  }
+  if (section === 'music') return { ...existing, style: `Rewrite (${ts}) / ${existing?.style || 'Counterpoint'}` };
+  return existing;
+}
+
+// ─── Title Generation Pipeline ───
+const TITLE_SEEDS = {
+  abstract: ['Gravity', 'Axis', 'Fracture', 'Silence', 'Pulse', 'Void', 'Threshold', 'Horizon', 'Cipher', 'Remnant', 'Fragment', 'Eclipse', 'Drift', 'Reflex', 'Archive'],
+  emotion: ['Ash', 'Bloom', 'Storm', 'Ember', 'Stillness', 'Hunger', 'Tremor', 'Solace', 'Rupture', 'Echo', 'Breath', 'Weight', 'Fever', 'Haze', 'Lull'],
+  movement: ['Spiral', 'Collapse', 'Suspension', 'Rebound', 'Shift', 'Descent', 'Orbit', 'Tension', 'Release', 'Undulation', 'Impact', 'Glide', 'Fold', 'Surge', 'Pivot'],
+  prepositions: ['of', 'in', 'between', 'beyond', 'beneath', 'against', 'through', 'within'],
+  modifiers: ['Absolute', 'Silent', 'Fractured', 'Inverted', 'Residual', 'Peripheral', 'Radiant', 'Displaced', 'Latent', 'Primal'],
+};
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function generateBaseTitle(inputOptions = {}) {
+  const structures = [
+    // "Modifier + Abstract" → "Absolute Zero", "Silent Gravity"
+    () => `${pickRandom(TITLE_SEEDS.modifiers)} ${pickRandom(TITLE_SEEDS.abstract)}`,
+    // "Emotion + Prep + Abstract" → "Ash of Silence", "Echo in Void"
+    () => `${pickRandom(TITLE_SEEDS.emotion)} ${pickRandom(TITLE_SEEDS.prepositions)} ${pickRandom(TITLE_SEEDS.abstract)}`,
+    // "Movement + Emotion" → "Spiral Hunger", "Collapse Bloom"
+    () => `${pickRandom(TITLE_SEEDS.movement)} ${pickRandom(TITLE_SEEDS.emotion)}`,
+    // "Abstract: Movement" → "Threshold: Descent", "Cipher: Shift"
+    () => `${pickRandom(TITLE_SEEDS.abstract)}: ${pickRandom(TITLE_SEEDS.movement)}`,
+    // "Modifier + Movement + Prep + Emotion" → "Fractured Orbit of Stillness"
+    () => `${pickRandom(TITLE_SEEDS.modifiers)} ${pickRandom(TITLE_SEEDS.movement)} ${pickRandom(TITLE_SEEDS.prepositions)} ${pickRandom(TITLE_SEEDS.emotion)}`,
+  ];
+
+  return pickRandom(structures)();
+}
+
+function simpleSimilarity(a, b) {
+  const wa = (a || '').toLowerCase().split(/\s+/);
+  const wb = (b || '').toLowerCase().split(/\s+/);
+  const setA = new Set(wa);
+  const intersection = wb.filter((w) => setA.has(w)).length;
+  return intersection / Math.max(wa.length, wb.length, 1);
+}
+
+function mutateTitle(title) {
+  const mutations = [
+    (t) => `${t} — ${pickRandom(TITLE_SEEDS.emotion)}`,
+    (t) => `${t}: ${pickRandom(TITLE_SEEDS.movement)}`,
+    (t) => `${pickRandom(TITLE_SEEDS.modifiers)} ${t}`,
+    (t) => {
+      const words = t.split(' ');
+      if (words.length <= 1) return `${t} ${pickRandom(TITLE_SEEDS.abstract)}`;
+      words[Math.floor(Math.random() * words.length)] = pickRandom(TITLE_SEEDS.abstract);
+      return words.join(' ');
+    },
+  ];
+  return pickRandom(mutations)(title);
+}
+
+export async function generateUniqueTitle({ genre, mood, theme, existingTitles = [] }) {
+  // Step 1: Try AI first
+  let title = null;
+  try {
+    const aiResult = await llmProvider.lowCostJson({
+      system: 'Generate a unique, artistic, and abstract choreography project title. Return JSON: { "title": "..." }. The title should be 2-4 words, poetic, and NOT include generic words like "dance", "choreography", "performance". Think abstract art exhibition names.',
+      user: { genre, mood, theme },
+      fallback: () => ({ title: generateBaseTitle({ genre, mood, theme }) }),
+    });
+    title = aiResult?.title || aiResult?.content?.title || null;
+  } catch {
+    // Fallback to algorithmic generation
+  }
+
+  // Step 2: If AI failed or returned nothing, use algorithmic generation
+  if (!title) title = generateBaseTitle({ genre, mood, theme });
+
+  // Step 3: Uniqueness check
+  const MAX_ATTEMPTS = 5;
+  let attempts = 0;
+  while (attempts < MAX_ATTEMPTS) {
+    const isTooSimilar = existingTitles.some((existing) => simpleSimilarity(title, existing) > 0.7);
+    if (!isTooSimilar) break;
+    title = mutateTitle(title);
+    attempts++;
+  }
+
+  return title;
+}

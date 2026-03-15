@@ -5,7 +5,9 @@ import {
   buildStudioMeta,
   generateProjectVariations,
   regenerateSectionWithContext,
+  rewriteSectionFast,
   tuneProjectBySliders,
+  generateUniqueTitle,
 } from '../services/choreographyStudioService.js';
 import { ensureStageFlow } from '../services/stageFlowService.js';
 
@@ -94,6 +96,41 @@ export function createProjectVersionController(req, res) {
   return res.status(201).json({ ok: true, version, versions: choreographyProjectModel.listVersions(projectId) });
 }
 
+export function deleteVersionController(req, res) {
+  const { userId } = req.context;
+  const { projectId, versionId } = req.params;
+  const owned = requireOwnedProject(projectId, userId);
+  if (!owned.project) return res.status(owned.status).json({ ok: false, error: owned.error });
+
+  try {
+    const versions = choreographyProjectModel.deleteVersion(projectId, versionId);
+    return res.json({ ok: true, deleted: true, versions });
+  } catch (err) {
+    const code = err.message?.startsWith('MINIMUM_VERSION') ? 400 : 404;
+    return res.status(code).json({ ok: false, error: err.message });
+  }
+}
+
+export function duplicateVersionController(req, res) {
+  const { userId, plan } = req.context;
+  const { projectId, versionId } = req.params;
+  const owned = requireOwnedProject(projectId, userId);
+  if (!owned.project) return res.status(owned.status).json({ ok: false, error: owned.error });
+
+  const policy = getPlanPolicy(plan);
+  const currentVersions = choreographyProjectModel.listVersions(projectId);
+  if (policy.maxVersions != null && currentVersions.length >= policy.maxVersions) {
+    return res.status(429).json({
+      ok: false,
+      error: 'Version limit reached. Upgrade to Pro for unlimited versions.',
+    });
+  }
+
+  const newLabel = req.body?.label || null;
+  const version = choreographyProjectModel.duplicateVersion(projectId, versionId, newLabel);
+  return res.status(201).json({ ok: true, version, versions: choreographyProjectModel.listVersions(projectId) });
+}
+
 export function listProjectVersionsController(req, res) {
   const { userId } = req.context;
   const { projectId } = req.params;
@@ -177,7 +214,31 @@ export async function regenerateSectionController(req, res) {
 }
 
 export async function rewriteSectionController(req, res) {
-  return regenerateSectionController(req, res);
+  const { userId, plan } = req.context;
+  const policy = getPlanPolicy(plan);
+  if (!policy.canRegenerateSections) {
+    return res.status(403).json({ ok: false, error: 'Rewrite is available on Pro/Studio plans only.' });
+  }
+
+  const projectId = req.body?.projectId;
+  const section = req.body?.section;
+  if (!ALLOWED_SECTIONS.includes(section)) {
+    return res.status(400).json({ ok: false, error: 'Invalid section.' });
+  }
+
+  const owned = requireOwnedProject(projectId, userId);
+  if (!owned.project) return res.status(owned.status).json({ ok: false, error: owned.error });
+
+  const result = await rewriteSectionFast({ project: owned.project, section, context: req.context });
+  return res.json({ ok: true, section: result.section, content: result.content, project: result.project });
+}
+
+export async function generateTitleController(req, res) {
+  const { userId } = req.context;
+  const { genre, mood, theme } = req.body || {};
+  const existingTitles = choreographyProjectModel.findSimilarTitles('', userId, 20);
+  const title = await generateUniqueTitle({ genre, mood, theme, existingTitles });
+  return res.json({ ok: true, title });
 }
 
 export async function generateVariationsController(req, res) {

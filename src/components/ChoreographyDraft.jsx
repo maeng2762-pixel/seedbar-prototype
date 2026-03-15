@@ -7,6 +7,9 @@ import VariationGenerator from './studio/VariationGenerator';
 import TimelineNavigator from './studio/TimelineNavigator';
 import DancerRolePanel from './studio/DancerRolePanel';
 import AutosaveIndicator from './studio/AutosaveIndicator';
+import ProjectHeader from './studio/ProjectHeader';
+import StudioToolbar from './studio/StudioToolbar';
+import VersionManager from './studio/VersionManager';
 import { generateFlowFromTimeline } from '../services/aiPipeline';
 import { getPlanHeaders } from '../lib/subscriptionContext';
 import { apiUrl } from '../lib/apiClient';
@@ -95,6 +98,8 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         sliders,
         setSlider,
         createVersion,
+        deleteVersion,
+        duplicateVersion,
         generateVariations,
         refreshVersions,
         rewriteSection,
@@ -770,18 +775,35 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 />
             </div>
 
-            {/* AI Choreography Studio Controls */}
+            {/* ─── AI Choreography Studio ─── */}
             <div className="bg-white/5 border border-white/10 p-6 md:p-8 backdrop-blur-sm space-y-6">
-                <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center gap-3">
-                    <span className="w-4 h-[1px] bg-slate-400"></span>
-                    {isKr ? 'AI Choreography Studio' : 'AI Choreography Studio'}
-                </h2>
+                <ProjectHeader
+                    title={data?.pamphlet?.coverTitle || data?.titles?.scientific?.en || '작품 제목'}
+                    activeVersion={(versions || []).find((v) => v.id === activeVersionId)}
+                    lastEdited={data?.lastEdited || data?.projectStatus?.updatedAt}
+                />
 
-                <VariationGenerator
+                <StudioToolbar
+                    plan={policy?.name?.toLowerCase() || 'free'}
+                    language={isKr ? 'KR' : 'EN'}
+                    disabled={false}
+                    onRewrite={() => {
+                        const sectionKey = window.prompt(
+                            isKr ? '재작성할 섹션을 입력하세요:\nstory / movement / formation / music / stage / artist_note'
+                                : 'Enter section to rewrite:\nstory / movement / formation / music / stage / artist_note',
+                            'story'
+                        );
+                        if (sectionKey) handleRewriteSection(sectionKey);
+                    }}
+                    onVariation={handleGenerateVariation}
+                    onTune={handleTuneWithSliders}
+                    onAddVersion={handleCreateVersion}
+                />
+
+                <VersionManager
                     versions={versions || []}
                     activeVersionId={activeVersionId}
-                    disabled={!policy?.canRegenerateSections}
-                    onGenerate={handleGenerateVariation}
+                    plan={policy?.name?.toLowerCase() || 'free'}
                     onSelect={(version) => {
                         setActiveVersionId(version.id);
                         onDataUpdate?.({
@@ -791,48 +813,50 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                             projectStatus: version.generatedContent?.projectStatus || 'draft',
                         });
                     }}
+                    onDuplicate={async (versionId) => {
+                        try {
+                            await duplicateVersion(versionId);
+                        } catch (error) {
+                            onOpenUpgrade?.(error.message);
+                        }
+                    }}
+                    onDelete={async (versionId) => {
+                        try {
+                            await deleteVersion(versionId);
+                        } catch (error) {
+                            alert(error.message);
+                        }
+                    }}
+                    onGenerate={handleGenerateVariation}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[
-                        { key: 'story', label: isKr ? 'Story Rewrite' : 'Story Rewrite' },
-                        { key: 'movement', label: isKr ? 'Movement Rewrite' : 'Movement Rewrite' },
-                        { key: 'formation', label: isKr ? 'Formation Rewrite' : 'Formation Rewrite' },
-                        { key: 'music', label: isKr ? 'Music Rewrite' : 'Music Rewrite' },
-                        { key: 'stage', label: isKr ? 'Stage Rewrite' : 'Stage Rewrite' },
-                        { key: 'artist_note', label: isKr ? 'Artist Note Rewrite' : 'Artist Note Rewrite' },
-                    ].map((item) => (
-                        <button
-                            key={item.key}
-                            onClick={() => handleRewriteSection(item.key)}
-                            disabled={!policy?.canRegenerateSections || sectionLoading?.[item.key]}
-                            className="text-left px-4 py-3 bg-black/30 border border-white/10 hover:border-primary/40 disabled:opacity-40 transition-all"
-                        >
-                            <div className="text-xs font-semibold text-white">{item.label}</div>
-                            <div className="text-[10px] text-slate-400 mt-1">
-                                {sectionLoading?.[item.key]
-                                    ? (isKr ? '재생성 중...' : 'Regenerating...')
-                                    : (policy?.canRegenerateSections ? (isKr ? '해당 섹션만 재생성' : 'Only this section is regenerated') : (isKr ? 'Pro/Studio 전용' : 'Pro/Studio only'))}
-                            </div>
-                        </button>
-                    ))}
-                </div>
-
+                {/* Rewrite Buttons Grid */}
                 <div className="border-t border-white/10 pt-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                        <h3 className="text-sm font-semibold text-white">{isKr ? 'Project Versioning' : 'Project Versioning'}</h3>
-                        <button
-                            onClick={handleCreateVersion}
-                            className="px-3 py-2 text-xs font-semibold bg-primary/20 border border-primary/40 hover:bg-primary/30 text-white"
-                        >
-                            {isKr ? 'Create New Version' : 'Create New Version'}
-                        </button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {(versions || []).map((v) => (
-                            <span key={v.id} className="px-3 py-1 text-[10px] bg-white/10 border border-white/15 text-slate-200">
-                                {v.label || `v${v.versionNumber}`} · {new Date(v.createdAt).toLocaleDateString()}
-                            </span>
+                    <h3 className="text-[10px] uppercase tracking-[0.2em] text-slate-500 mb-3 font-semibold">
+                        {isKr ? '섹션별 재작성' : 'Section Rewrite'}
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {[
+                            { key: 'story', label: isKr ? '🎭 스토리' : '🎭 Story', labelKr: '스토리 재작성' },
+                            { key: 'movement', label: isKr ? '💃 움직임' : '💃 Movement', labelKr: '움직임 재작성' },
+                            { key: 'formation', label: isKr ? '📐 대형' : '📐 Formation', labelKr: '대형 재작성' },
+                            { key: 'music', label: isKr ? '🎵 음악' : '🎵 Music', labelKr: '음악 재작성' },
+                            { key: 'stage', label: isKr ? '🎨 무대' : '🎨 Stage', labelKr: '무대 재작성' },
+                            { key: 'artist_note', label: isKr ? '📝 아티스트 노트' : '📝 Artist Note', labelKr: '노트 재작성' },
+                        ].map((item) => (
+                            <button
+                                key={item.key}
+                                onClick={() => handleRewriteSection(item.key)}
+                                disabled={!policy?.canRegenerateSections || sectionLoading?.[item.key]}
+                                className="text-left px-4 py-3 rounded-lg bg-black/30 border border-white/10 hover:border-primary/40 hover:bg-primary/5 disabled:opacity-40 transition-all group"
+                            >
+                                <div className="text-xs font-semibold text-white group-hover:text-indigo-200 transition-colors">{item.label}</div>
+                                <div className="text-[9px] text-slate-500 mt-1">
+                                    {sectionLoading?.[item.key]
+                                        ? '⏳ 재작성 중...'
+                                        : (policy?.canRegenerateSections ? '섹션만 재생성' : 'Pro/Studio 전용')}
+                                </div>
+                            </button>
                         ))}
                     </div>
                 </div>

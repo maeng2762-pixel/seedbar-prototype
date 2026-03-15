@@ -145,6 +145,32 @@ class ChoreographyProjectModel {
     return this.getVersion(id);
   }
 
+  deleteVersion(projectId, versionId) {
+    const versions = this.listVersions(projectId);
+    if (versions.length <= 1) {
+      throw new Error('MINIMUM_VERSION: Cannot delete the last remaining version.');
+    }
+    const target = versions.find((v) => v.id === versionId);
+    if (!target) throw new Error('Version not found.');
+
+    db.prepare('DELETE FROM project_versions WHERE id = ? AND project_id = ?').run(versionId, projectId);
+    return this.listVersions(projectId);
+  }
+
+  duplicateVersion(projectId, versionId, newLabel = null) {
+    const source = this.getVersion(versionId);
+    if (!source || source.projectId !== projectId) throw new Error('Version not found in project.');
+    const label = newLabel || `${source.label} (copy)`;
+    return this.createVersion(projectId, source.generatedContent, label);
+  }
+
+  findSimilarTitles(title, userId, limit = 10) {
+    const rows = db.prepare(
+      'SELECT title FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?'
+    ).all(userId, limit);
+    return rows.map((r) => r.title);
+  }
+
   saveAutosave(projectId, autosaveData) {
     const updatedAt = nowIso();
     db.prepare(`

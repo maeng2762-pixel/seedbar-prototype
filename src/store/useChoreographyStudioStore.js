@@ -272,6 +272,62 @@ const useChoreographyStudioStore = create((set, get) => ({
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load autosave');
     return data.autosave;
   },
+
+  deleteVersion: async (versionId) => {
+    const projectId = get().projectId;
+    if (!projectId) throw new Error('Project is not initialized');
+    const url = apiUrl(`/api/choreography/projects/${projectId}/versions/${versionId}`);
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { ...getPlanHeaders() },
+    });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to delete version');
+    const { versions } = data;
+    const currentActive = get().activeVersionId;
+    const stillExists = versions.some((v) => v.id === currentActive);
+    set({
+      versions,
+      activeVersionId: stillExists ? currentActive : versions[0]?.id || null,
+    });
+    return versions;
+  },
+
+  duplicateVersion: async (versionId, label) => {
+    const projectId = get().projectId;
+    if (!projectId) throw new Error('Project is not initialized');
+    const url = apiUrl(`/api/choreography/projects/${projectId}/versions/${versionId}/duplicate`);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getPlanHeaders(),
+      },
+      body: JSON.stringify({ label }),
+    });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to duplicate version');
+    set({
+      versions: data.versions || [],
+      activeVersionId: data.version?.id || get().activeVersionId,
+    });
+    return data;
+  },
+
+  generateTitle: async ({ genre, mood, theme } = {}) => {
+    const url = apiUrl('/api/choreography/generate-title');
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getPlanHeaders(),
+      },
+      body: JSON.stringify({ genre, mood, theme }),
+    });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to generate title');
+    return data.title;
+  },
 }));
 
 export default useChoreographyStudioStore;
