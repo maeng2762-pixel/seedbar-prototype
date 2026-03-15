@@ -1,92 +1,128 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useMusicRecommendationStore from '../store/useMusicRecommendationStore';
 
 const STRATEGY_LABEL = {
-  trend: { ko: '트렌드 반영', en: 'Trend' },
-  balanced: { ko: '균형형', en: 'Balanced' },
-  counterpoint: { ko: '차별화', en: 'Counterpoint' },
+  trend: { ko: '트렌드 반영', en: '🔥 Trend', color: 'from-rose-500/20 to-orange-500/20 border-rose-500/30 text-rose-300' },
+  balanced: { ko: '균형형', en: '⚖️ Balanced', color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300' },
+  counterpoint: { ko: '차별화', en: '💎 Counterpoint', color: 'from-violet-500/20 to-indigo-500/20 border-violet-500/30 text-violet-300' },
 };
 
 function TrackCard({ track, strategy }) {
-  const [showYoutube, setShowYoutube] = React.useState(false);
-  const hasPreview = Boolean(track.actual_audio);
+  const [showPlayer, setShowPlayer] = useState(false);
   const isSpotify = track.source === 'spotify';
-  const isYouTube = track.source === 'youtube' && track.youtube_video_id;
-  const sourceLabel = track.source === 'spotify' ? 'Open in Spotify' : track.source === 'youtube' ? 'Open in YouTube' : 'Open Source';
+  const isYouTube = track.source === 'youtube';
+  const hasYouTubeId = isYouTube && track.youtube_video_id;
+  const hasSpotifyUrl = isSpotify && track.source_url;
+  const hasPreview = Boolean(track.actual_audio);
+  const strategyStyle = STRATEGY_LABEL[strategy] || {};
+
+  // Spotify embed URL: works by converting /track/xxx to /embed/track/xxx
+  const spotifyEmbedUrl = hasSpotifyUrl
+    ? track.source_url.replace('open.spotify.com/track/', 'open.spotify.com/embed/track/')
+    : '';
+
+  // Can we embed something?
+  const canEmbed = hasYouTubeId || hasSpotifyUrl;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="rounded-full bg-primary/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
-          {STRATEGY_LABEL[strategy]?.en || strategy}
+    <div className="group rounded-xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm hover:border-white/20 hover:bg-white/[0.07] transition-all duration-300">
+      {/* Header: Strategy badge + duration */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className={`rounded-full bg-gradient-to-r ${strategyStyle.color || 'bg-primary/20 text-primary'} border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider`}>
+          {strategyStyle.en || strategy}
         </span>
-        <span className="text-[10px] text-slate-400">{track.duration || '3:00'}</span>
+        <span className="text-[10px] text-slate-500 font-mono">{track.duration || '3:00'}</span>
       </div>
+
+      {/* Track info */}
       <div className="flex items-center gap-3">
-        <img src={track.album_art} alt="album" className="h-12 w-12 rounded-md object-cover" />
+        <div className="relative">
+          <img
+            src={track.album_art}
+            alt="album"
+            className="h-14 w-14 rounded-lg object-cover shadow-lg group-hover:shadow-xl transition-shadow"
+            onError={(e) => {
+              e.target.src = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(track.track_title)}&backgroundColor=0d0a1c&shapeColor=6366f1`;
+            }}
+          />
+          {/* Source badge */}
+          <span className={`absolute -bottom-1 -right-1 rounded-full px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider ${isSpotify ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+            {isSpotify ? 'SP' : 'YT'}
+          </span>
+        </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">{track.track_title}</p>
+          <p className="truncate text-sm font-semibold text-white group-hover:text-indigo-200 transition-colors">{track.track_title}</p>
           <p className="truncate text-xs text-slate-400">{track.artist}</p>
         </div>
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-slate-300">{track.rationale}</p>
 
-      {isYouTube ? (
-        <div className="mt-2 flex items-center gap-2">
+      {/* Rationale */}
+      {track.rationale && (
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-400 italic">{track.rationale}</p>
+      )}
+
+      {/* Action buttons */}
+      <div className="mt-3 flex items-center gap-2 flex-wrap">
+        {canEmbed ? (
           <button
             type="button"
-            onClick={() => setShowYoutube((prev) => !prev)}
-            className="rounded-md bg-primary/20 px-3 py-1.5 text-[11px] font-semibold text-indigo-100 hover:bg-primary/30"
+            onClick={() => setShowPlayer((prev) => !prev)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-semibold transition-all ${
+              showPlayer
+                ? 'bg-primary text-white shadow-md shadow-primary/30'
+                : 'bg-primary/20 text-indigo-200 hover:bg-primary/40'
+            }`}
           >
-            {showYoutube ? 'Hide Player' : 'Play Here'}
+            <span className="text-sm">{showPlayer ? '⏸' : '▶'}</span>
+            {showPlayer ? '플레이어 닫기' : '여기서 재생'}
           </button>
-          <a className="text-[11px] text-indigo-300 hover:underline" target="_blank" rel="noreferrer" href={track.source_url}>
-            {sourceLabel}
+        ) : hasPreview ? (
+          <audio controls preload="none" className="h-8 flex-1 min-w-0" src={track.actual_audio} />
+        ) : null}
+
+        {track.source_url ? (
+          <a
+            className={`flex items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-medium transition-colors border ${
+              isSpotify
+                ? 'border-green-500/30 text-green-300 hover:bg-green-500/10'
+                : 'border-red-500/30 text-red-300 hover:bg-red-500/10'
+            }`}
+            target="_blank"
+            rel="noreferrer"
+            href={track.source_url}
+          >
+            {isSpotify ? '🎵 Spotify에서 열기' : '📺 YouTube에서 열기'}
           </a>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
-      {isYouTube && showYoutube ? (
-        <div className="mt-3 w-full rounded-md overflow-hidden bg-black/20">
-          <iframe 
-            width="100%" 
-            height="150" 
+      {/* YouTube Embed Player */}
+      {hasYouTubeId && showPlayer ? (
+        <div className="mt-3 w-full rounded-lg overflow-hidden bg-black/40 shadow-inner animate-in slide-in-from-top-2">
+          <iframe
+            width="100%"
+            height="180"
             src={`https://www.youtube.com/embed/${track.youtube_video_id}?autoplay=1&rel=0&modestbranding=1`}
-            title={track.track_title} 
-            frameBorder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            title={track.track_title}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-          ></iframe>
+          />
         </div>
       ) : null}
 
-      {isSpotify && track.source_url ? (
-        <div className="mt-3 w-full rounded-md overflow-hidden bg-black/20">
-          <iframe 
-            src={track.source_url.replace('/track/', '/embed/track/')} 
-            width="100%" 
-            height="80" 
-            frameBorder="0" 
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+      {/* Spotify Embed Player */}
+      {hasSpotifyUrl && showPlayer ? (
+        <div className="mt-3 w-full rounded-lg overflow-hidden bg-black/40 shadow-inner">
+          <iframe
+            src={spotifyEmbedUrl}
+            width="100%"
+            height="152"
+            frameBorder="0"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
-          ></iframe>
+          />
         </div>
-      ) : null}
-
-      {!isYouTube && hasPreview ? (
-        <div className="mt-2 flex items-center gap-2">
-          <audio controls preload="none" className="h-8 w-full" src={track.actual_audio} />
-        </div>
-      ) : null}
-
-      {!isYouTube && !isSpotify && !hasPreview ? (
-        <div className="mt-2 text-[10px] text-slate-500">Preview unavailable. Use source link.</div>
-      ) : null}
-
-      {!(isSpotify || isYouTube) && track.source_url ? (
-        <a className="mt-1 inline-block text-[11px] text-indigo-300 hover:underline" target="_blank" rel="noreferrer" href={track.source_url}>
-          {sourceLabel}
-        </a>
       ) : null}
     </div>
   );
@@ -133,51 +169,89 @@ export default function MusicRecommendationPanel({
     fetchRecommendations({ genre, mood, keywords, duration, competitionMode });
   }, [autoRecommend, genre, mood, keywords, duration, competitionMode, loading, fetchRecommendations]);
 
+  // Flatten all tracks from all strategies, filter only real provider results
+  const allTracks = useMemo(() => {
+    if (!recommendations) return [];
+    const strategies = ['trend', 'balanced', 'counterpoint'];
+    const tracks = [];
+    for (const st of strategies) {
+      const list = recommendations[st] || [];
+      for (const track of list) {
+        if (track?.source === 'spotify' || track?.source === 'youtube') {
+          tracks.push({ ...track, _strategy: st });
+        }
+      }
+    }
+    return tracks;
+  }, [recommendations]);
+
+  // Group by strategy for display, show up to 2 per strategy for variety
+  const grouped = useMemo(() => {
+    const strategies = ['trend', 'balanced', 'counterpoint'];
+    return strategies
+      .map((st) => ({
+        strategy: st,
+        tracks: allTracks.filter((t) => t._strategy === st).slice(0, 2),
+      }))
+      .filter((g) => g.tracks.length > 0);
+  }, [allTracks]);
+
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-      <p className="mb-2 text-xs font-semibold tracking-[0.24em] text-slate-400">
-        음악 추천
-      </p>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-300">Spotify + YouTube Music Engine</h3>
-        {!hideActionButton ? (
-          <button
-            type="button"
-            onClick={onRecommend}
-            disabled={loading}
-            className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-          >
-            {loading ? 'Recommending...' : 'Recommend Music'}
-          </button>
-        ) : null}
+    <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-5">
+      {/* Header */}
+      <div className="mb-4">
+        <p className="mb-1 text-[10px] font-semibold tracking-[0.3em] uppercase text-slate-500">
+          음악 추천
+        </p>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-bold tracking-wide text-white flex items-center gap-2">
+            <span className="text-lg">🎧</span> Spotify + YouTube Music Engine
+          </h3>
+          {!hideActionButton ? (
+            <button
+              type="button"
+              onClick={onRecommend}
+              disabled={loading}
+              className="rounded-lg bg-gradient-to-r from-primary to-violet-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60 hover:shadow-lg hover:shadow-primary/30 transition-all"
+            >
+              {loading ? '🔄 추천 중...' : '✨ 음악 추천받기'}
+            </button>
+          ) : null}
+        </div>
       </div>
 
-      {error ? <p className="mb-2 text-xs text-rose-300">{error}</p> : null}
+      {/* Status */}
+      {error ? <p className="mb-3 rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-xs text-rose-300">⚠️ {error}</p> : null}
       {fingerprint ? (
-        <p className="mb-2 text-[10px] text-slate-400">
-          fingerprint: {fingerprint.slice(0, 12)}... {cacheHit ? '(cache)' : '(fresh)'}
+        <p className="mb-3 text-[10px] text-slate-500 font-mono">
+          🔑 {fingerprint.slice(0, 12)}... {cacheHit ? '(캐시)' : '(새로 생성)'}
         </p>
       ) : null}
 
-      {hasResult ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {['trend', 'balanced', 'counterpoint'].map((strategy) => (
-             <div key={strategy} className="space-y-2">
-              {(recommendations?.[strategy] || [])
-                .filter((track) => track?.source === 'spotify' || track?.source === 'youtube')
-                .slice(0, 1)
-                .map((track, idx) => (
-                <TrackCard key={`${strategy}-${idx}`} track={track} strategy={strategy} />
-              ))}
+      {/* Results */}
+      {grouped.length > 0 ? (
+        <div className="space-y-4">
+          {grouped.map(({ strategy, tracks }) => (
+            <div key={strategy}>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {tracks.map((track, idx) => (
+                  <TrackCard key={`${strategy}-${idx}`} track={track} strategy={strategy} />
+                ))}
+              </div>
             </div>
           ))}
         </div>
+      ) : loading ? (
+        <div className="flex items-center gap-3 py-8 justify-center">
+          <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm text-slate-400 animate-pulse">AI가 안무에 맞는 음악을 분석하고 있어요...</p>
+        </div>
       ) : (
-        <p className="text-xs text-slate-400">
-          {loading
-            ? 'Analyzing choreography input and preparing music...'
-            : (autoRecommend ? 'Preparing music recommendations...' : 'No recommendations yet. Click "Recommend Music".')}
-        </p>
+        <div className="py-6 text-center">
+          <p className="text-sm text-slate-500">
+            {autoRecommend ? '음악 추천을 준비 중이에요...' : '아직 추천된 음악이 없어요. "음악 추천받기"를 눌러보세요!'}
+          </p>
+        </div>
       )}
     </div>
   );

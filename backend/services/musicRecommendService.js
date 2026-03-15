@@ -52,7 +52,7 @@ function filterTracks(items = [], excludes = []) {
 
 function isPlayableTrack(item = {}) {
   if (item.source === 'youtube' && item.youtube_video_id) return true;
-  if (item.source === 'spotify' && item.actual_audio) return true;
+  if (item.source === 'spotify' && (item.actual_audio || item.source_url)) return true;
   return false;
 }
 
