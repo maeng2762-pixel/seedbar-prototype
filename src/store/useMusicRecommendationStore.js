@@ -44,19 +44,6 @@ const useMusicRecommendationStore = create((set) => ({
         body: payload,
       };
 
-      async function checkHealth(url) {
-        const response = await fetch(url, {
-          headers: {
-            ...getPlanHeaders(),
-          },
-        });
-        if (!response.ok) return false;
-        const contentType = response.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) return false;
-        const data = await response.json();
-        return Boolean(data?.ok);
-      }
-
       async function requestJson(url) {
         const response = await fetch(url, commonInit);
         const contentType = response.headers.get('content-type') || '';
@@ -72,18 +59,11 @@ const useMusicRecommendationStore = create((set) => ({
       let response;
       let data;
       try {
-        const localHealthy = await checkHealth(apiUrl('/api/music/health'));
-        if (!localHealthy) throw new Error('LOCAL_PROXY_UNAVAILABLE');
         const first = await requestJson(apiUrl('/api/music/recommend'));
         response = first.response;
         data = first.data;
-      } catch (firstError) {
-        // Fallback: when proxy is not active (preview/static hosting), call backend directly.
+      } catch (_firstError) {
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001';
-        const directHealthy = await checkHealth(`${apiBase}/api/music/health`);
-        if (!directHealthy) {
-          throw new Error('Backend server is not running on 127.0.0.1:3001. Start backend first.');
-        }
         const second = await requestJson(`${apiBase}/api/music/recommend`);
         response = second.response;
         data = second.data;
