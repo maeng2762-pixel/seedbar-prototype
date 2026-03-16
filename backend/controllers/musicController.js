@@ -30,6 +30,8 @@ export async function postMusicRecommendController(req, res) {
       keywords: Array.isArray(body.keywords) ? body.keywords : [],
       duration: body.duration || '03:00',
       competitionMode: Boolean(body.competitionMode),
+      tempo: body.tempo || '',
+      emotionCurve: Array.isArray(body.emotionCurve) ? body.emotionCurve : [],
     };
 
     const result = await getMusicRecommendations(payload, req.context || {});

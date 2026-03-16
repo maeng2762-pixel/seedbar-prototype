@@ -849,6 +849,8 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     keywords={musicInput.keywords}
                     duration={musicInput.duration}
                     competitionMode={musicInput.competitionMode}
+                    tempo={data?.music?.tempo}
+                    emotionCurve={data?.narrative?.emotionCurve || []}
                     autoRecommend={true}
                     hideActionButton={true}
                 />

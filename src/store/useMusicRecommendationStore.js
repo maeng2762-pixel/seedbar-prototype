@@ -31,10 +31,10 @@ const useMusicRecommendationStore = create((set) => ({
     strategy: { trend: null, balanced: null, counterpoint: null },
   }),
 
-  fetchRecommendations: async ({ genre, mood, keywords, duration, competitionMode }) => {
+  fetchRecommendations: async ({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve }) => {
     set({ loading: true, error: null });
     try {
-      const payload = JSON.stringify({ genre, mood, keywords, duration, competitionMode });
+      const payload = JSON.stringify({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve });
       const commonInit = {
         method: 'POST',
         headers: {

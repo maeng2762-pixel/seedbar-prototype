@@ -134,6 +134,8 @@ export default function MusicRecommendationPanel({
   keywords,
   duration,
   competitionMode,
+  tempo,
+  emotionCurve,
   autoRecommend = false,
   hideActionButton = false,
 }) {
@@ -151,7 +153,7 @@ export default function MusicRecommendationPanel({
   }, [recommendations]);
 
   const onRecommend = () => {
-    fetchRecommendations({ genre, mood, keywords, duration, competitionMode });
+    fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve });
   };
 
   const autoKeyRef = useRef('');
@@ -163,11 +165,13 @@ export default function MusicRecommendationPanel({
       keywords: Array.isArray(keywords) ? keywords : [],
       duration: duration || '',
       competitionMode: Boolean(competitionMode),
+      tempo: tempo || '',
+      emotionCurve: Array.isArray(emotionCurve) ? emotionCurve : [],
     });
     if (autoKeyRef.current === key || loading) return;
     autoKeyRef.current = key;
-    fetchRecommendations({ genre, mood, keywords, duration, competitionMode });
-  }, [autoRecommend, genre, mood, keywords, duration, competitionMode, loading, fetchRecommendations]);
+    fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve });
+  }, [autoRecommend, genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, loading, fetchRecommendations]);
 
   // Flatten all tracks from all strategies, filter only real provider results
   const allTracks = useMemo(() => {

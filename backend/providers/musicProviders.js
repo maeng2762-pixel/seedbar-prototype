@@ -36,6 +36,11 @@ const BAD_TITLE_PATTERNS = [
   /리뷰/,
   /인터뷰/,
   /연습/,
+  /explicit/i,
+  /uncensored/i,
+  /18\+/i,
+  /adult/i,
+  /nsfw/i,
 ];
 
 function isLikelyMusicTrack(snippet = {}) {
@@ -104,15 +109,18 @@ async function searchSpotify(query, limit = 5) {
   if (!res.ok) throw new Error('Spotify search failed');
   const data = await res.json();
   metricsService.inc('external_api.spotify');
-  return (data?.tracks?.items || []).map((x) => ({
-    track_title: x.name,
-    artist: (x.artists || []).map((a) => a.name).join(', '),
-    duration: mmss((x.duration_ms || 0) / 1000),
-    album_art: x.album?.images?.[0]?.url || '',
-    actual_audio: x.preview_url || '',
-    source: 'spotify',
-    source_url: x.external_urls?.spotify || '',
-  }));
+  return (data?.tracks?.items || [])
+    .filter((x) => !x.explicit)
+    .map((x) => ({
+      track_title: x.name,
+      artist: (x.artists || []).map((a) => a.name).join(', '),
+      duration: mmss((x.duration_ms || 0) / 1000),
+      album_art: x.album?.images?.[0]?.url || '',
+      actual_audio: x.preview_url || '',
+      source: 'spotify',
+      source_url: x.external_urls?.spotify || '',
+      spotify_track_id: x.id,
+    }));
 }
 
 async function searchYouTube(query, maxResults = 5) {

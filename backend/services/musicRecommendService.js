@@ -27,17 +27,23 @@ function fingerprint(input) {
     keywords: Array.isArray(input.keywords) ? input.keywords.map((x) => String(x).toLowerCase()).sort() : [],
     competitionMode: Boolean(input.competitionMode),
     duration: input.duration || '03:00',
+    tempo: input.tempo || '',
+    emotionCurve: Array.isArray(input.emotionCurve) ? input.emotionCurve : [],
   };
   const raw = JSON.stringify(normalized);
   return crypto.createHash('sha1').update(raw).digest('hex');
 }
 
-function dedupeTracks(items = []) {
-  const seen = new Set();
+function dedupeTracks(items = [], globalSeenStr = new Set(), globalSeenIds = new Set()) {
   return items.filter((item) => {
     const key = `${(item.track_title || '').toLowerCase()}::${(item.artist || '').toLowerCase()}`;
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
+    const trackId = item.spotify_track_id || item.youtube_video_id;
+
+    if (!key || globalSeenStr.has(key)) return false;
+    if (trackId && globalSeenIds.has(trackId)) return false;
+
+    globalSeenStr.add(key);
+    if (trackId) globalSeenIds.add(trackId);
     return true;
   });
 }
@@ -191,6 +197,7 @@ function buildSystemPrompt() {
     'NEVER include words like "dance", "choreography", "performance", "routine" in any query.',
     'YouTube queries MUST target actual songs/music — use terms like "official audio", "soundtrack", "ambient music", "instrumental".',
     'Spotify queries should use genre, mood, and texture keywords — e.g. "cinematic ambient strings tension" not "contemporary dance music".',
+    'Incorporate the provided Genre, Mood, Tempo, and Emotion Curve properties to narrow down the mood and pacing.',
     'If competitionMode=true, strengthen jury-focused tension, readability, and differentiating counterpoint.',
     'Avoid cliché tracks and globally overused pieces.',
   ].join(' ');
@@ -206,6 +213,8 @@ async function createMusicStrategy(input) {
       keywords: input.keywords,
       competitionMode: Boolean(input.competitionMode),
       duration: input.duration,
+      tempo: input.tempo,
+      emotionCurve: input.emotionCurve,
     },
     fallback,
   });
@@ -230,7 +239,7 @@ async function createMusicStrategy(input) {
   return strategy;
 }
 
-async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, youtubeBudget) {
+async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, youtubeBudget, globalSeenStr, globalSeenIds) {
   const searchQueries = strategy?.searchQueries || {};
   const spotifyQuery = searchQueries.spotify || '';
   const youtubeQuery = searchQueries.youtube || '';
@@ -249,7 +258,7 @@ async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, yout
     metricsService.track({ type: 'music_provider_error', provider: 'spotify', strategy: strategyName, error: error.message });
   }
 
-  const spotifyFiltered = filterTracks(dedupeTracks(spotify), excludes);
+  const spotifyFiltered = filterTracks(dedupeTracks(spotify, globalSeenStr, globalSeenIds), excludes);
   const spotifyPlayableCount = spotifyFiltered.filter(isPlayableTrack).length;
 
   try {
@@ -262,7 +271,7 @@ async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, yout
     metricsService.track({ type: 'music_provider_error', provider: 'youtube', strategy: strategyName, error: error.message });
   }
 
-  const merged = filterTracks(dedupeTracks([...spotifyFiltered, ...youtube]), excludes);
+  const merged = filterTracks(dedupeTracks([...spotifyFiltered, ...youtube], globalSeenStr, globalSeenIds), excludes);
   const playableFirst = [
     ...merged.filter(isPlayableTrack),
     ...merged.filter((item) => !isPlayableTrack(item)),
@@ -295,8 +304,10 @@ export async function getMusicRecommendations(input = {}, context = {}) {
   const youtubeBudget = { remaining: 2, minTracksBeforeSkip: 2 }; // quota 절약: 최대 2회만 조회
 
   const recommendations = {};
+  const globalSeenStr = new Set();
+  const globalSeenIds = new Set();
   for (const name of STRATEGY_ORDER) {
-    const tracks = await searchStrategyTracks(name, strategy[name], `music:${fp}`, youtubeBudget);
+    const tracks = await searchStrategyTracks(name, strategy[name], `music:${fp}`, youtubeBudget, globalSeenStr, globalSeenIds);
     recommendations[name] = tracks.map((t) => ({
       ...t,
       strategy: name,
