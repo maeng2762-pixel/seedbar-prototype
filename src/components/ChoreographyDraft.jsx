@@ -192,6 +192,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         try {
             const res = await rewriteSection(section);
             applySectionPatch(section, res.content);
+            await refreshVersions();
             // 자동 스크롤
             setTimeout(() => {
                 const el = document.getElementById(`section-${section}`);
@@ -279,28 +280,38 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 const statusResponse = await fetch(apiUrl(`/api/export/jobs/${jobId}`), {
                     headers: { ...getPlanHeaders() },
                 });
-                const statusData = await statusResponse.json();
+                
+                if (!statusResponse.ok) {
+                    if (retries > 3) {
+                        throw new Error(isKr ? "서버와 연결할 수 없습니다. 다시 시도해주세요." : "Server connection lost. Please try again.");
+                    }
+                } else {
+                    const statusData = await statusResponse.json();
 
-                if (statusData.status === 'queued') {
-                    setExportMessage(isKr ? "대기열에서 순서를 기다리는 중 (queued)..." : "Waiting in queue (queued)...");
-                } else if (statusData.status === 'processing') {
-                    setExportMessage(isKr ? "문서를 생성하는 중 (processing)..." : "Generating documents (processing)...");
-                } else if (statusData.status === 'done') {
-                    const downloadUrl = statusData?.result?.downloadUrl;
-                    if (!downloadUrl) throw new Error('No download URL after completion.');
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = downloadUrl;
-                    a.download = downloadUrl.split('/').pop();
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => document.body.removeChild(a), 1000);
-                    done = true;
-                    break;
-                } else if (statusData.status === 'failed') {
-                    throw new Error(statusData?.error || 'Export job failed');
+                    if (statusData.status === 'queued') {
+                        setExportMessage(isKr ? "대기열에서 순서를 기다리는 중 (queued)..." : "Waiting in queue (queued)...");
+                    } else if (statusData.status === 'processing') {
+                        setExportMessage(isKr ? "문서를 생성하는 중 (processing)..." : "Generating documents (processing)...");
+                    } else if (statusData.status === 'done') {
+                        const filename = statusData?.result?.filename;
+                        if (!filename) throw new Error('No filename after completion.');
+                        const downloadUrl = apiUrl(`/api/download/${filename}`);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = downloadUrl;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => document.body.removeChild(a), 1000);
+                        done = true;
+                        break;
+                    } else if (statusData.status === 'failed') {
+                        throw new Error(statusData?.error || 'Export job failed');
+                    } else if (!statusData.status) {
+                        if (retries > 5) throw new Error('Job status is missing. It might have been lost on the server.');
+                    }
                 }
-
+                
                 await new Promise((resolve) => setTimeout(resolve, 1500));
             }
 

@@ -57,7 +57,6 @@ class ExportQueue {
       const rendered = await renderExportBundle(job.payload);
       job.status = 'done';
       job.result = {
-        downloadUrl: `http://localhost:3001/api/download/${rendered.filename}`,
         filename: rendered.filename,
       };
       metricsService.inc('export.done');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import LanguageToggle from '../components/LanguageToggle';
 import useStore from '../store/useStore';
@@ -164,6 +164,9 @@ const Ideation = () => {
         setPlan,
     } = useSubscriptionStore();
     const { initializeProject, projectId: studioProjectId, setProjectId, autosaveProject, fetchProject } = useChoreographyStudioStore();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const urlProjectId = searchParams.get('projectId');
+
     const autosaveTimerRef = useRef(null);
 
     const [projectName, setProjectName] = useState("");
@@ -272,6 +275,9 @@ const Ideation = () => {
                 quotaChecked,
             });
             setShowRegenerateMode(false);
+            if (created?.project?.id) {
+                setSearchParams({ projectId: created.project.id }, { replace: true });
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) {
             console.error("AI Pipeline Error:", error);
@@ -289,9 +295,16 @@ const Ideation = () => {
     };
 
     useEffect(() => {
-        if (!showRegenerateMode && !generatedData) {
+        if (!generatedData && urlProjectId) {
+            setProjectId(urlProjectId);
+            fetchProject(urlProjectId).then(data => {
+                if (data?.currentContent) {
+                    setGeneratedData({ ...data.currentContent, projectId: urlProjectId });
+                    setShowRegenerateMode(false);
+                }
+            }).catch(console.error);
         }
-    }, [showRegenerateMode, generatedData]);
+    }, [generatedData, urlProjectId, fetchProject, setProjectId]);
 
     useEffect(() => {
         const pid = studioProjectId || generatedData?.projectId;
