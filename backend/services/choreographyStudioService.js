@@ -163,7 +163,7 @@ export async function regenerateSectionWithContext({ project, section, context }
     };
   };
 
-  const system = 'Return JSON only. Regenerate only one choreography section while preserving project context and style continuity.';
+  const system = 'Return JSON only. Regenerate only one choreography section while preserving project context and style continuity. If regenerating movement, include `prompt` in timeline items with `keywords`, `connection`, and `direction`. If regenerating story, include `emotionCurve.energyIntensities` and `lma.body`.';
   const generated = await llmProvider.lowCostJson({
     system,
     user: {

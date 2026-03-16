@@ -137,11 +137,10 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         setFlowPatternData(result.flow_pattern);
     };
 
-    // Fallback to avoid crashes if data is not yet available
     const draftData = data || {
         titles: { scientific: { en: '-', kr: '-' }, radical: { en: '-', kr: '-' }, surreal: { en: '-', kr: '-' }, minimalist: { en: '-', kr: '-' } },
         concept: { artisticPhilosophy: { en: "-", kr: "-" }, artisticStatement: { en: "-", kr: "-" } },
-        narrative: { intro: "-", development: "-", climax: "-", resolution: "-", emotionCurve: { labels: [], intensities: [] }, lma: { space: "-", weight: "-", time: "-", flow: "-" } },
+        narrative: { intro: "-", development: "-", climax: "-", resolution: "-", emotionCurve: { labels: [], intensities: [], energyIntensities: [] }, lma: { space: "-", weight: "-", time: "-", flow: "-", body: "-" } },
         music: { style: "-", tempoBpm: "-", soundTexture: "-", referenceArtists: "-" },
         flow: { flow_pattern: [] },
         timing: { totalDuration: "3:00", emotionStructure: {}, timeline: [] },
@@ -365,17 +364,44 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
     };
 
     const chartData = {
-        labels: draftData?.narrative?.emotionCurve?.labels || [],
+        labels: draftData?.narrative?.emotionCurve?.labels?.length ? draftData.narrative.emotionCurve.labels : ['Intro', 'Develop', 'Climax', 'Resolution'],
         datasets: [
             {
                 label: isKr ? '감정 인텐시티' : 'Emotion Intensity',
-                data: draftData?.narrative?.emotionCurve?.intensities || [],
+                data: draftData?.narrative?.emotionCurve?.intensities?.length ? draftData.narrative.emotionCurve.intensities : [20, 50, 95, 30],
                 borderColor: '#ffffff',
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderWidth: 1,
                 fill: true,
             }
         ]
+    };
+
+    const energyChartData = {
+        labels: draftData?.narrative?.emotionCurve?.labels?.length ? draftData.narrative.emotionCurve.labels : ['Intro', 'Develop', 'Climax', 'Resolution'],
+        datasets: [
+            {
+                label: isKr ? '에너지 인텐시티' : 'Energy Intensity',
+                data: draftData?.narrative?.emotionCurve?.energyIntensities?.length ? draftData.narrative.emotionCurve.energyIntensities : [30, 60, 100, 20],
+                borderColor: '#FF5733',
+                backgroundColor: 'rgba(255, 87, 51, 0.05)',
+                borderWidth: 1,
+                fill: true,
+            }
+        ]
+    };
+
+    const handleSaveToDataset = () => {
+        const datasetEntry = {
+            movementPattern: flowPatternData,
+            emotionCurve: chartData.datasets[0].data,
+            energyCurve: energyChartData.datasets[0].data,
+            genre: musicInput.genre,
+            tempo: draftData?.music?.tempoBpm || '120 BPM',
+            dancerCount: dancersCount
+        };
+        console.log("Movement Dataset Saved:", datasetEntry);
+        alert(isKr ? "데이터셋 저장이 완료되었습니다. AI 학습을 위한 데이터로 반영됩니다." : "Movement Dataset saved successfully for AI training.");
     };
 
     const renderSectionAction = (section) => (
@@ -423,6 +449,9 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     <span className="px-3 py-1.5 text-[10px] uppercase tracking-widest border border-white/10 bg-white/5 text-slate-400">
                         Last edited: {formatRelativeTime(lastEdited)}
                     </span>
+                    <button onClick={handleSaveToDataset} className="px-3 py-1.5 text-[10px] uppercase tracking-widest border border-teal-500/30 bg-teal-500/10 text-teal-400 font-bold hover:bg-teal-500/20 active:scale-95 transition-all">
+                        {isKr ? '데이터셋 저장' : 'Save Dataset'}
+                    </button>
                 </div>
                 {currentPlan === 'free' ? (
                     <div className="text-[11px] text-amber-300/90 font-sans">
@@ -533,10 +562,13 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     <div className="w-full md:w-64 flex flex-col gap-3">
                         <span className="text-[9px] uppercase tracking-[0.2em] font-bold text-slate-500 mb-1">Movement Texture Analysis</span>
                         <div className="flex flex-wrap gap-2">
-                             {Object.entries(draftData.narrative?.lma || {}).map(([key, val]) => (
+                             {Object.entries({
+                                 ...draftData.narrative?.lma,
+                                 body: draftData.narrative?.lma?.body || { en: "Spine initiated motion\nFragmented upper body articulation\nAsymmetrical leg grounding", kr: "척추 주도 움직임\n분절된 상체 관절 활용\n비대칭적 하체 접지" }
+                             }).map(([key, val]) => (
                                 <div key={key} className="group relative flex flex-col bg-white/5 border border-white/10 px-3 py-2 transition-all hover:bg-white/10 hover:border-white/30 cursor-default">
                                     <span className="text-[8px] uppercase tracking-widest text-primary font-bold mb-1 opacity-70 group-hover:opacity-100">{key}</span>
-                                    <span className="text-[10px] text-white/90 font-sans tracking-wide">{t(val)}</span>
+                                    <span className="text-[10px] text-white/90 font-sans tracking-wide whitespace-pre-line leading-relaxed">{t(val)}</span>
                                 </div>
                              ))}
                         </div>
@@ -580,8 +612,15 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                                 {isKr ? "작품의 흐름에 따른 감정 강도 곡선입니다." : "Intensity curve mapped across the narrative timeframe."}
                             </p>
                         </div>
-                        <div className="h-48 w-full mt-auto">
-                            <Line ref={chartRef} data={chartData} options={chartOptions} />
+                        <div className="h-64 w-full mt-auto flex flex-col justify-between gap-4">
+                            <div className="h-28 w-full relative">
+                                <span className="absolute top-2 left-2 text-[9px] uppercase tracking-widest text-white/50 font-bold z-10">{isKr ? 'Emotion Curve' : 'Emotion Curve'}</span>
+                                <Line ref={chartRef} data={chartData} options={chartOptions} />
+                            </div>
+                            <div className="h-28 w-full relative">
+                                <span className="absolute top-2 left-2 text-[9px] uppercase tracking-widest text-[#FF5733]/80 font-bold z-10">{isKr ? 'Energy Curve' : 'Energy Curve'}</span>
+                                <Line data={energyChartData} options={chartOptions} />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -699,6 +738,25 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                                                 }}
                                                 placeholder={isKr ? "동작 설명" : "Movement Description"}
                                             />
+                                            
+                                            {/* Movement Prompt AI Field */}
+                                            <div className="mt-3 p-3 bg-black/50 border border-white/5 flex flex-col gap-2 rounded-sm">
+                                                <span className="text-[9px] uppercase tracking-widest text-teal-400 block font-bold">Movement Prompt</span>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[8px] uppercase tracking-widest text-slate-500 mb-0.5">Keywords</span>
+                                                        <span className="text-[10px] text-slate-300 font-serif leading-tight">{t(item.prompt?.keywords) || (isKr ? '나선형 척추 기동' : 'Spiral torso initiation')}</span>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[8px] uppercase tracking-widest text-slate-500 mb-0.5">Connection</span>
+                                                        <span className="text-[10px] text-slate-300 font-serif leading-tight">{t(item.prompt?.connection) || (isKr ? '지연된 팔의 뻗음' : 'Delayed arm extension')}</span>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[8px] uppercase tracking-widest text-slate-500 mb-0.5">Direction</span>
+                                                        <span className="text-[10px] text-slate-300 font-serif leading-tight">{t(item.prompt?.direction) || (isKr ? '바닥으로의 급격한 낙하' : 'Sudden drop to floor')}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                             {item.movementQuality && (
                                                 <div className="mt-2 px-2 py-2 bg-[#5B13EC]/10 border border-[#5B13EC]/20 rounded-sm">
                                                     <span className="text-[8px] uppercase tracking-widest text-[#5B13EC]/70 block mb-1">

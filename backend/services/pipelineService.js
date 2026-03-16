@@ -39,7 +39,7 @@ export async function generateStep2Expansion(input, context, options = {}) {
   const cached = cacheService.get(key);
   if (cached) return { ...cached, cacheHit: true };
 
-  const system = 'Create high-quality but bounded JSON choreography package. Keep section lengths compact.';
+  const system = 'Create high-quality but bounded JSON choreography package. Include `lma.body` (body part usage), `emotionCurve.energyIntensities` (energy curve intensities), and `prompt` inside each timeline item (containing `keywords`, `connection`, `direction`). Keep section lengths compact.';
   const fallback = async () => {
     const direction = await buildInternalMusicDirection(input, input.competitionMode);
     const external = await resolveExternalTracks(direction, options.allowExternalMusic);
@@ -54,15 +54,15 @@ export async function generateStep2Expansion(input, context, options = {}) {
         development: { en: 'Escalating directional conflict.', kr: '방향성 충돌의 증폭.' },
         climax: { en: 'Explosive release with controlled axis break.', kr: '통제된 축 붕괴와 폭발적 해방.' },
         resolution: { en: 'Breath-led stillness.', kr: '호흡 주도의 정지.' },
-        lma: { space: 'Direct', weight: 'Strong', time: 'Sudden', flow: 'Bound' },
-        emotionCurve: { labels: ['Intro', 'Dev', 'Climax', 'Res'], intensities: [24, 65, 98, 42] },
+        lma: { space: 'Direct', weight: 'Strong', time: 'Sudden', flow: 'Bound', body: { en: 'Spine initiated motion\nFragmented upper body articulation', kr: '척추 주도 움직임\n분절된 상체 관절 활용' } },
+        emotionCurve: { labels: ['Intro', 'Dev', 'Climax', 'Res'], intensities: [24, 65, 98, 42], energyIntensities: [20, 50, 100, 30] },
       },
       timing: {
         totalDuration: input.duration || '3:00',
         timeline: [
-          { time: '0:00', stage: { en: 'Intro', kr: '도입' }, action: { en: 'Controlled walk', kr: '제어된 워크' }, description: { en: 'Low center setup', kr: '저중심 세팅' } },
-          { time: '1:05', stage: { en: 'Development', kr: '전개' }, action: { en: 'Spiral and rebound', kr: '나선과 반동' }, description: { en: 'Axis displacement', kr: '축 변위' } },
-          { time: '2:00', stage: { en: 'Climax', kr: '절정' }, action: { en: 'Jump and collapse', kr: '점프 후 붕괴' }, description: { en: 'Maximum contrast', kr: '대비 극대화' } },
+          { time: '0:00', stage: { en: 'Intro', kr: '도입' }, action: { en: 'Controlled walk', kr: '제어된 워크' }, description: { en: 'Low center setup', kr: '저중심 세팅' }, prompt: { keywords: { en: 'Grounding, Setup', kr: '접지, 세팅' }, connection: { en: 'Breath to heel', kr: '호흡에서 발뒤꿈치로' }, direction: { en: 'Forward travel', kr: '앞으로 이동' } } },
+          { time: '1:05', stage: { en: 'Development', kr: '전개' }, action: { en: 'Spiral and rebound', kr: '나선과 반동' }, description: { en: 'Axis displacement', kr: '축 변위' }, prompt: { keywords: { en: 'Spiral, Shift', kr: '나선, 전환' }, connection: { en: 'Torso to arm', kr: '몸통에서 팔로' }, direction: { en: 'Off-axis tilt', kr: '축 이탈 기울기' } } },
+          { time: '2:00', stage: { en: 'Climax', kr: '절정' }, action: { en: 'Jump and collapse', kr: '점프 후 붕괴' }, description: { en: 'Maximum contrast', kr: '대비 극대화' }, prompt: { keywords: { en: 'Explosive, Release', kr: '폭발, 해방' }, connection: { en: 'Full body rupture', kr: '전신 파열' }, direction: { en: 'Vertical drop', kr: '수직 낙하' } } },
         ],
       },
       flow: { flow_pattern: [] },
@@ -135,7 +135,7 @@ export async function regenerateSection(input, context, section) {
     },
     timing: {
       timeline: [
-        { time: '0:00', stage: { en: 'Intro', kr: '도입' }, action: { en: 'Reset intro action', kr: '도입 액션 리셋' }, description: { en: 'Section regeneration result', kr: '섹션 재생성 결과' } },
+        { time: '0:00', stage: { en: 'Intro', kr: '도입' }, action: { en: 'Reset intro action', kr: '도입 액션 리셋' }, description: { en: 'Section regeneration result', kr: '섹션 재생성 결과' }, prompt: { keywords: { en: 'Reset, Stillness', kr: '리셋, 정지' }, connection: { en: 'Core to ground', kr: '코어에서 바닥으로' }, direction: { en: 'Inward focus', kr: '내적 집중' } } },
       ],
     },
     stage: {
