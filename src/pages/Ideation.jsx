@@ -169,11 +169,11 @@ const Ideation = () => {
 
     const autosaveTimerRef = useRef(null);
 
-    const [projectName, setProjectName] = useState("");
-    const [genre, setGenre] = useState("");
-    const [peopleCount, setPeopleCount] = useState("");
-    const [duration, setDuration] = useState("");
-    const [moodKeywords, setMoodKeywords] = useState([]);
+    const [projectName, setProjectName] = useState(location.state?.projectName || "");
+    const [genre, setGenre] = useState(location.state?.genre || "");
+    const [peopleCount, setPeopleCount] = useState(location.state?.peopleCount || "");
+    const [duration, setDuration] = useState(location.state?.duration || "");
+    const [moodKeywords, setMoodKeywords] = useState(location.state?.moodKeywords || []);
     const [keywordInput, setKeywordInput] = useState("");
     const isCompetition = genre === 'Contemporary Dance Competition';
 
