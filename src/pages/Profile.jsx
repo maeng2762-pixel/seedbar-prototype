@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import useStore from '../store/useStore';
 import LanguageToggle from '../components/LanguageToggle';
@@ -10,21 +10,57 @@ const i18n = {
         role: 'Contemporary Artist',
         bio: 'Exploring the intersection of fluid movement and generative algorithms. Former Soloist at Milan Dance Lab.',
         stats: ['Hours', 'Projects', 'Score'],
+        styleAnalysis: 'Creative Style Analysis',
+        styleTraits: {
+            movement: { label: 'Movement Style', value: 'Fluid & Grounded' },
+            rhythm: { label: 'Rhythm Pattern', value: 'Dynamic Syncopation' },
+            space: { label: 'Space Utilization', value: 'Wide Diagonal' }
+        },
+        scoreDetail: 'Creative Score Detail',
+        scoreMetrics: {
+            originality: 'Originality',
+            complexity: 'Movement Complexity',
+            structure: 'Structural Completeness'
+        },
         achievements: 'Achievements',
         viewAll: 'View all',
         portfolio: 'My Portfolio',
-        badges: ['Streak King', 'AI Pioneer', 'Quick Learner', 'Locked'],
+        badges: ['First Project', '10 Projects', 'AI Master', 'Improv Expert'],
         uploadNew: 'Upload New',
+        exportPortfolio: 'Export Portfolio',
+        exportOptions: {
+            pdf: 'PDF Document',
+            video: 'Video Reel',
+            presentation: 'Presentation'
+        }
     },
     KR: {
         role: '컨템포러리 아티스트',
         bio: '유연한 움직임과 생성 알고리즘의 결합을 탐구합니다. 전 밀라노 댄스 랩 솔로이스트.',
         stats: ['활동 시간', '프로젝트', '창의 점수'],
+        styleAnalysis: '창작 스타일 분석',
+        styleTraits: {
+            movement: { label: '움직임 스타일', value: '유연하고 무게감 있는 스타일' },
+            rhythm: { label: '리듬 사용 패턴', value: '다이나믹한 당김음 위주' },
+            space: { label: '공간 활용 방식', value: '넓은 대각선 동선 집중 활용' }
+        },
+        scoreDetail: '창의 점수 상세 분석',
+        scoreMetrics: {
+            originality: '독창성',
+            complexity: '움직임 복잡도',
+            structure: '구조 완성도'
+        },
         achievements: '달성 업적',
         viewAll: '전체 보기',
         portfolio: '나의 포트폴리오',
-        badges: ['열정의 창작자', 'AI 개척자', '빠른 학습자', '잠금됨'],
+        badges: ['첫 안무 프로젝트', '프로젝트 10개', 'AI 협업 마스터', '즉흥 안무 전문가'],
         uploadNew: '새 작업 올리기',
+        exportPortfolio: '포트폴리오 내보내기',
+        exportOptions: {
+            pdf: 'PDF 내보내기',
+            video: '영상 릴 형식',
+            presentation: '발표 프레젠테이션'
+        }
     }
 };
 
@@ -34,6 +70,7 @@ const Profile = () => {
     const logout = useAuthStore((s) => s.logout);
     const { language } = useStore();
     const t = i18n[language];
+    const [showExportMenu, setShowExportMenu] = useState(false);
 
     return (
         <div className="relative flex min-h-screen w-full flex-col bg-background-dark font-display text-slate-100 antialiased overflow-x-hidden pb-24">
@@ -86,53 +123,157 @@ const Profile = () => {
                 </div>
             </div>
 
-            <div className="mt-10 px-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-white font-bold text-sm uppercase tracking-widest">{t.achievements}</h3>
-                    <span className="text-primary text-xs font-bold cursor-pointer">{t.viewAll}</span>
+            <div className="mt-8 px-6">
+                <h3 className="text-white font-bold text-sm uppercase tracking-widest mb-4 inline-flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-[18px]">analytics</span>
+                    {t.styleAnalysis}
+                </h3>
+                <div className="glass-panel rounded-2xl p-4 flex flex-col gap-3 border border-white/5">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">{t.styleTraits.movement.label}</span>
+                        <span className="text-sm text-white font-semibold">{t.styleTraits.movement.value}</span>
+                    </div>
+                    <div className="h-[1px] w-full bg-white/10 my-1"></div>
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">{t.styleTraits.rhythm.label}</span>
+                        <span className="text-sm text-white font-semibold">{t.styleTraits.rhythm.value}</span>
+                    </div>
+                    <div className="h-[1px] w-full bg-white/10 my-1"></div>
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">{t.styleTraits.space.label}</span>
+                        <span className="text-sm text-white font-semibold">{t.styleTraits.space.value}</span>
+                    </div>
                 </div>
-                <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
-                    <div className="flex-shrink-0 flex flex-col items-center gap-2">
-                        <div className="size-14 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 p-[2px]">
-                            <div className="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
-                                <span className="material-symbols-outlined text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>military_tech</span>
-                            </div>
+            </div>
+
+            <div className="mt-8 px-6">
+                <h3 className="text-white font-bold text-sm uppercase tracking-widest mb-4 inline-flex items-center gap-2">
+                    <span className="material-symbols-outlined text-teal-400 text-[18px]">radar</span>
+                    {t.scoreDetail}
+                </h3>
+                <div className="glass-panel rounded-2xl p-5 flex flex-col gap-5 border border-white/5">
+                    <div className="flex flex-col gap-1">
+                        <div className="flex justify-between items-end mb-1">
+                            <span className="text-xs text-slate-300 font-bold">{t.scoreMetrics.originality}</span>
+                            <span className="text-xs text-primary-light font-bold">95</span>
                         </div>
-                        <span className="text-[10px] text-slate-400">{t.badges[0]}</span>
+                        <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-gradient-to-r from-primary to-purple-400 h-1.5 rounded-full" style={{ width: '95%' }}></div>
+                        </div>
                     </div>
-                    <div className="flex-shrink-0 flex flex-col items-center gap-2">
-                        <div className="size-14 rounded-full bg-gradient-to-br from-blue-400 to-primary p-[2px]">
-                            <div className="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
-                                <span className="material-symbols-outlined text-blue-400" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                            </div>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex justify-between items-end mb-1">
+                            <span className="text-xs text-slate-300 font-bold">{t.scoreMetrics.complexity}</span>
+                            <span className="text-xs text-teal-300 font-bold">88</span>
                         </div>
-                        <span className="text-[10px] text-slate-400">{t.badges[1]}</span>
+                        <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-gradient-to-r from-teal-500 to-emerald-400 h-1.5 rounded-full" style={{ width: '88%' }}></div>
+                        </div>
                     </div>
-                    <div className="flex-shrink-0 flex flex-col items-center gap-2">
-                        <div className="size-14 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 p-[2px]">
-                            <div className="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
-                                <span className="material-symbols-outlined text-emerald-500" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
-                            </div>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex justify-between items-end mb-1">
+                            <span className="text-xs text-slate-300 font-bold">{t.scoreMetrics.structure}</span>
+                            <span className="text-xs text-blue-300 font-bold">92</span>
                         </div>
-                        <span className="text-[10px] text-slate-400">{t.badges[2]}</span>
-                    </div>
-                    <div className="flex-shrink-0 flex flex-col items-center gap-2">
-                        <div className="size-14 rounded-full bg-slate-700/50 p-[2px]">
-                            <div className="w-full h-full rounded-full bg-background-dark/50 flex items-center justify-center opacity-40">
-                                <span className="material-symbols-outlined text-slate-500">lock</span>
-                            </div>
+                        <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-gradient-to-r from-blue-500 to-indigo-400 h-1.5 rounded-full" style={{ width: '92%' }}></div>
                         </div>
-                        <span className="text-[10px] text-slate-600">{t.badges[3]}</span>
                     </div>
                 </div>
             </div>
 
             <div className="mt-10 px-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-white font-bold text-sm uppercase tracking-widest">{t.portfolio}</h3>
-                    <div className="flex gap-2">
-                        <span className="material-symbols-outlined text-primary text-xl cursor-pointer">grid_view</span>
-                        <span className="material-symbols-outlined text-slate-500 text-xl cursor-pointer">reorder</span>
+                    <h3 className="text-white font-bold text-sm uppercase tracking-widest inline-flex items-center gap-2">
+                        <span className="material-symbols-outlined text-amber-400 text-[18px]">workspace_premium</span>
+                        {t.achievements}
+                    </h3>
+                    <span className="text-primary text-xs font-bold cursor-pointer">{t.viewAll}</span>
+                </div>
+                <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
+                    <div className="flex-shrink-0 flex flex-col items-center gap-2 w-[72px]">
+                        <div className="size-14 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 p-[2px]">
+                            <div className="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
+                                <span className="material-symbols-outlined text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>emoji_events</span>
+                            </div>
+                        </div>
+                        <span className="text-[10px] text-slate-300 font-medium text-center leading-tight">{t.badges[0]}</span>
+                    </div>
+                    <div className="flex-shrink-0 flex flex-col items-center gap-2 w-[72px]">
+                        <div className="size-14 rounded-full bg-gradient-to-br from-blue-400 to-primary p-[2px]">
+                            <div className="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
+                                <span className="material-symbols-outlined text-blue-400" style={{ fontVariationSettings: "'FILL' 1" }}>library_add_check</span>
+                            </div>
+                        </div>
+                        <span className="text-[10px] text-slate-300 font-medium text-center leading-tight">{t.badges[1]}</span>
+                    </div>
+                    <div className="flex-shrink-0 flex flex-col items-center gap-2 w-[72px]">
+                        <div className="size-14 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 p-[2px]">
+                            <div className="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
+                                <span className="material-symbols-outlined text-emerald-500" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+                            </div>
+                        </div>
+                        <span className="text-[10px] text-slate-300 font-medium text-center leading-tight">{t.badges[2]}</span>
+                    </div>
+                    <div className="flex-shrink-0 flex flex-col items-center gap-2 w-[72px]">
+                        <div className="size-14 rounded-full bg-gradient-to-br from-purple-400 to-pink-600 p-[2px]">
+                            <div className="w-full h-full rounded-full bg-background-dark flex items-center justify-center">
+                                <span className="material-symbols-outlined text-purple-400" style={{ fontVariationSettings: "'FILL' 1" }}>self_improvement</span>
+                            </div>
+                        </div>
+                        <span className="text-[10px] text-slate-300 font-medium text-center leading-tight">{t.badges[3]}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-10 px-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-white font-bold text-sm uppercase tracking-widest inline-flex items-center gap-2">
+                        <span className="material-symbols-outlined text-blue-400 text-[18px]">folder_special</span>
+                        {t.portfolio}
+                    </h3>
+                    <div className="relative">
+                        <button 
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="flex items-center gap-1 text-[11px] bg-primary/20 text-primary-light px-3 py-1.5 rounded-full font-bold hover:bg-primary/30 active:scale-95 transition-all"
+                        >
+                            <span className="material-symbols-outlined text-[15px]">ios_share</span>
+                            {t.exportPortfolio}
+                        </button>
+                        {showExportMenu && (
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-white/10 rounded-xl shadow-xl z-30 overflow-hidden">
+                                <button 
+                                    onClick={() => {
+                                        setShowExportMenu(false);
+                                        alert(language === 'KR' ? 'PDF 형식으로 내보냅니다.' : 'Exporting as PDF...');
+                                    }}
+                                    className="w-full text-left px-4 py-3 text-xs text-slate-200 hover:bg-white/5 flex items-center gap-2 font-medium"
+                                >
+                                    <span className="material-symbols-outlined text-[16px] text-rose-400">picture_as_pdf</span>
+                                    {t.exportOptions.pdf}
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        setShowExportMenu(false);
+                                        alert(language === 'KR' ? '영상 릴을 조합 중입니다.' : 'Generating video reel...');
+                                    }}
+                                    className="w-full text-left px-4 py-3 text-xs text-slate-200 hover:bg-white/5 border-t border-white/5 flex items-center gap-2 font-medium"
+                                >
+                                    <span className="material-symbols-outlined text-[16px] text-emerald-400">movie</span>
+                                    {t.exportOptions.video}
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        setShowExportMenu(false);
+                                        alert(language === 'KR' ? '발표 문서를 구성합니다.' : 'Creating presentation layout...');
+                                    }}
+                                    className="w-full text-left px-4 py-3 text-xs text-slate-200 hover:bg-white/5 border-t border-white/5 flex items-center gap-2 font-medium"
+                                >
+                                    <span className="material-symbols-outlined text-[16px] text-blue-400">co_present</span>
+                                    {t.exportOptions.presentation}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
