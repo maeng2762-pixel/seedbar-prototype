@@ -36,32 +36,32 @@ const mockChoreographyLibrary = [
 const mockMovementIdeas = [
     {
         id: 'm1',
-        title: 'Elastic Recoil',
-        description: 'Throw energy out of the center and delay the return, creating a rubber-band effect.',
-        mood: 'Tension / Release',
-        energy: 'High',
+        title: 'Spinal Wave',
+        description: 'Energy transfer focusing on the spine.',
+        motionPrompt: '움직임이 척추에서 시작해 팔로 퍼져나간다.',
+        mood: 'Fluid / Connected',
+        energy: 'Medium',
         genre: 'Contemporary',
-        formation: 'Expanding circles',
-        promptState: { genre: 'Contemporary Dance', moodKeywords: ['#Tension', '#Release'], duration: '02:00' }
+        promptState: { genre: 'Contemporary Dance', moodKeywords: ['#Fluid', '#Spinal'], duration: '02:00' }
     },
     {
         id: 'm2',
         title: 'Fractured Balance',
         description: 'Constantly interrupt your own weight shifts before completion.',
+        motionPrompt: '무게 중심을 이동하다가 중간에 끊어내며 불안정한 균형을 만든다.',
         mood: 'Unstable / Anxious',
-        energy: 'Medium',
+        energy: 'High',
         genre: 'Experimental',
-        formation: 'Asymmetric lines',
         promptState: { genre: 'Experimental Dance', moodKeywords: ['#Unstable', '#Anxious'], duration: '03:00' }
     },
     {
         id: 'm3',
         title: 'Sequential Grounding',
         description: 'Melt into the floor joint by joint like liquid metal.',
+        motionPrompt: '신체의 관절이 하나씩 무너지며 바닥으로 액체처럼 녹아내린다.',
         mood: 'Heavy / Smooth',
         energy: 'Low',
         genre: 'Lyrical',
-        formation: 'Floorwork nodes',
         promptState: { genre: 'Lyrical Dance', moodKeywords: ['#Heavy', '#Smooth'], duration: '02:45' }
     }
 ];
@@ -89,7 +89,9 @@ const mockMusicDiscovery = [
     {
         id: 'mu1',
         playlist: 'Cinematic Sub-bass',
+        tempo: 'Slow (60-80 BPM)',
         mood: 'Tension & Build-up',
+        recommendedStyle: 'Experimental Floorwork',
         genre: 'Contemporary / Experimental',
         image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80',
         promptState: { genre: 'Experimental Dance', moodKeywords: ['#Cinematic', '#Tension'] }
@@ -97,34 +99,57 @@ const mockMusicDiscovery = [
     {
         id: 'mu2',
         playlist: 'Minimalist Piano',
+        tempo: 'Rubato (Free timing)',
         mood: 'Emotional & Breath',
+        recommendedStyle: 'Lyrical Connections',
         genre: 'Ballet / Lyrical',
         image: 'https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?auto=format&fit=crop&q=80',
         promptState: { genre: 'Ballet', moodKeywords: ['#Minimalist', '#Piano', '#Emotional'] }
+    },
+    {
+        id: 'mu3',
+        playlist: 'Dark Syncopation',
+        tempo: 'Fast (120+ BPM)',
+        mood: 'Aggressive & Sharp',
+        recommendedStyle: 'Hard-hitting Hip-Hop',
+        genre: 'Hip-Hop',
+        image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80',
+        promptState: { genre: 'Hip-Hop', moodKeywords: ['#Aggressive', '#Sharp'] }
     }
 ];
 
-const mockQuickStartPrompts = [
+const mockAiTemplates = [
     {
-        id: 'q1',
-        title: 'Competition Solo',
-        description: 'High impact, contrast-heavy short piece',
-        icon: 'emoji_events',
-        promptState: { genre: 'Contemporary Dance Competition', peopleCount: '1', moodKeywords: ['#Explosive', '#Contrast'], duration: '02:00' }
+        id: 't1',
+        titleEn: 'Contemporary Solo',
+        titleKr: '컨템포러리 솔로',
+        description: 'Deeply expressive emotional piece',
+        icon: 'person',
+        promptState: { genre: 'Contemporary Dance', peopleCount: '1', moodKeywords: ['#Expressive', '#Emotional'], duration: '03:00' }
     },
     {
-        id: 'q2',
-        title: 'Dark Experimental Group',
-        description: 'Avante-garde group routines with heavy tension',
-        icon: 'groups',
-        promptState: { genre: 'Experimental Dance', peopleCount: '5', moodKeywords: ['#Dark', '#Avante-garde'], duration: '04:00' }
+        id: 't2',
+        titleEn: 'Duet Structure',
+        titleKr: '듀엣 안무 구조',
+        description: 'Interconnected partner choreography',
+        icon: 'group',
+        promptState: { genre: 'Contemporary Dance', peopleCount: '2', moodKeywords: ['#Connection', '#Interdependent'], duration: '04:00' }
     },
     {
-        id: 'q3',
-        title: 'Lyrical Duet',
-        description: 'Smooth partner work emphasizing connection',
-        icon: 'favorite',
-        promptState: { genre: 'Lyrical Dance', peopleCount: '2', moodKeywords: ['#Connection', '#Fluid'], duration: '03:15' }
+        id: 't3',
+        titleEn: 'Improv Structure',
+        titleKr: '즉흥 안무 구조',
+        description: 'Guided rules for freeform expression',
+        icon: 'waves',
+        promptState: { genre: 'Experimental Dance', peopleCount: '1', moodKeywords: ['#Improvisation', '#Freeform'], duration: '05:00' }
+    },
+    {
+        id: 't4',
+        titleEn: 'Graduation Piece',
+        titleKr: '졸업 작품 안무',
+        description: 'Large-scale, high-impact final project',
+        icon: 'school',
+        promptState: { genre: 'Contemporary Dance', peopleCount: '7', moodKeywords: ['#Epic', '#Professional'], duration: '07:00' }
     }
 ];
 
@@ -146,7 +171,7 @@ const useExploreStore = create((set) => ({
     movementIdeas: [],
     stagePatterns: [],
     musicDiscovery: [],
-    quickStartPrompts: [],
+    aiTemplates: [],
     learningHighlights: [],
     loading: false,
 
@@ -159,7 +184,7 @@ const useExploreStore = create((set) => ({
             movementIdeas: mockMovementIdeas,
             stagePatterns: mockStagePatterns,
             musicDiscovery: mockMusicDiscovery,
-            quickStartPrompts: mockQuickStartPrompts,
+            aiTemplates: mockAiTemplates,
             learningHighlights: mockLearningHighlights,
             loading: false
         });
@@ -167,3 +192,4 @@ const useExploreStore = create((set) => ({
 }));
 
 export default useExploreStore;
+
