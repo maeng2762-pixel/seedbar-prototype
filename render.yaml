@@ -20,7 +20,5 @@ services:
         value: placeholder-key-for-youtube
       - key: JWT_SECRET
         value: seedbar-secret-key-very-long-123456
-      - key: VITE_API_BASE_URL
-        value: https://your-render-service.onrender.com
       - key: DATABASE_PATH    
         value: ./backend/db/seedbar.sqlite
