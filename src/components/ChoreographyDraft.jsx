@@ -96,6 +96,18 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
     const [expandedCues, setExpandedCues] = useState({});
     const [flowPatternData, setFlowPatternData] = useState(data?.flow?.flow_pattern || []);
     const [showRefSelectModal, setShowRefSelectModal] = useState(null);
+    const [isTuning, setIsTuning] = useState(false);
+    const [isSimpleMode, setIsSimpleMode] = useState(true);
+    const [showHelpModal, setShowHelpModal] = useState(false);
+    
+    React.useEffect(() => {
+        const hasSeenHelp = localStorage.getItem('hasSeenStudioHelp');
+        if (!hasSeenHelp) {
+            setShowHelpModal(true);
+            localStorage.setItem('hasSeenStudioHelp', 'true');
+        }
+    }, []);
+
     const {
         setProjectId,
         versions,
@@ -235,11 +247,18 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
     };
 
     const handleTuneWithSliders = async () => {
+        setIsTuning(true);
         try {
             const res = await tuneBySliders();
             onDataUpdate?.(res.project || draftData);
+            setTimeout(() => {
+                const el = document.getElementById('slider-summary-box');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
         } catch (error) {
             onOpenUpgrade?.(error.message);
+        } finally {
+            setIsTuning(false);
         }
     };
 
@@ -929,7 +948,94 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* ─── AI Choreography Studio ─── */}
-            <div className="bg-white/5 border border-white/10 p-6 md:p-8 backdrop-blur-sm space-y-6">
+            <div className="bg-white/5 border border-white/10 p-6 md:p-8 backdrop-blur-sm space-y-6 relative" id="studio-section">
+                <div className="flex flex-wrap items-center justify-between mb-4 pb-4 border-b border-white/10">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                            {isKr ? '작업 공간 모드' : 'Workspace Mode'}
+                        </span>
+                        <div className="flex items-center bg-black/40 rounded-full p-1 border border-white/10">
+                            <button
+                                onClick={() => setIsSimpleMode(true)}
+                                className={`px-4 py-1.5 text-[11px] rounded-full transition-all font-semibold ${isSimpleMode ? 'bg-[#5B13EC] text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                {isKr ? '간단 모드' : 'Simple'}
+                            </button>
+                            <button
+                                onClick={() => setIsSimpleMode(false)}
+                                className={`px-4 py-1.5 text-[11px] rounded-full transition-all font-semibold ${!isSimpleMode ? 'bg-[#5B13EC] text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                {isKr ? '고급 모드' : 'Advanced'}
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={() => setShowHelpModal(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-xs text-slate-300 font-semibold active:scale-95"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">info</span>
+                        {isKr ? '사용법 보기' : 'Help & Tutorial'}
+                    </button>
+                </div>
+
+                {showHelpModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                        <div className="bg-[#1A1A24] border border-white/10 w-full max-w-lg shadow-2xl overflow-hidden rounded-xl animate-in zoom-in-95 duration-200">
+                            <div className="p-6 border-b border-white/10 bg-gradient-to-r from-[#5B13EC]/20 to-transparent">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[#5B13EC]">lightbulb</span>
+                                    {isKr ? 'AI Choreography Studio 사용 안내' : 'How to use AI Choreography Studio'}
+                                </h3>
+                                <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+                                    {isKr 
+                                        ? '이곳에서는 AI를 활용해 안무를 다듬고 다양한 버전을 실험할 수 있습니다. 저장된 모든 결과는 잃어버리지 않고 안전하게 보관됩니다.' 
+                                        : 'Here you can refine choreography and experiment with different versions using AI.'}
+                                </p>
+                            </div>
+                            <div className="p-6 space-y-5 bg-black/20">
+                                <div className="flex items-start gap-3">
+                                    <span className="text-xl">✏️</span>
+                                    <div>
+                                        <h4 className="font-semibold text-white/90 text-sm">{isKr ? '섹션 재작성' : 'Rewrite Section'}</h4>
+                                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">{isKr ? '특정 구간(Story, Movement 등)의 안무 설명을 마음에 들 때까지 부분적으로 다시 생성합니다.' : 'Regenerate specific choreography sections until you like them.'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <span className="text-xl">🔀</span>
+                                    <div>
+                                        <h4 className="font-semibold text-white/90 text-sm">{isKr ? '변형 생성 (Variation)' : 'Generate Variation'}</h4>
+                                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">{isKr ? '기존 작품의 핵심 구조를 유지한 채, 약간 다른 흐름의 전체 버전을 새롭게 파생시킵니다.' : 'Create a new version with a slightly different flow while keeping the core structure.'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3">
+                                    <span className="text-xl">🎛️</span>
+                                    <div>
+                                        <h4 className="font-semibold text-white/90 text-sm">{isKr ? '분위기 조정 (Mood Tuning)' : 'Mood Tuning'}</h4>
+                                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">{isKr ? '슬라이더를 통해 작품의 강도(Intensity), 감정 깊이(Emotion) 등을 세밀하게 튜닝합니다.' : 'Finely control the intensity, emotion, etc. of the piece using sliders.'}</p>
+                                    </div>
+                                </div>
+                                <div className="bg-[#5B13EC]/10 border border-[#5B13EC]/30 rounded-lg p-3 mt-4">
+                                    <p className="text-xs text-teal-400 font-semibold flex items-start gap-2">
+                                        <span className="material-symbols-outlined text-[14px] mt-0.5">save</span>
+                                        <span className="leading-relaxed">
+                                            {isKr ? '저장된 결과는 원래 설계도에 즉각 반영되며, 이전 버전을 언제든 다시 불러올 수 있습니다.' : 'Saved results reflect instantly on your draft. You can restore previous versions anytime.'}
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="p-4 border-t border-white/10 bg-[#1A1A24] flex justify-end">
+                                <button
+                                    onClick={() => setShowHelpModal(false)}
+                                    className="px-6 py-2.5 bg-[#5B13EC] hover:bg-[#4a0ebb] text-white text-sm font-bold rounded-lg transition-colors active:scale-95"
+                                >
+                                    {isKr ? '확인 및 시작하기' : 'Got it'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <ProjectHeader
                     title={data?.pamphlet?.coverTitle || data?.titles?.scientific?.en || '작품 제목'}
                     activeVersion={(versions || []).find((v) => v.id === activeVersionId)}
@@ -940,6 +1046,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     plan={policy?.name?.toLowerCase() || 'free'}
                     language={isKr ? 'KR' : 'EN'}
                     disabled={false}
+                    isSimpleMode={isSimpleMode}
                     onRewrite={() => {
                         const sectionKey = window.prompt(
                             isKr ? '재작성할 섹션을 입력하세요:\nstory / movement / formation / music / stage / artist_note'
@@ -985,17 +1092,25 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
 
                 {/* (Removed duplicate old Rewrite Buttons Grid) */}
                 <div className="border-t border-white/10 pt-5">
-                    <h3 className="text-sm font-semibold text-white mb-3">{isKr ? 'Mood Sliders' : 'Mood Sliders'}</h3>
+                    <h3 className="text-sm font-semibold text-white mb-1">{isKr ? 'Mood Sliders' : 'Mood Sliders'}</h3>
+                    {isSimpleMode && (
+                        <p className="text-xs text-slate-400 mb-4">
+                            {isKr ? '슬라이더를 조작해 원하는 분위기를 만든 후 아래 적용 버튼을 누르면, AI가 프로젝트 전체 내용을 튜닝합니다.' : 'Adjust sliders to set the mood, then let AI tune the content.'}
+                        </p>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
-                            { key: 'intensity', label: 'Intensity' },
-                            { key: 'emotion', label: 'Emotion' },
-                            { key: 'darkness', label: 'Darkness' },
-                            { key: 'speed', label: 'Speed' },
+                            { key: 'intensity', label: 'Intensity', desc: isKr ? '에너지 강도와 장면 압축감' : 'Energy intensity & scene compression' },
+                            { key: 'emotion', label: 'Emotion', desc: isKr ? '감정 표현의 진폭과 깊이' : 'Amplitude & depth of emotion' },
+                            { key: 'darkness', label: 'Darkness', desc: isKr ? '어두움, 무게감, 긴장도' : 'Heaviness, tension, & darkness' },
+                            { key: 'speed', label: 'Speed', desc: isKr ? '전체 호흡 및 템포 속도' : 'Overall pacing & tempo' },
                         ].map((s) => (
                             <label key={s.key} className="block">
                                 <div className="flex items-center justify-between text-xs text-slate-300 mb-1">
-                                    <span>{s.label}</span>
+                                    <span className="flex items-center gap-2">
+                                        {s.label}
+                                        <span className={`text-[10px] text-slate-500 ${isSimpleMode ? '' : 'hidden sm:inline'}`}>({s.desc})</span>
+                                    </span>
                                     <span>{sliders?.[s.key] ?? 50}</span>
                                 </div>
                                 <input
@@ -1004,19 +1119,62 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                                     max={100}
                                     value={sliders?.[s.key] ?? 50}
                                     onChange={(e) => setSlider(s.key, Number(e.target.value))}
-                                    disabled={!policy?.canUseMoodSliders}
-                                    className="w-full accent-primary disabled:opacity-40"
+                                    disabled={!policy?.canUseMoodSliders || isTuning}
+                                    className="w-full accent-primary disabled:opacity-40 cursor-pointer"
                                 />
                             </label>
                         ))}
                     </div>
+                    
                     <button
                         onClick={handleTuneWithSliders}
-                        disabled={!policy?.canUseMoodSliders}
-                        className="mt-4 px-4 py-2 text-xs font-semibold bg-white/10 border border-white/20 hover:bg-white/20 disabled:opacity-40"
+                        disabled={!policy?.canUseMoodSliders || isTuning}
+                        className="mt-4 px-4 py-2 text-xs font-semibold bg-white/10 border border-white/20 hover:bg-white/20 disabled:opacity-40 flex items-center gap-2"
                     >
-                        {isKr ? '슬라이더 반영 적용' : 'Apply Slider Tuning'}
+                        {isTuning ? (
+                            <>
+                                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                {isKr ? '슬라이더 반영 중...' : 'Tuning...'}
+                            </>
+                        ) : (
+                            isKr ? '슬라이더 반영 적용' : 'Apply Slider Tuning'
+                        )}
                     </button>
+                    
+                    {draftData?.tuning?.summary && (
+                        <div id="slider-summary-box" className="mt-4 p-4 bg-primary/10 border border-primary/30 rounded-lg animate-in fade-in slide-in-from-top-2 duration-500">
+                            <h4 className="text-xs font-semibold text-primary mb-2 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                                {isKr ? '슬라이더 반영 결과' : 'Tuning Result'}
+                            </h4>
+                            <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line mb-4">
+                                {isKr ? draftData.tuning.summary.kr : draftData.tuning.summary.en}
+                            </p>
+                            
+                            {draftData?.tuning?.before && (
+                                <div className="space-y-3 border-t border-primary/20 pt-3 mt-3">
+                                    <h5 className="text-[10px] font-semibold text-primary/80 uppercase tracking-widest">{isKr ? '주요 변경점 (Before -> After)' : 'Key Changes (Before -> After)'}</h5>
+                                    
+                                    <div className="grid grid-cols-2 gap-2 text-[10px] bg-black/20 p-2 rounded">
+                                        <div className="text-slate-500 line-through truncate">{t(draftData.tuning.before.narrative) || 'N/A'}</div>
+                                        <div className="text-green-400 truncate">{t(draftData.narrative?.development) || 'N/A'}</div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-[10px] bg-black/20 p-2 rounded">
+                                        <div className="text-slate-500 line-through truncate">{draftData.tuning.before.music || 'N/A'}</div>
+                                        <div className="text-green-400 truncate">{draftData.music?.style || 'N/A'}</div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-[10px] bg-black/20 p-2 rounded">
+                                        <div className="text-slate-500 line-through truncate">{draftData.tuning.before.lighting || 'N/A'}</div>
+                                        <div className="text-green-400 truncate">{draftData.stage?.lighting || 'N/A'}</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <p className="text-[10px] text-slate-500 mt-4">
+                                {isKr ? '해당 변경 사항이 안무 설명, 음악, 무대 전반에 자동 하이라이트 되었습니다.' : 'Changes have been automatically highlighted across narrative, music, and stage.'}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="border-t border-white/10 pt-5">

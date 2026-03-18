@@ -1,8 +1,26 @@
 import { create } from 'zustand';
 
+const getInitialLanguage = () => {
+    try {
+        const saved = localStorage.getItem('appLanguage');
+        if (saved && (saved === 'EN' || saved === 'KR')) return saved;
+        // Fallback to browser language if available
+        if (typeof navigator !== 'undefined' && navigator.language) {
+            return navigator.language.startsWith('ko') ? 'KR' : 'EN';
+        }
+        return 'EN';
+    } catch {
+        return 'EN';
+    }
+};
+
 const useStore = create((set) => ({
-    language: 'EN', // 'EN' or 'KR'
-    toggleLanguage: () => set((state) => ({ language: state.language === 'EN' ? 'KR' : 'EN' })),
+    language: getInitialLanguage(), // 'EN' or 'KR'
+    toggleLanguage: () => set((state) => {
+        const nextLang = state.language === 'EN' ? 'KR' : 'EN';
+        try { window.localStorage.setItem('appLanguage', nextLang); } catch {}
+        return { language: nextLang };
+    }),
 
     // Timeline state
     activeSection: 'climax',

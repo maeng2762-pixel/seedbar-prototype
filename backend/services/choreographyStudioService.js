@@ -193,29 +193,111 @@ export async function tuneProjectBySliders({ project, sliders }) {
     emotion: Number(sliders?.emotion ?? 50),
   };
 
-  const tone = s.darkness > 70 ? 'heavy and ominous' : s.darkness < 30 ? 'bright and open' : 'balanced tension';
-  const tempo = s.speed > 65 ? 'fast accents' : s.speed < 35 ? 'sustained tempo' : 'moderate pacing';
-  const dynamics = s.intensity > 70 ? 'explosive dynamic range' : 'controlled dynamic range';
+  const system = `You are an AI Choreography tuning assistant. You will be provided with a choreography project's current JSON data, and tuning sliders (0-100) for Intensity, Darkness, Speed, and Emotion.
+Your job is to slightly modify the existing text fields (in both 'en' and 'kr' if they exist) based on these slider values. 
+Also, you must return a "tuneSummary" that contains a brief bulleted list of what changed (e.g. "감정 강도가 더 높아졌습니다.", "움직임이 더 날카로워졌습니다").
+
+Please return ONLY a valid JSON object matching this exact structure:
+{
+  "tuneSummary": { "en": "- Increased emotional intensity\\n- Sharpened movement prompts", "kr": "- 감정 강도가 더 높아졌습니다.\\n- 안무 움직임 지시가 더 날카로워졌습니다." },
+  "storyConcept": { ... modified from input },
+  "narrativeArc": { ... modified from input },
+  "music": { ... modified from input },
+  "stage": { ... modified from input },
+  "artistNote": { ... modified from input },
+  "choreographyStructure": { ... modified from input },
+  "movementVocabulary": { ... modified from input },
+  "formationDesign": [ ... modified from input ]
+}
+
+Keep the core structure identical to the input, just adjust the descriptive text, tone, and adjectives to reflect the new mood sliders. Keep variations subtle but noticeable.`;
+
+  const fallback = () => {
+    // If AI fails, use naive adjustment as fallback
+    const tone = s.darkness > 70 ? 'heavy and ominous' : s.darkness < 30 ? 'bright and open' : 'balanced tension';
+    const tempo = s.speed > 65 ? 'fast accents' : s.speed < 35 ? 'sustained tempo' : 'moderate pacing';
+    const dynamics = s.intensity > 70 ? 'explosive dynamic range' : 'controlled dynamic range';
+    const krTone = s.darkness > 70 ? '무겁고 불길한' : s.darkness < 30 ? '밝고 열린' : '균형잡힌 긴장감';
+
+    const patched = clone(current);
+    patched.narrative = {
+      ...(patched.narrative || {}),
+      development: {
+        en: `Tuned development emphasizes ${dynamics} with ${tempo} under a ${tone} atmosphere.`,
+        kr: `${krTone} 분위기에서 ${tempo}와 ${dynamics}를 강조한 전개로 조정되었습니다.`,
+      },
+    };
+    patched.music = {
+      ...(patched.music || {}),
+      acousticRationale: {
+        en: `Sliders applied: intensity ${s.intensity}, darkness ${s.darkness}, speed ${s.speed}, emotion ${s.emotion}.`,
+        kr: `슬라이더 적용 결과: 강도 ${s.intensity}, 어둠 ${s.darkness}, 속도 ${s.speed}, 감정 ${s.emotion}에 맞춰 조정되었습니다.`,
+      },
+      style: `Tuned / ${tone}`,
+    };
+    return {
+      tuneSummary: {
+        en: `Tuned to emphasis ${tone} and ${dynamics}.`,
+        kr: `${krTone} 강도로 수정되었습니다.`
+      },
+      storyConcept: patched.concept,
+      narrativeArc: patched.narrative,
+      music: patched.music,
+      stage: patched.stage,
+      artistNote: patched.pamphlet,
+      choreographyStructure: patched.timing,
+      movementVocabulary: patched.flow,
+      formationDesign: patched.flow?.flow_pattern || [],
+    };
+  };
+
+  const inputJson = {
+    sliders: s,
+    storyConcept: current.concept || {},
+    narrativeArc: current.narrative || {},
+    music: current.music || {},
+    stage: current.stage || {},
+    artistNote: current.pamphlet?.choreographerNote || current.pamphlet || {},
+    choreographyStructure: current.timing || {},
+    movementVocabulary: current.flow || {},
+    formationDesign: current.flow?.flow_pattern || []
+  };
+
+  const generated = await llmProvider.lowCostJson({
+    system,
+    user: JSON.stringify(inputJson),
+    fallback,
+    maxTokens: 3000
+  });
+
+  const res = generated?.content ? generated.content : generated;
 
   const patched = clone(current);
-  patched.narrative = {
-    ...(patched.narrative || {}),
-    development: {
-      en: `Tuned development emphasizes ${dynamics} with ${tempo} under a ${tone} atmosphere.`,
-      kr: `${tone} 분위기에서 ${tempo}와 ${dynamics}를 강조한 전개로 조정되었습니다.`,
-    },
+  patched.concept = res.storyConcept || patched.concept;
+  patched.narrative = res.narrativeArc || patched.narrative;
+  patched.music = res.music || patched.music;
+  patched.stage = res.stage || patched.stage;
+  
+  if (res.artistNote) {
+    patched.pamphlet = { 
+      ...(patched.pamphlet || {}), 
+      choreographerNote: res.artistNote.choreographerNote || res.artistNote 
+    };
+  }
+  
+  patched.timing = res.choreographyStructure || patched.timing;
+  patched.flow = res.movementVocabulary || patched.flow;
+  if (Array.isArray(res.formationDesign)) {
+    patched.flow = { ...(patched.flow || {}), flow_pattern: res.formationDesign };
+  }
+
+  const beforeSnapshot = {
+    narrative: current.narrative?.development,
+    music: current.music?.style,
+    lighting: current.stage?.lighting
   };
 
-  patched.music = {
-    ...(patched.music || {}),
-    acousticRationale: {
-      en: `Sliders applied: intensity ${s.intensity}, darkness ${s.darkness}, speed ${s.speed}, emotion ${s.emotion}. Music now prioritizes ${tone}.`,
-      kr: `슬라이더 적용: 강도 ${s.intensity}, 어둠 ${s.darkness}, 속도 ${s.speed}, 감정 ${s.emotion}. 음악은 ${tone} 톤을 우선합니다.`,
-    },
-    style: `Tuned / ${tone}`,
-  };
-
-  patched.tuning = { sliders: s, updatedAt: new Date().toISOString() };
+  patched.tuning = { sliders: s, summary: res.tuneSummary || {}, before: beforeSnapshot, updatedAt: new Date().toISOString() };
   choreographyProjectModel.updateProjectContent(project.id, patched);
 
   return {
@@ -225,6 +307,7 @@ export async function tuneProjectBySliders({ project, sliders }) {
     stage: getSectionContent(patched, 'stage'),
     artist_note: getSectionContent(patched, 'artist_note'),
     project: patched,
+    tuneSummary: res.tuneSummary || {}
   };
 }
 
