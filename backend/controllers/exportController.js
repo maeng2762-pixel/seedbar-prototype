@@ -43,3 +43,33 @@ export function retryExportJobController(req, res) {
   if (!job) return res.status(404).json({ error: 'Job not found.' });
   return res.json({ ok: true, id: job.id, status: job.status, attempts: job.attempts });
 }
+
+import { generateExportPackage } from '../services/pipelineService.js';
+
+export async function generateExportPackageController(req, res) {
+  try {
+    const { userId, plan } = req.context;
+    
+    // Optional check: Ensure plan allows this feature
+    if (!featureAccessService.canAccess(plan, 'canExportPPT')) {
+      return res.status(403).json({ error: 'Package generation is available on Studio plan.' });
+    }
+    
+    const draftData = req.body?.draftData;
+    const options = req.body?.options || {};
+    
+    if (!draftData) {
+      return res.status(400).json({ error: 'Missing draft data.' });
+    }
+
+    const packageContent = await generateExportPackage(draftData, options, { userId, plan });
+    
+    // Ensure we also consume quota if necessary, currently leaving it to quotaGuard
+    quotaService.consume(userId, plan, 'exportPackageGenerated', 1);
+
+    return res.json({ ok: true, packageContent });
+  } catch (error) {
+    console.error('Package Generation Error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to generate package content.' });
+  }
+}

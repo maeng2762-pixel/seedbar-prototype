@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import VersionCompareModal from './VersionCompareModal';
 
 export default function VersionManager({
   versions = [],
@@ -11,12 +12,47 @@ export default function VersionManager({
   plan = 'free',
 }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [isCompareMode, setIsCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  
   const isPro = plan === 'pro' || plan === 'studio';
   const isFree = !isPro;
   const canAdd = isPro || versions.length < 2;
 
+  const handleToggleCompareMode = () => {
+    setIsCompareMode(!isCompareMode);
+    setSelectedForCompare([]);
+  };
+
+  const handleSelectVersion = (version) => {
+    if (isCompareMode) {
+      setSelectedForCompare(prev => {
+        if (prev.includes(version.id)) return prev.filter(id => id !== version.id);
+        if (prev.length < 2) return [...prev, version.id];
+        return prev;
+      });
+    } else {
+      onSelect?.(version);
+    }
+  };
+
+  const handleOpenCompare = () => {
+    if (selectedForCompare.length === 2) {
+      setShowCompareModal(true);
+    }
+  };
+
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-6">
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-6 relative">
+      {showCompareModal && (
+        <VersionCompareModal
+           versions={versions}
+           v1Id={selectedForCompare[0]}
+           v2Id={selectedForCompare[1]}
+           onClose={() => setShowCompareModal(false)}
+        />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <p className="text-[9px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Version Manager</p>
@@ -24,31 +60,52 @@ export default function VersionManager({
             {versions.length}개 버전 · {isFree ? '최대 2개 (Free)' : '무제한 (Pro)'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={disabled || !canAdd}
-          className="px-3 py-2 text-[10px] uppercase tracking-widest font-semibold bg-primary/20 border border-primary/40 hover:bg-primary/30 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-        >
-          ✨ Generate Variation
-          {!canAdd && <span className="text-[8px] ml-1 opacity-60">PRO</span>}
-        </button>
+        <div className="flex items-center gap-2">
+          {isCompareMode && selectedForCompare.length === 2 && (
+            <button
+               type="button"
+               onClick={handleOpenCompare}
+               className="px-3 py-2 text-[10px] uppercase tracking-widest font-semibold bg-teal-500/20 border border-teal-500/40 hover:bg-teal-500/30 text-white rounded-lg transition-all"
+            >
+               ⚖️ Compare Versions
+            </button>
+          )}
+          <button
+             type="button"
+             onClick={handleToggleCompareMode}
+             className={`px-3 py-2 text-[10px] uppercase tracking-widest font-semibold rounded-lg transition-all border ${isCompareMode ? 'bg-primary/20 border-primary/40 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'}`}
+          >
+             {isCompareMode ? 'Cancel Compare' : 'Compare Mode'}
+          </button>
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={disabled || !canAdd || isCompareMode}
+            className="px-3 py-2 text-[10px] uppercase tracking-widest font-semibold bg-primary/20 border border-primary/40 hover:bg-primary/30 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            ✨ Generate Variation
+            {!canAdd && <span className="text-[8px] ml-1 opacity-60">PRO</span>}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
         {versions.map((version) => {
-          const isActive = activeVersionId === version.id;
+          const isActive = activeVersionId === version.id && !isCompareMode;
           const isConfirming = confirmDeleteId === version.id;
+          const isSelectedForCompare = selectedForCompare.includes(version.id);
 
           return (
             <div
               key={version.id}
-              className={`rounded-lg border p-3 transition-all cursor-pointer ${
+              className={`rounded-lg border p-3 transition-all cursor-pointer relative overflow-hidden ${
                 isActive
                   ? 'bg-primary/15 border-primary/50 shadow-md shadow-primary/10'
+                  : isSelectedForCompare
+                  ? 'bg-teal-500/15 border-teal-500/50 shadow-md shadow-teal-500/10' 
                   : 'bg-white/[0.02] border-white/10 hover:border-white/25 hover:bg-white/[0.05]'
               }`}
-              onClick={() => onSelect?.(version)}
+              onClick={() => handleSelectVersion(version)}
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-white">

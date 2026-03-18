@@ -34,16 +34,46 @@ function fingerprint(input) {
   return crypto.createHash('sha1').update(raw).digest('hex');
 }
 
+// ─── Explicit content keywords for YouTube filtering ───
+const EXPLICIT_KEYWORDS = ['explicit', 'uncensored', '18+', 'adult', 'nsfw'];
+
+function normalizeKey(title = '', artist = '') {
+  return `${title.toLowerCase().replace(/[^a-z0-9가-힣]/g, '')}::${artist.toLowerCase().replace(/[^a-z0-9가-힣]/g, '')}`;
+}
+
 function dedupeTracks(items = [], globalSeenStr = new Set(), globalSeenIds = new Set()) {
   return items.filter((item) => {
-    const key = `${(item.track_title || '').toLowerCase()}::${(item.artist || '').toLowerCase()}`;
-    const trackId = item.spotify_track_id || item.youtube_video_id;
+    const key = normalizeKey(item.track_title, item.artist);
 
+    // Cross-compare: collect BOTH Spotify Track ID and YouTube Video ID
+    const spotifyId = item.spotify_track_id || '';
+    const youtubeId = item.youtube_video_id || '';
+
+    // Check title+artist duplicate
     if (!key || globalSeenStr.has(key)) return false;
-    if (trackId && globalSeenIds.has(trackId)) return false;
+
+    // Check ID duplicates (cross-platform: same ID from either source)
+    if (spotifyId && globalSeenIds.has(spotifyId)) return false;
+    if (youtubeId && globalSeenIds.has(youtubeId)) return false;
 
     globalSeenStr.add(key);
-    if (trackId) globalSeenIds.add(trackId);
+    if (spotifyId) globalSeenIds.add(spotifyId);
+    if (youtubeId) globalSeenIds.add(youtubeId);
+    return true;
+  });
+}
+
+function filterExplicitContent(items = []) {
+  return items.filter((item) => {
+    // Spotify: explicit flag already filtered in provider, but double-check
+    if (item.source === 'spotify' && item.explicit === true) return false;
+
+    // YouTube: check title + artist for explicit keywords
+    if (item.source === 'youtube') {
+      const text = `${item.track_title || ''} ${item.artist || ''}`.toLowerCase();
+      if (EXPLICIT_KEYWORDS.some((kw) => text.includes(kw))) return false;
+    }
+
     return true;
   });
 }
@@ -258,7 +288,7 @@ async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, yout
     metricsService.track({ type: 'music_provider_error', provider: 'spotify', strategy: strategyName, error: error.message });
   }
 
-  const spotifyFiltered = filterTracks(dedupeTracks(spotify, globalSeenStr, globalSeenIds), excludes);
+  const spotifyFiltered = filterExplicitContent(filterTracks(dedupeTracks(spotify, globalSeenStr, globalSeenIds), excludes));
   const spotifyPlayableCount = spotifyFiltered.filter(isPlayableTrack).length;
 
   try {
@@ -271,7 +301,7 @@ async function searchStrategyTracks(strategyName, strategy, cacheKeyPrefix, yout
     metricsService.track({ type: 'music_provider_error', provider: 'youtube', strategy: strategyName, error: error.message });
   }
 
-  const merged = filterTracks(dedupeTracks([...spotifyFiltered, ...youtube], globalSeenStr, globalSeenIds), excludes);
+  const merged = filterExplicitContent(filterTracks(dedupeTracks([...spotifyFiltered, ...youtube], globalSeenStr, globalSeenIds), excludes));
   const playableFirst = [
     ...merged.filter(isPlayableTrack),
     ...merged.filter((item) => !isPlayableTrack(item)),

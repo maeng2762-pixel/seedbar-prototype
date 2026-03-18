@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
 import useStore from '../store/useStore';
+import useAuthStore from '../store/useAuthStore';
 import FlowPatternSimulator from './FlowPatternSimulator';
 import MusicRecommendationPanel from './MusicRecommendationPanel';
+import MovementReferenceLibrary from './MovementReferenceLibrary';
 import RewriteButton from './studio/RewriteButton';
 import VariationGenerator from './studio/VariationGenerator';
 import TimelineNavigator from './studio/TimelineNavigator';
@@ -10,6 +12,7 @@ import AutosaveIndicator from './studio/AutosaveIndicator';
 import ProjectHeader from './studio/ProjectHeader';
 import StudioToolbar from './studio/StudioToolbar';
 import VersionManager from './studio/VersionManager';
+import ExportPackageModal from './ExportPackageModal';
 import { generateFlowFromTimeline } from '../services/aiPipeline';
 import { getPlanHeaders } from '../lib/subscriptionContext';
 import { apiUrl } from '../lib/apiClient';
@@ -79,17 +82,20 @@ function parseTimelineTimeToSeconds(value) {
 
 export default function ChoreographyDraft({ data, projectId = null, currentPlan = 'free', policy = null, dancersCount = 5, onDataUpdate, onOpenUpgrade }) {
     const language = useStore((s) => s.language);
+    const token = useAuthStore((s) => s.token);
     const isKr = language === 'KR';
 
     const chartRef = useRef(null);
     const [isExporting, setIsExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState("");
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [selectedTimelineTime, setSelectedTimelineTime] = useState(null);
     const [selectedDancerRole, setSelectedDancerRole] = useState(null);
 
     const [timelineItems, setTimelineItems] = useState(data?.timing?.timeline || []);
     const [expandedCues, setExpandedCues] = useState({});
     const [flowPatternData, setFlowPatternData] = useState(data?.flow?.flow_pattern || []);
+    const [showRefSelectModal, setShowRefSelectModal] = useState(null);
     const {
         setProjectId,
         versions,
@@ -460,15 +466,27 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 ) : null}
             </div>
 
-            {/* STEP 1: Title Generator — Hammer-Hit v3.0 */}
+            {/* STEP 1: Title Generator — Hammer-Hit v4.0 (Diversity Engine) */}
             <div className="bg-black/20 backdrop-blur-md border border-white/5 rounded-none p-10">
-                <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 mb-2 flex items-center gap-3">
-                    <span className="w-6 h-[1px] bg-slate-500"></span>
-                    {isKr ? "추천 작품 제목" : "Recommended Titles"}
+                <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="w-6 h-[1px] bg-slate-500"></span>
+                        {isKr ? "추천 작품 제목" : "Recommended Titles"}
+                    </div>
+                    {draftData.titles._tone && (
+                        <span className="text-[9px] bg-white/5 border border-white/10 text-white/40 px-3 py-1 rounded tracking-widest uppercase">
+                            🎨 Tone: {draftData.titles._tone}
+                        </span>
+                    )}
                 </h2>
                 {draftData.titles._domain && (
-                    <p className="text-[9px] uppercase tracking-widest text-[#5B13EC]/60 font-mono mb-8 ml-9">
+                    <p className="text-[9px] uppercase tracking-widest text-[#5B13EC]/60 font-mono mb-4 ml-9">
                         Domain: {draftData.titles._domain}
+                        {draftData.titles._structures && (
+                            <span className="ml-3 text-teal-500/50">
+                                + Structures: {draftData.titles._structures.join(', ')}
+                            </span>
+                        )}
                     </p>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -480,12 +498,14 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                                 radical: { icon: '🔪', label: isKr ? '파격적 직설' : 'Radical Directness' },
                                 surreal: { icon: '🌀', label: isKr ? '초현실적 / 추상' : 'Abstract / Surreal' },
                                 minimalist: { icon: '▫️', label: isKr ? '미니멀 / 타이포그래피' : 'Minimalist' },
+                                extended1: { icon: '✦', label: isKr ? '확장 구조 I' : 'Extended Structure I' },
+                                extended2: { icon: '✧', label: isKr ? '확장 구조 II' : 'Extended Structure II' },
                             };
-                            const info = scaleLabels[style] || { icon: '', label: style };
+                            const info = scaleLabels[style] || { icon: '◆', label: style };
                             const en = (typeof titleObj === 'object' && titleObj !== null) ? (titleObj.en || titleObj.kr || '') : (titleObj || '');
                             const kr = (typeof titleObj === 'object' && titleObj !== null) ? (titleObj.kr || '') : '';
                             return (
-                                <div key={style} className="flex flex-col gap-2">
+                                <div key={style} className={`flex flex-col gap-2 ${style.startsWith('extended') ? 'border-t border-white/5 pt-4' : ''}`}>
                                     <span className="text-[9px] uppercase tracking-widest text-slate-400 font-sans">
                                         {info.icon} {info.label}
                                     </span>
@@ -668,6 +688,9 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                             onJump={(item) => {
                                 setSelectedTimelineTime(item?.time || null);
                             }}
+                            onChange={(newItems) => {
+                                setTimelineItems(newItems);
+                            }}
                         />
                     </div>
 
@@ -767,6 +790,35 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                                                     </p>
                                                 </div>
                                             )}
+                                            {/* Attached References */}
+                                            {item.references && item.references.length > 0 && (
+                                                <div className="mt-3 p-3 bg-teal-500/10 border border-teal-500/20 flex flex-col gap-2 rounded-sm">
+                                                    <span className="text-[9px] uppercase tracking-widest text-teal-400 block font-bold">Attached References</span>
+                                                    <div className="flex flex-col gap-2">
+                                                        {item.references.map((ref, rIdx) => (
+                                                            <div key={rIdx} className="flex justify-between items-center bg-black/40 px-3 py-2 border border-white/5 hover:border-white/10 transition-colors rounded">
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="text-teal-400 material-symbols-outlined text-[18px]">play_circle</span>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[10px] text-teal-300 font-bold uppercase tracking-widest">{ref.keyword}</span>
+                                                                        <span className="text-xs text-slate-300">{t(ref.name)}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const newTimeline = [...timelineItems];
+                                                                        newTimeline[idx].references.splice(rIdx, 1);
+                                                                        setTimelineItems(newTimeline);
+                                                                    }}
+                                                                    className="text-slate-500 hover:text-red-400 transition-colors"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-[16px]">close</span>
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -784,6 +836,9 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                         + {isKr ? "새로운 큐 추가" : "Add New Cue"}
                     </button>
                 </div>
+
+                {/* Movement Reference Library */}
+                <MovementReferenceLibrary isKr={isKr} onAddReference={(ref) => setShowRefSelectModal(ref)} />
             </div>
 
             {/* AI STAGE MAP ENGINE (2D Flow Visualization) */}
@@ -853,6 +908,23 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     emotionCurve={data?.narrative?.emotionCurve || []}
                     autoRecommend={true}
                     hideActionButton={true}
+                    initialRecommendations={data?.musicRecommendations}
+                    onRecommendationsFetched={(recs) => {
+                        const next = { ...draftData, musicRecommendations: recs, lastEdited: new Date().toISOString() };
+                        onDataUpdate?.(next);
+                    }}
+                    selectedTrackId={data?.selectedMusicTrack?.id}
+                    onSelectTrack={(track) => {
+                        const next = { 
+                            ...draftData, 
+                            selectedMusicTrack: {
+                                id: track.spotify_track_id || track.youtube_video_id,
+                                ...track
+                            }, 
+                            lastEdited: new Date().toISOString() 
+                        };
+                        onDataUpdate?.(next);
+                    }}
                 />
             </div>
 
@@ -1035,19 +1107,87 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     </div>
                     <div className="relative group">
                         <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] py-1.5 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-xl">
-                            {isKr ? 'PDF: Pro+, PPT: Studio' : 'PDF: Pro+, PPT: Studio'}
+                            {isKr ? 'PPT 및 프로덕션 패키지 생성 (Pro/Studio)' : 'Generate Pitch & Production Package (Pro/Studio)'}
                         </div>
                         <button 
-                            onClick={handleExport}
+                            onClick={() => setIsExportModalOpen(true)}
                             className="px-8 py-3 bg-white text-black font-semibold rounded-none hover:bg-slate-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] text-sm uppercase tracking-widest font-sans flex items-center gap-2"
                         >
-                            <span className="material-symbols-outlined text-[18px]">download</span>
-                            {isKr ? 'PPT / PDF 번들 다운로드' : 'Download PPT/PDF Bundle'}
+                            <span className="material-symbols-outlined text-[18px]">publish</span>
+                            {isKr ? 'PPT / 프로덕션 패키지 발행' : 'Publish Production Package'}
                             <span className="font-bold border-l border-black/20 pl-2 ml-1">{String(currentPlan || 'free').toUpperCase()}</span>
                         </button>
                     </div>
                 </div>
             </div>
+
+            <ExportPackageModal 
+                isOpen={isExportModalOpen} 
+                onClose={() => setIsExportModalOpen(false)} 
+                draftData={draftData} 
+                token={token} 
+                currentPlan={currentPlan} 
+                isKr={isKr} 
+            />
+
+            {/* Modal for Selecting Timeline Section to add Reference */}
+            {showRefSelectModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md">
+                    <div className="bg-[#110D26] border border-white/20 p-8 rounded-none w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)] relative">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 to-[#5B13EC]"></div>
+                        <h3 className="text-white font-serif italic text-xl mb-2 text-center">
+                            {isKr ? "어느 섹션에 레퍼런스를 추가할까요?" : "Add Reference to Section"}
+                        </h3>
+                        <p className="text-center text-xs text-slate-400 mb-6 font-sans">
+                            {isKr ? "적용할 안무 흐름(Timeline Cue)을 선택해주세요." : "Select a timeline cue to attach this movement reference."}
+                        </p>
+                        
+                        <div className="flex justify-center mb-8">
+                           <div className="flex flex-col items-center gap-2 bg-teal-500/10 px-6 py-4 border border-teal-500/30">
+                              <span className="text-teal-400 font-bold uppercase tracking-widest text-[10px]">Reference</span>
+                              <span className="text-white text-sm">{t(showRefSelectModal.name)}</span>
+                           </div>
+                        </div>
+
+                        <div className="max-h-64 overflow-y-auto pr-2 space-y-2 mb-8 custom-scrollbar">
+                            {timelineItems.map((item, idx) => (
+                                <button 
+                                    key={item.id}
+                                    onClick={() => {
+                                        const newTimeline = [...timelineItems];
+                                        if (!newTimeline[idx].references) newTimeline[idx].references = [];
+                                        newTimeline[idx].references.push(showRefSelectModal);
+                                        setTimelineItems(newTimeline);
+                                        setExpandedCues(prev => ({...prev, [item.id]: true}));
+                                        setShowRefSelectModal(null);
+                                        // Scroll to that element seamlessly
+                                        setTimeout(() => {
+                                            document.getElementById('section-movement')?.scrollIntoView({ behavior: 'smooth' });
+                                        }, 100);
+                                    }}
+                                    className="w-full text-left bg-black/40 hover:bg-white/10 border border-white/10 px-6 py-4 flex items-center justify-between transition-colors group"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-sans text-[#5B13EC] font-bold text-lg">{item.time}</span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-white text-sm">{t(item.stage)}</span>
+                                            <span className="text-slate-500 text-[10px] uppercase tracking-widest">{t(item.action)}</span>
+                                        </div>
+                                    </div>
+                                    <span className="material-symbols-outlined text-teal-400 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:scale-110">add_circle</span>
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <button 
+                            onClick={() => setShowRefSelectModal(null)}
+                            className="w-full py-3 bg-white/5 text-slate-400 hover:text-white border border-white/10 hover:bg-white/10 transition-colors uppercase tracking-widest font-sans text-xs"
+                        >
+                            {isKr ? "취소" : "Cancel"}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

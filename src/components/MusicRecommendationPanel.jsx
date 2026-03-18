@@ -7,7 +7,44 @@ const STRATEGY_LABEL = {
   counterpoint: { ko: '차별화', en: '💎 Counterpoint', color: 'from-violet-500/20 to-indigo-500/20 border-violet-500/30 text-violet-300' },
 };
 
-function TrackCard({ track, strategy }) {
+// ─── Client-side filters (safety net after backend) ───
+const EXPLICIT_KEYWORDS = ['explicit', 'uncensored', '18+', 'adult', 'nsfw'];
+
+function normalizeStr(s = '') {
+  return s.toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '');
+}
+
+/** Remove duplicates by title+artist AND cross-platform ID comparison */
+function clientDedupe(tracks = []) {
+  const seenKeys = new Set();
+  const seenIds = new Set();
+  return tracks.filter((t) => {
+    const key = `${normalizeStr(t.track_title)}::${normalizeStr(t.artist)}`;
+    if (!key || seenKeys.has(key)) return false;
+    const spId = t.spotify_track_id || '';
+    const ytId = t.youtube_video_id || '';
+    if (spId && seenIds.has(spId)) return false;
+    if (ytId && seenIds.has(ytId)) return false;
+    seenKeys.add(key);
+    if (spId) seenIds.add(spId);
+    if (ytId) seenIds.add(ytId);
+    return true;
+  });
+}
+
+/** Filter explicit content from YouTube tracks by keyword matching */
+function clientFilterExplicit(tracks = []) {
+  return tracks.filter((t) => {
+    if (t.source === 'spotify' && t.explicit === true) return false;
+    if (t.source === 'youtube') {
+      const text = `${t.track_title || ''} ${t.artist || ''}`.toLowerCase();
+      if (EXPLICIT_KEYWORDS.some((kw) => text.includes(kw))) return false;
+    }
+    return true;
+  });
+}
+
+function TrackCard({ track, strategy, isSelected, onSelect }) {
   const [showPlayer, setShowPlayer] = useState(false);
   const isSpotify = track.source === 'spotify';
   const isYouTube = track.source === 'youtube';
@@ -28,9 +65,12 @@ function TrackCard({ track, strategy }) {
     <div className="group rounded-xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm hover:border-white/20 hover:bg-white/[0.07] transition-all duration-300">
       {/* Header: Strategy badge + duration */}
       <div className="mb-3 flex items-center justify-between gap-2">
-        <span className={`rounded-full bg-gradient-to-r ${strategyStyle.color || 'bg-primary/20 text-primary'} border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider`}>
-          {strategyStyle.en || strategy}
-        </span>
+        <div className="flex items-center gap-2">
+          {isSelected && <span className="text-green-400 text-sm">✅</span>}
+          <span className={`rounded-full bg-gradient-to-r ${strategyStyle.color || 'bg-primary/20 text-primary'} border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider`}>
+            {strategyStyle.en || strategy}
+          </span>
+        </div>
         <span className="text-[10px] text-slate-500 font-mono">{track.duration || '3:00'}</span>
       </div>
 
@@ -79,6 +119,16 @@ function TrackCard({ track, strategy }) {
         ) : hasPreview ? (
           <audio controls preload="none" className="h-8 flex-1 min-w-0" src={track.actual_audio} />
         ) : null}
+
+        <button
+          type="button"
+          onClick={() => onSelect(track)}
+          className={`px-3 py-2 text-[11px] font-semibold rounded-lg transition-all border ${
+            isSelected ? 'bg-green-500/20 text-green-300 border-green-500/40' : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border-white/10'
+          }`}
+        >
+          {isSelected ? '선택됨' : '선택하기'}
+        </button>
 
         {track.source_url ? (
           <a
@@ -138,6 +188,10 @@ export default function MusicRecommendationPanel({
   emotionCurve,
   autoRecommend = false,
   hideActionButton = false,
+  initialRecommendations = null,
+  onRecommendationsFetched = null,
+  selectedTrackId = null,
+  onSelectTrack = null,
 }) {
   const {
     loading,
@@ -146,18 +200,24 @@ export default function MusicRecommendationPanel({
     fingerprint,
     recommendations,
     fetchRecommendations,
+    setRecommendations,
   } = useMusicRecommendationStore();
 
   const hasResult = useMemo(() => {
     return Object.values(recommendations || {}).some((arr) => Array.isArray(arr) && arr.length > 0);
   }, [recommendations]);
 
-  const onRecommend = () => {
-    fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve });
+  const onRecommend = async () => {
+    await fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve });
   };
 
   const autoKeyRef = useRef('');
   useEffect(() => {
+    if (initialRecommendations) {
+      setRecommendations(initialRecommendations);
+      return;
+    }
+
     if (!autoRecommend) return;
     const key = JSON.stringify({
       genre: genre || '',
@@ -168,12 +228,19 @@ export default function MusicRecommendationPanel({
       tempo: tempo || '',
       emotionCurve: Array.isArray(emotionCurve) ? emotionCurve : [],
     });
-    if (autoKeyRef.current === key || loading) return;
+    if (autoKeyRef.current === key || loading || hasResult) return;
     autoKeyRef.current = key;
     fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve });
-  }, [autoRecommend, genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, loading, fetchRecommendations]);
+  }, [autoRecommend, genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, loading, fetchRecommendations, initialRecommendations, setRecommendations, hasResult]);
+
+  useEffect(() => {
+    if (onRecommendationsFetched && hasResult && recommendations !== initialRecommendations) {
+      onRecommendationsFetched(recommendations);
+    }
+  }, [recommendations, hasResult, onRecommendationsFetched, initialRecommendations]);
 
   // Flatten all tracks from all strategies, filter only real provider results
+  // Apply client-side dedupe + explicit filter as safety net
   const allTracks = useMemo(() => {
     if (!recommendations) return [];
     const strategies = ['trend', 'balanced', 'counterpoint'];
@@ -186,7 +253,8 @@ export default function MusicRecommendationPanel({
         }
       }
     }
-    return tracks;
+    // Remove duplicates (title+artist & cross-platform ID) and explicit content
+    return clientFilterExplicit(clientDedupe(tracks));
   }, [recommendations]);
 
   // Group by strategy for display, show up to 2 per strategy for variety
@@ -239,7 +307,13 @@ export default function MusicRecommendationPanel({
             <div key={strategy}>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {tracks.map((track, idx) => (
-                  <TrackCard key={`${strategy}-${idx}`} track={track} strategy={strategy} />
+                  <TrackCard 
+                    key={`${strategy}-${idx}`} 
+                    track={track} 
+                    strategy={strategy} 
+                    isSelected={selectedTrackId === (track.spotify_track_id || track.youtube_video_id)}
+                    onSelect={onSelectTrack}
+                  />
                 ))}
               </div>
             </div>

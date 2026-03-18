@@ -251,6 +251,7 @@ const useChoreographyStudioStore = create((set, get) => ({
         ...getPlanHeaders(),
       },
       body: JSON.stringify({ autosaveData }),
+      keepalive: true,
     });
     const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) {

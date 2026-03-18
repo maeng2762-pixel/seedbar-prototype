@@ -29,6 +29,8 @@ export class ChoreographyAIPipeline {
         this.constraints = null;      // 현재 세션의 히든 제약 조건
         this.systemPrompt = "";       // 현재 세션의 시스템 프롬프트
         this.recentTitles = [];       // 중복 방지용 최근 제목 목록
+        this.lastUsedStructure = null; // 마지막으로 사용된 제목 구조
+        this.titleTone = null;        // 사용자 선택 톤
     }
 
     /**
@@ -73,10 +75,13 @@ export class ChoreographyAIPipeline {
             console.log('💡 [STEP 2] Generating Concept & Philosophy...');
             const step2Result = await this.step2_ConceptGenerator(input, step1Result);
 
-            // ═══ 중복 방지: 생성된 제목을 히스토리에 등록 ═══
+            // ═══ 중복 방지: 생성된 제목을 히스토리에 등록 (v4.0 — 전체 변이 포함) ═══
             UniquenessChecker.registerOutput(
                 step1Result.scientific?.en || 'Untitled', 
-                step2Result.artisticPhilosophy
+                step2Result.artisticPhilosophy,
+                step1Result,                      // allTitles
+                step1Result._structures || [],     // structures
+                step1Result._tone || null          // tone
             );
 
             // ═══ STEP 3: AI Choreography Engine (Narrative + Timing) ═══
@@ -519,12 +524,204 @@ export class ChoreographyAIPipeline {
     }
 
     _pickRandom(arr) {
+        if (!arr || arr.length === 0) return null;
         return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    _filterUsed(arr, recentTitles) {
-        const filtered = arr.filter(t => !recentTitles.includes(t.en || t));
+    // ═══ TITLE DIVERSITY ENGINE v4.0 ═══
+
+    /** Jaccard similarity between two strings (word-level) */
+    _jaccardSimilarity(a, b) {
+        if (!a || !b) return 0;
+        const wordsA = new Set(a.toLowerCase().replace(/[^a-z0-9가-힣\s]/g, '').split(/\s+/).filter(Boolean));
+        const wordsB = new Set(b.toLowerCase().replace(/[^a-z0-9가-힣\s]/g, '').split(/\s+/).filter(Boolean));
+        if (wordsA.size === 0 || wordsB.size === 0) return 0;
+        const intersection = new Set([...wordsA].filter(w => wordsB.has(w)));
+        const union = new Set([...wordsA, ...wordsB]);
+        return intersection.size / union.size;
+    }
+
+    /** Check if a title is too similar to any existing title */
+    _isTooSimilar(newTitle, existingTitles, threshold = 0.4) {
+        const en = (typeof newTitle === 'object') ? (newTitle.en || '') : newTitle;
+        for (const existing of existingTitles) {
+            const existEn = (typeof existing === 'object') ? (existing.en || '') : existing;
+            if (en === existEn) return true; // exact match
+            if (this._jaccardSimilarity(en, existEn) >= threshold) return true;
+        }
+        return false;
+    }
+
+    /** Track keyword frequency and penalize overused words */
+    _getOverusedKeywords() {
+        const history = (globalThis.__seedbar_history || []);
+        const wordCount = {};
+        const BANNED_THRESHOLD = 3; // word used 3+ times in recent history → penalize
+        history.forEach(h => {
+            const words = (h.title || '').toLowerCase().split(/\s+/);
+            words.forEach(w => { wordCount[w] = (wordCount[w] || 0) + 1; });
+        });
+        return new Set(Object.keys(wordCount).filter(w => wordCount[w] >= BANNED_THRESHOLD));
+    }
+
+    /** Filter out titles containing overused keywords */
+    _filterOverusedKeywords(arr) {
+        const overused = this._getOverusedKeywords();
+        if (overused.size === 0) return arr;
+        const filtered = arr.filter(t => {
+            const en = (t.en || '').toLowerCase();
+            const words = en.split(/\s+/);
+            return !words.some(w => overused.has(w));
+        });
         return filtered.length > 0 ? filtered : arr;
+    }
+
+    _filterUsed(arr, recentTitles) {
+        // Phase 1: exact match filter
+        let filtered = arr.filter(t => !recentTitles.includes(t.en || t));
+        // Phase 2: similarity filter
+        filtered = filtered.filter(t => !this._isTooSimilar(t, recentTitles.map(r => ({ en: r }))));
+        // Phase 3: overused keyword filter
+        filtered = this._filterOverusedKeywords(filtered);
+        return filtered.length > 0 ? filtered : arr;
+    }
+
+    // ═══ EXPANDED TITLE VOCABULARY POOLS (8 Structural Patterns) ═══
+
+    _getExtendedTitlePool() {
+        return {
+            // 1. 시적 단문형 (Poetic Short)
+            poetic: [
+                { en: 'Before the Flesh Remembers', kr: '살이 기억하기 전에' },
+                { en: 'Where Breath Ends', kr: '호흡이 끝나는 곳' },
+                { en: 'A Pulse Without a Name', kr: '이름 없는 맥박' },
+                { en: 'The Weight of Waking', kr: '깨어남의 무게' },
+                { en: 'After the Last Exhale', kr: '마지막 날숨 이후' },
+                { en: 'Between Two Skins', kr: '두 피부 사이에서' },
+                { en: 'What the Spine Knows', kr: '척추가 아는 것' },
+                { en: 'Residue of Motion', kr: '움직임의 잔여물' },
+                { en: 'Dust That Dances', kr: '춤추는 먼지' },
+                { en: 'Barely Touching', kr: '간신히 닿는' },
+            ],
+            // 2. 개념어 조합형 (Conceptual Compound)
+            conceptual: [
+                { en: 'Visceral Cartography', kr: '내장의 지도학' },
+                { en: 'Dissolved Architecture', kr: '용해된 건축' },
+                { en: 'Kinetic Archaeology', kr: '운동의 고고학' },
+                { en: 'Temporal Membrane', kr: '시간의 막' },
+                { en: 'Somatic Manuscript', kr: '체성 원고' },
+                { en: 'Gravitational Hymn', kr: '중력의 찬가' },
+                { en: 'Liquid Geometry', kr: '유동하는 기하학' },
+                { en: 'Fragile Topography', kr: '연약한 지형학' },
+                { en: 'Orbital Elegy', kr: '궤도의 비가' },
+                { en: 'Peripheral Resonance', kr: '주변부의 공명' },
+            ],
+            // 3. 감각적 문장형 (Sensory Sentence)
+            sensory: [
+                { en: 'The Sound of Skin Tearing Slowly', kr: '피부가 천천히 찢어지는 소리' },
+                { en: 'Tasting the Color of Departure', kr: '이별의 색을 맛보다' },
+                { en: 'How Heavy Is a Sigh', kr: '한숨의 무게는 얼마인가' },
+                { en: 'The Temperature of Forgetting', kr: '잊음의 온도' },
+                { en: 'Swallowing Light Whole', kr: '빛을 통째로 삼키다' },
+                { en: 'The Texture of Waiting', kr: '기다림의 질감' },
+                { en: 'Hearing the Shape of Falling', kr: '추락의 형태를 듣다' },
+                { en: 'How Silence Smells at Dawn', kr: '새벽의 침묵은 어떤 냄새인가' },
+                { en: 'The Aftertaste of Collision', kr: '충돌의 잔맛' },
+                { en: 'Touching the Frequency of Grief', kr: '슬픔의 주파수를 만지다' },
+            ],
+            // 4. 공간/시간 은유형 (Spatial-Temporal)
+            spatialTemporal: [
+                { en: 'Room 4, Floor -2', kr: '지하 2층 4번 방' },
+                { en: 'The Corridor at 3:47 AM', kr: '새벽 3시 47분의 복도' },
+                { en: 'Between the Walls and the Body', kr: '벽과 몸 사이에서' },
+                { en: 'Under the Stage, After Everyone Leaves', kr: '모두가 떠난 후, 무대 아래' },
+                { en: 'A Map Drawn by Falling', kr: '추락이 그린 지도' },
+                { en: 'The Architecture of 5 Seconds', kr: '5초의 건축' },
+                { en: 'Latitude of Absence', kr: '부재의 위도' },
+                { en: 'Threshold of the Unfinished', kr: '미완의 문턱' },
+                { en: 'The Geography of a Wound', kr: '상처의 지리학' },
+                { en: 'Coordinates of Dissolution', kr: '용해의 좌표' },
+            ],
+            // 5. 신체 중심형 (Body-Centric)
+            bodyCentric: [
+                { en: 'The Iliac Crest Monologue', kr: '장골능선 독백' },
+                { en: 'Vertebral Drift', kr: '척추의 표류' },
+                { en: 'Cartilage and Confession', kr: '연골과 고백' },
+                { en: 'What the Pelvis Refuses', kr: '골반이 거부하는 것' },
+                { en: 'Tendon, Tension, Tenderness', kr: '힘줄, 긴장, 부드러움' },
+                { en: 'The Bone Beneath the Story', kr: '이야기 아래의 뼈' },
+                { en: 'Dermal Inscription', kr: '피부에 새긴 글씨' },
+                { en: 'The Tongue of the Spine', kr: '척추의 혀' },
+                { en: 'Marrow Song', kr: '골수의 노래' },
+                { en: 'Fascia Memory', kr: '근막의 기억' },
+            ],
+            // 6. 추상 개념형 (Abstract)
+            abstract: [
+                { en: 'The Asymptote of Belonging', kr: '소속의 점근선' },
+                { en: 'Inverted Horizon', kr: '뒤집힌 수평선' },
+                { en: 'Entropy in Reverse', kr: '역방향 엔트로피' },
+                { en: 'The Paradox of Stillness', kr: '정적의 역설' },
+                { en: 'Negative Space Sonata', kr: '네거티브 스페이스 소나타' },
+                { en: 'Non-Euclidean Desire', kr: '비유클리드적 욕망' },
+                { en: 'Recursion Without Origin', kr: '기원 없는 재귀' },
+                { en: 'The Curvature of Regret', kr: '후회의 곡률' },
+                { en: 'Probability of Touch', kr: '접촉의 확률' },
+                { en: 'Negative Theology of the Body', kr: '신체의 부정신학' },
+            ],
+            // 7. 서사형 (Narrative Fragment)
+            narrative: [
+                { en: 'She Forgot How to Stand', kr: '그녀는 서는 법을 잊었다' },
+                { en: 'What Happens After the Music Stops', kr: '음악이 멈춘 후에 일어나는 일' },
+                { en: 'They Stopped Counting the Days', kr: '그들은 날을 세는 것을 그만두었다' },
+                { en: 'When the Floor Became Ocean', kr: '바닥이 바다가 되었을 때' },
+                { en: 'I Tried to Return But the Room Was Gone', kr: '돌아가려 했지만 방은 사라졌다' },
+                { en: 'No One Taught Us How to Dissolve', kr: '아무도 사라지는 법을 가르쳐주지 않았다' },
+                { en: 'The Letter I Wrote With My Body', kr: '몸으로 쓴 편지' },
+                { en: 'A Rehearsal for Something That Never Comes', kr: '오지 않는 것을 위한 리허설' },
+                { en: 'We Practiced Falling Until It Felt Like Flying', kr: '날아가는 것 같을 때까지 떨어지는 연습을 했다' },
+                { en: 'The Day My Shadow Left Without Me', kr: '그림자가 나 없이 떠난 날' },
+            ],
+            // 8. 역설형 (Paradoxical)
+            paradoxical: [
+                { en: 'The Loudest Silence', kr: '가장 큰 침묵' },
+                { en: 'Drowning in Oxygen', kr: '산소에 빠져든다' },
+                { en: 'The Warmth of Breaking', kr: '부서지는 것의 따뜻함' },
+                { en: 'Weightless Gravity', kr: '무게 없는 중력' },
+                { en: 'Blinding Darkness', kr: '눈부신 어둠' },
+                { en: 'Frozen Explosion', kr: '얼어붙은 폭발' },
+                { en: 'Beautiful Disintegration', kr: '아름다운 해체' },
+                { en: 'The Violence of Gentleness', kr: '부드러움의 폭력' },
+                { en: 'Permanent Impermanence', kr: '영구적 무상함' },
+                { en: 'The Order of Chaos', kr: '혼돈의 질서' },
+            ],
+        };
+    }
+
+    /** Tone filtering: map tone names to preferred structural categories */
+    _getToneMapping() {
+        return {
+            poetic:       ['poetic', 'sensory', 'spatialTemporal'],
+            modern:       ['conceptual', 'abstract', 'paradoxical'],
+            cold:         ['abstract', 'spatialTemporal', 'conceptual'],
+            experimental: ['paradoxical', 'abstract', 'bodyCentric'],
+            emotional:    ['narrative', 'sensory', 'poetic'],
+            abstractTone: ['abstract', 'paradoxical', 'conceptual'],
+            direct:       ['narrative', 'bodyCentric', 'sensory'],
+        };
+    }
+
+    /** Get all 8 structure category keys */
+    _getStructureKeys() {
+        return ['poetic', 'conceptual', 'sensory', 'spatialTemporal', 'bodyCentric', 'abstract', 'narrative', 'paradoxical'];
+    }
+
+    /** Pick a structure that differs from lastUsedStructure */
+    _pickDiverseStructure(preferredStructures = null) {
+        const allKeys = preferredStructures || this._getStructureKeys();
+        const available = allKeys.filter(k => k !== this.lastUsedStructure);
+        const picked = this._pickRandom(available.length > 0 ? available : allKeys);
+        this.lastUsedStructure = picked;
+        return picked;
     }
 
     _getSimilarDomain(keyword) {
@@ -544,7 +741,7 @@ export class ChoreographyAIPipeline {
         return sim[keyword] || 'Sorrow';
     }
 
-    // ═══ STEP 1: Title Generator (Hammer-Hit v3.0) ═══
+    // ═══ STEP 1: Title Generator (Hammer-Hit v4.0 — Diversity Engine) ═══
     async step1_TitleGenerator(input) {
         await new Promise(r => setTimeout(r, 600));
 
@@ -555,6 +752,7 @@ export class ChoreographyAIPipeline {
         const primaryEn = this._getKeywordTranslation(primaryKw);
         const secondaryEn = this._getKeywordTranslation(secondaryKw);
 
+        // === Domain-based titles (Original Hammer-Hit) ===
         const domainMap = this._getDomainCrossingMap();
         let domainData = domainMap[primaryEn] || domainMap[secondaryEn];
         if (!domainData) {
@@ -566,18 +764,51 @@ export class ChoreographyAIPipeline {
         const surreal = this._pickRandom(this._filterUsed(domainData.metaphors.surreal, this.recentTitles));
         const minimalist = this._pickRandom(this._filterUsed(domainData.metaphors.minimalist, this.recentTitles));
 
-        console.log(`   🔨 HAMMER-HIT TITLES v3.0:
-      Input: "${primaryKw}" → Domain: [${domainData.domain}]
-      ⚗️ Scientific:  ${scientific.en} (${scientific.kr})
-      🔪 Radical:     ${radical.en} (${radical.kr})
-      🌀 Surreal:     ${surreal.en} (${surreal.kr})
-      ▫️ Minimalist:  ${minimalist.en} (${minimalist.kr})`);
+        // === Extended Structural Pool (v4.0 — 8 patterns) ===
+        const extPool = this._getExtendedTitlePool();
+        const tone = this.titleTone || input.titleTone || null;
+        const toneMap = this._getToneMapping();
+        const preferredStructures = tone && toneMap[tone] ? toneMap[tone] : null;
+
+        // Pick 2 diverse structural categories for bonus titles
+        const struct1Key = this._pickDiverseStructure(preferredStructures);
+        const struct2Key = this._pickDiverseStructure(preferredStructures);
+
+        const pool1 = this._filterUsed(extPool[struct1Key] || [], this.recentTitles);
+        const pool2 = this._filterUsed(extPool[struct2Key] || [], this.recentTitles);
+
+        const bonusTitle1 = this._pickRandom(pool1);
+        const bonusTitle2 = this._pickRandom(pool2);
+
+        // Validate bonus titles aren't too similar to domain titles
+        const allDomainTitles = [scientific, radical, surreal, minimalist].filter(Boolean);
+        let finalBonus1 = bonusTitle1;
+        let finalBonus2 = bonusTitle2;
+        if (finalBonus1 && this._isTooSimilar(finalBonus1, allDomainTitles)) {
+            finalBonus1 = this._pickRandom(this._filterUsed(extPool[this._pickDiverseStructure()] || [], this.recentTitles));
+        }
+        if (finalBonus2 && this._isTooSimilar(finalBonus2, [...allDomainTitles, finalBonus1].filter(Boolean))) {
+            finalBonus2 = this._pickRandom(this._filterUsed(extPool[this._pickDiverseStructure()] || [], this.recentTitles));
+        }
+
+        console.log(`   🔨 HAMMER-HIT TITLES v4.0 (Diversity Engine):
+      Input: "${primaryKw}" → Domain: [${domainData.domain}] | Tone: ${tone || 'auto'}
+      ⚗️ Scientific:  ${scientific?.en} (${scientific?.kr})
+      🔪 Radical:     ${radical?.en} (${radical?.kr})
+      🌀 Surreal:     ${surreal?.en} (${surreal?.kr})
+      ▫️ Minimalist:  ${minimalist?.en} (${minimalist?.kr})
+      ✦ Extended-1 [${struct1Key}]:  ${finalBonus1?.en || '-'} (${finalBonus1?.kr || '-'})
+      ✦ Extended-2 [${struct2Key}]:  ${finalBonus2?.en || '-'} (${finalBonus2?.kr || '-'})`);
 
         return { 
             scientific, radical, surreal, minimalist,
+            extended1: finalBonus1 || { en: 'Untitled Fragment', kr: '무제 파편' },
+            extended2: finalBonus2 || { en: 'Unnamed Tremor', kr: '이름 없는 떨림' },
             _domain: domainData.domain,
             _primaryEn: primaryEn,
             _secondaryEn: secondaryEn,
+            _structures: [struct1Key, struct2Key],
+            _tone: tone,
         };
     }
 

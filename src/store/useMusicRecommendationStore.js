@@ -21,6 +21,12 @@ const useMusicRecommendationStore = create((set) => ({
     counterpoint: null,
   },
 
+  setRecommendations: (recommendations) => set({
+    loading: false,
+    error: null,
+    recommendations: recommendations || initialRecommendations,
+  }),
+
   reset: () => set({
     loading: false,
     error: null,

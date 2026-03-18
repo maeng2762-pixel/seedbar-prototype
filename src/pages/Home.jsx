@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import useStore from '../store/useStore';
+import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
 import LanguageToggle from '../components/LanguageToggle';
 
 const Home = () => {
     const navigate = useNavigate();
     const { language } = useStore();
+    const { projects, listProjects, setProjectId } = useChoreographyStudioStore();
 
     const i18n = {
         EN: {
@@ -43,13 +45,35 @@ const Home = () => {
 
     const t = i18n[language] || i18n.EN;
 
-    const recentProject = {
-        id: 'mock-1',
-        title: 'Liquid Grace Draft',
-        time: '2 hours ago',
-        timeKo: '2시간 전',
-        thumbnail: 'https://lh3.googleusercontent.com/aida-public/AB6AXuATo1NG19Rt5g4x2eojodNB3BkIRKGKoIRirHCzAi4iyB950KaYecpg36Z3PIsukW4FF6kTJlZOHEwp8TD4Acbn71FyFSIjhye2NW3YpK6U9Q--xB0YPiZUjfzAyFhTsX64cJDqqml39-UzNDPCKKzFhZHk0nYCdC0gXwxwP6UJLH9CSsW-3NSj7UTBjYpLhy90P3zrUwgxdKHDB-8-UFT-Ncw3f2e6Xh8pmSRfTCjuL4iKOrMatIbg5IoAknwdKrSXlJ_-Hullbg'
+    useEffect(() => {
+        listProjects().catch(() => {});
+    }, [listProjects]);
+
+    // Find the single most recently modified project
+    const latestProject = projects?.length 
+        ? [...projects].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0] 
+        : null;
+
+    const formatRelativeTime = (dateStr) => {
+        if (!dateStr) return '';
+        const diffRules = [
+            { max: 60, text: '방금 전', textEn: 'Just now' },
+            { max: 3600, text: '분 전', textEn: ' mins ago', val: 60 },
+            { max: 86400, text: '시간 전', textEn: ' hours ago', val: 3600 },
+            { max: Infinity, text: '일 전', textEn: ' days ago', val: 86400 }
+        ];
+        const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
+        for (let rule of diffRules) {
+            if (seconds < rule.max) {
+                if (rule.max === 60) return language === 'KR' ? rule.text : rule.textEn;
+                const amt = Math.floor(seconds / rule.val);
+                return `${amt}${language === 'KR' ? rule.text : rule.textEn}`;
+            }
+        }
     };
+
+
+    const defaultThumbnailUrl = 'https://lh3.googleusercontent.com/aida-public/AB6AXuATo1NG19Rt5g4x2eojodNB3BkIRKGKoIRirHCzAi4iyB950KaYecpg36Z3PIsukW4FF6kTJlZOHEwp8TD4Acbn71FyFSIjhye2NW3YpK6U9Q--xB0YPiZUjfzAyFhTsX64cJDqqml39-UzNDPCKKzFhZHk0nYCdC0gXwxwP6UJLH9CSsW-3NSj7UTBjYpLhy90P3zrUwgxdKHDB-8-UFT-Ncw3f2e6Xh8pmSRfTCjuL4iKOrMatIbg5IoAknwdKrSXlJ_-Hullbg';
 
     const aiInspirations = [
         { id: 'ai1', title: language === 'KR' ? '감정 기반 움직임' : 'Emotion-based Movement', icon: 'favorite', prompt: { moodKeywords: ['#Emotional'] } },
@@ -102,19 +126,42 @@ const Home = () => {
                 {/* 1. Continue Project */}
                 <section>
                     <h2 className="text-sm font-bold text-white mb-3 tracking-wide">{t.continuePreview}</h2>
-                    <div className="glass-panel p-3 rounded-2xl flex items-center gap-4 bg-white/5 border border-white/10 hover:border-primary/30 transition-colors">
-                        <img src={recentProject.thumbnail} alt={recentProject.title} className="size-16 rounded-xl object-cover opacity-80" />
-                        <div className="flex-1 min-w-0">
-                            <h3 className="text-white text-base font-bold truncate">{recentProject.title}</h3>
-                            <p className="text-slate-400 text-[10px] mt-1">{t.lastEdited}{language === 'KR' ? recentProject.timeKo : recentProject.time}</p>
+                    {latestProject ? (
+                        <div className="glass-panel p-3 rounded-2xl flex items-center gap-4 bg-white/5 border border-primary/20 hover:border-primary/50 transition-colors shadow-[0_0_15px_rgba(91,19,236,0.1)] relative overflow-hidden">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/60"></div>
+                            <img src={latestProject.thumbnailUrl || defaultThumbnailUrl} alt={latestProject.title} className="size-16 rounded-xl object-cover opacity-90 shadow-sm" />
+                            <div className="flex-1 min-w-0 pr-2 pb-0.5">
+                                <h3 className="text-white text-[15px] font-bold truncate leading-tight mb-1">{latestProject.title}</h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] bg-white/10 text-primary-light px-1.5 py-0.5 rounded font-bold tracking-wider uppercase">
+                                        {latestProject.status === 'draft_planning' ? (language === 'KR' ? '초안 작성중' : 'Draft') : (language === 'KR' ? '작업 중' : 'In Progress')}
+                                    </span>
+                                    <p className="text-slate-400 text-[10px] truncate">{t.lastEdited}{formatRelativeTime(latestProject.updatedAt)}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    setProjectId(latestProject.id);
+                                    navigate(`/ideation?projectId=${latestProject.id}`, { state: { mode: 'draft' } });
+                                }}
+                                className="shrink-0 bg-primary/90 hover:bg-primary text-white text-[11px] font-bold py-2.5 px-3.5 rounded-xl transition-all active:scale-95 shadow-lg shadow-primary/30 flex items-center gap-1.5"
+                            >
+                                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                                {t.continueBtn}
+                            </button>
                         </div>
-                        <button 
-                            onClick={() => navigate(`/ideation?projectId=${recentProject.id}`, { state: { mode: 'draft' } })}
-                            className="shrink-0 bg-primary/90 hover:bg-primary text-white text-[10px] font-bold py-2 px-3 rounded-xl transition-all active:scale-95 shadow-md shadow-primary/30"
-                        >
-                            {t.continueBtn}
-                        </button>
-                    </div>
+                    ) : (
+                        <div className="glass-panel p-6 rounded-2xl flex flex-col items-center justify-center gap-3 bg-white/5 border border-white/10 text-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[40px] rounded-full pointer-events-none"></div>
+                            <div className="size-12 rounded-full bg-white/5 flex items-center justify-center mb-1">
+                                <span className="material-symbols-outlined text-2xl text-slate-400">inventory_2</span>
+                            </div>
+                            <div>
+                                <h3 className="text-white text-sm font-bold mb-1 tracking-tight">{language === 'KR' ? '최근 작업한 프로젝트가 없습니다.' : 'No recent projects found.'}</h3>
+                                <p className="text-slate-400 text-xs">{language === 'KR' ? '아래에서 새 프로젝트를 시작해보세요.' : 'Start a new creation below.'}</p>
+                            </div>
+                        </div>
+                    )}
                 </section>
 
                 {/* Hero / Main CTAs */}

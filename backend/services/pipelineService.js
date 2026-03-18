@@ -149,3 +149,65 @@ export async function regenerateSection(input, context, section) {
   cacheService.set(key, payload, 60 * 30);
   return payload;
 }
+
+export async function generateExportPackage(draftData, options, context) {
+  const language = options?.language || 'EN';
+  const isKr = language === 'KR';
+
+  let langInstruction = "Ensure all outputs are highly professional and written in strictly elegant English.";
+  if (isKr) {
+    langInstruction = "모든 결과물은 극도로 전문적이고 세련된 한국어로 작성되어야 합니다. 발표용으로 완벽한 문장과 실무진이 바로 이해할 수 있는 명확한 지시어를 사용하세요.";
+  }
+
+  const system = `You are an elite choreographer and art director creating a professional presentation and production package.
+Based on the provided choreography blueprint, generate a highly polished and detailed output.
+${langInstruction}
+Missing information should be proactively generated and filled in with professional standards.
+
+Output JSON Format Requirements:
+- pptSlides: Array of 12 objects. Each object MUST contain EXACTLY these keys:
+  {
+    "slideNumber": integer (1-12),
+    "title": "Slide Title",
+    "coreMessage": "One impactful sentence summarizing the slide's main takeaway.",
+    "subDescription": ["Bullet point 1", "Bullet point 2", "Optional bullet 3"],
+    "visualAid": "Description of the visual to display (e.g. 'Emotion curve chart peaking at 2:00', 'Stage map with center focus')",
+    "presentationPoint": "A distinct note for the presenter emphasizing the nuance or artistic intent of this slide."
+  }
+  Please structure the storyline of the 12 slides exactly as follows:
+  1. Title Page (Project Name, Date, Choreographer)
+  2. Core Concept & Artistic Philosophy
+  3. Form & Structure (Movement Logic & Duality)
+  4. Overall Narrative Flow (Intro -> Development -> Climax -> Resolution)
+  5. Emotion & Energy Curve (Dynamics mapping)
+  6. Stage Utilization Strategy (Zones, paths)
+  7. Section 1 (Intro): Setting the Scene & Primary Action
+  8. Section 2 (Development): Conflict & Build-up
+  9. Section 3 (Climax): Peak Contrast & Rupture
+  10. Section 4 (Resolution): Ending & Breath
+  11. Production Elements: Lighting, Music Texture, Costumes
+  12. Artistic Statement Summary (Q&A / Closing)
+
+- presentationScript: String containing a full presentation script. Use markers like "[Slide 1]" ensuring tone is highly engaging, narrative-driven, and perfectly matched to the slides. Avoid simply reading the bullets; expand on the "presentationPoint" and "coreMessage".
+- stageDirectorDoc: String. Scene Breakdown, Cue Points, Setting changes, and specific instructions for the stage manager (e.g., floor type, entry/exit points, prop placement).
+- lightingDirectorDoc: String. Detailed lighting plot sequence, color palettes, intensity changes, and mood cues.
+`;
+  
+  const user = JSON.stringify({
+    options,
+    blueprint: draftData
+  });
+  
+  const fallback = () => ({
+    pptSlides: [
+      { slideNumber: 1, title: draftData?.titles?.scientific?.en || draftData?.titles?.scientific?.kr || "Project Title", content: "Auto-generated cover", designNotes: "Minimalistic logo" },
+      { slideNumber: 2, title: "Artistic Statement", content: draftData?.concept?.artisticStatement?.en || draftData?.concept?.artisticStatement?.kr || "Artistic statement...", designNotes: "Dark background" }
+    ],
+    presentationScript: "[Slide 1]\nHello, this is the project...\n\n[Slide 2]\nThe core concept is...",
+    stageDirectorDoc: "Stage Requirements\n1. Floor: Marley\n2. Cues: ...",
+    lightingDirectorDoc: "Lighting Cues\n1. Intro: Spotlight..."
+  });
+
+  const packageData = await metricsService.withTiming('export_package_gen', () => llmProvider.highCostJson({ system, user, fallback }));
+  return packageData;
+}

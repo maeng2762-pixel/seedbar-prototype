@@ -430,39 +430,53 @@ export class UniquenessChecker {
      * @returns {Promise<Array<string>>} 최근 제목/키워드 목록
      */
     static async fetchRecentOutputs() {
-        // ═══ 실제 Supabase 연동 코드 (주석 처리) ═══
-        // const { data, error } = await supabase
-        //     .from('project_versions')
-        //     .select('title, philosophy_keywords')
-        //     .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        //     .order('created_at', { ascending: false })
-        //     .limit(50);
-        // if (error) { console.error('[UNIQUE CHECK] DB Error:', error); return []; }
-        // return data.map(d => d.title);
-
-        // ═══ 로컬 시뮬레이터 (In-Memory) ═══
         return UniquenessChecker._getLocalHistory();
     }
 
     /**
-     * 새로 생성된 제목을 히스토리에 등록한다
-     * @param {string} title
+     * 새로 생성된 제목을 히스토리에 등록한다 (v4.0 — 모든 변이 포함)
+     * @param {string} title - 대표 제목
      * @param {string} philosophy
+     * @param {Object} allTitles - { scientific, radical, surreal, minimalist, extended1, extended2 }
+     * @param {Array} structures - 사용된 구조 패턴 키
+     * @param {string} tone - 선택된 톤
      */
-    static registerOutput(title, philosophy) {
+    static registerOutput(title, philosophy, allTitles = null, structures = [], tone = null) {
         if (!globalThis.__seedbar_history) {
             globalThis.__seedbar_history = [];
         }
+
+        // 대표 제목 등록
         globalThis.__seedbar_history.push({
             title,
             philosophy,
+            structures,
+            tone,
             timestamp: Date.now()
         });
+
+        // 확장 제목들도 별도로 등록 (중복 방지 강화)
+        if (allTitles) {
+            const variants = ['scientific', 'radical', 'surreal', 'minimalist', 'extended1', 'extended2'];
+            variants.forEach(key => {
+                const t = allTitles[key];
+                if (t && t.en && t.en !== title) {
+                    globalThis.__seedbar_history.push({
+                        title: t.en,
+                        philosophy: '',
+                        structures,
+                        tone,
+                        timestamp: Date.now()
+                    });
+                }
+            });
+        }
+
         // 24시간 이상 된 항목은 자동 정리
         const cutoff = Date.now() - 24 * 60 * 60 * 1000;
         globalThis.__seedbar_history = globalThis.__seedbar_history.filter(h => h.timestamp > cutoff);
         
-        console.log(`🗃️ [UNIQUE CHECK] Registered: "${title}" | History size: ${globalThis.__seedbar_history.length}`);
+        console.log(`🗃️ [UNIQUE CHECK v4.0] Registered: "${title}" + variants | History size: ${globalThis.__seedbar_history.length} | Structures: [${structures.join(',')}] | Tone: ${tone || 'auto'}`);
     }
 
     /**
@@ -473,5 +487,19 @@ export class UniquenessChecker {
             globalThis.__seedbar_history = [];
         }
         return globalThis.__seedbar_history.map(h => h.title);
+    }
+
+    /**
+     * 키워드 빈도 통계 조회 (v4.0)
+     */
+    static getKeywordFrequency() {
+        const history = globalThis.__seedbar_history || [];
+        const freq = {};
+        history.forEach(h => {
+            (h.title || '').toLowerCase().split(/\s+/).forEach(w => {
+                if (w.length > 2) freq[w] = (freq[w] || 0) + 1;
+            });
+        });
+        return freq;
     }
 }

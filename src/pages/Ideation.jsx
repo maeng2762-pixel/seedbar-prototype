@@ -167,6 +167,11 @@ const Ideation = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const urlProjectId = searchParams.get('projectId');
 
+    const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
+    
+    // We need to know if the dummy state was already pushed
+    const trapStatePushed = useRef(false);
+
     const autosaveTimerRef = useRef(null);
 
     const [projectName, setProjectName] = useState(location.state?.projectName || "");
@@ -175,6 +180,7 @@ const Ideation = () => {
     const [duration, setDuration] = useState(location.state?.duration || "");
     const [moodKeywords, setMoodKeywords] = useState(location.state?.moodKeywords || []);
     const [keywordInput, setKeywordInput] = useState("");
+    const [titleTone, setTitleTone] = useState("");
     const isCompetition = genre === 'Contemporary Dance Competition';
 
     const getDynamicStyles = () => {
@@ -213,6 +219,98 @@ const Ideation = () => {
     };
     const dynamicConcept = getDynamicConcept();
 
+    const hasUnsavedChanges = useMemo(() => {
+        return Boolean(!studioProjectId && (projectName || genre || duration || moodKeywords.length > 0 || peopleCount));
+    }, [studioProjectId, projectName, genre, duration, moodKeywords, peopleCount]);
+
+    const performBackNavigation = () => {
+        // If there's no history or we came directly via URL, navigate to home/fallback
+        if (window.history.state && window.history.state.idx > 0) {
+            navigate(-1);
+        } else {
+            navigate('/home', { replace: true });
+        }
+    };
+
+    const handleBackClick = () => {
+        if (showRegenerateMode && hasUnsavedChanges) {
+            setIsUnsavedModalOpen(true);
+        } else {
+            // Remove our history trap if it exists before navigating back programmatically
+            if (trapStatePushed.current) {
+                window.history.back(); // Pop the dummy trap first
+                setTimeout(() => performBackNavigation(), 10);
+            } else {
+                performBackNavigation();
+            }
+        }
+    };
+
+    const handleSaveAndLeave = async () => {
+        try {
+            await initializeProject({
+                title: projectName || 'Untitled Creation',
+                generatedContent: {
+                    projectStatus: 'draft_planning',
+                    seedbarInput: {
+                        theme: projectName,
+                        genre,
+                        teamSize: peopleCount,
+                        duration,
+                        keywords: moodKeywords
+                    }
+                }
+            });
+            setIsUnsavedModalOpen(false);
+            if (trapStatePushed.current) {
+                window.history.back();
+                setTimeout(() => performBackNavigation(), 10);
+            } else {
+                performBackNavigation();
+            }
+        } catch (e) {
+            console.error(e);
+            setIsUnsavedModalOpen(false);
+            if (trapStatePushed.current) window.history.back();
+            setTimeout(() => performBackNavigation(), 10);
+        }
+    };
+
+    // System back button (popstate) trap
+    useEffect(() => {
+        if (showRegenerateMode && hasUnsavedChanges) {
+            // Push a trap state so system back doesn't immediately leave the page
+            if (!trapStatePushed.current) {
+                window.history.pushState({ trapInfo: 'unsaved' }, '', window.location.href);
+                trapStatePushed.current = true;
+            }
+
+            const handlePopState = (e) => {
+                if (isUnsavedModalOpen) {
+                    // Modal already open and they pressed back again, keep trapped
+                    window.history.pushState({ trapInfo: 'unsaved' }, '', window.location.href);
+                    return;
+                }
+                
+                // Show modal, and replace the popped state to keep them here
+                setIsUnsavedModalOpen(true);
+                window.history.pushState({ trapInfo: 'unsaved' }, '', window.location.href);
+            };
+
+            window.addEventListener('popstate', handlePopState);
+            return () => {
+                window.removeEventListener('popstate', handlePopState);
+            };
+        } else {
+            // If condition no longer holds but we have a trap, remove it
+            if (trapStatePushed.current) {
+                trapStatePushed.current = false;
+                // We pop the trap we made so history is clean
+                // But doing window.history.back() here could trigger other things, just flag it as unused.
+            }
+        }
+    }, [showRegenerateMode, hasUnsavedChanges, isUnsavedModalOpen]);
+
     const handleGenerateProduction = async () => {
         if (isCompetition && !policy?.canUseCompetitionMode) {
             setUpgradeReason(language === 'KR'
@@ -237,12 +335,14 @@ const Ideation = () => {
                 }
             }
 
+            pipeline.titleTone = titleTone || null;
             const result = await pipeline.generateFullChoreography({
                 genre: genre || "Contemporary",
                 dancersCount: parseInt(peopleCount) || 5,
                 duration: duration || "03:00",
                 theme: projectName || "Untitled Creation",
-                keywords: moodKeywords.length > 0 ? moodKeywords : ["#Creative"]
+                keywords: moodKeywords.length > 0 ? moodKeywords : ["#Creative"],
+                titleTone: titleTone || null,
             });
             const payload = sanitizeGeneratedPayload({
                 ...result,
@@ -320,8 +420,15 @@ const Ideation = () => {
             });
         }, 1200);
 
+        const handleBeforeUnload = () => {
+            autosaveProject(generatedData).catch(() => {});
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
         return () => {
             if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            autosaveProject(generatedData).catch(() => {});
         };
     }, [generatedData, studioProjectId, autosaveProject]);
 
@@ -390,13 +497,7 @@ const Ideation = () => {
             <header className="relative z-30 flex flex-wrap items-center justify-between px-4 sm:px-6 pt-8 sm:pt-12 pb-6 gap-y-4">
                 <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
                     <button
-                        onClick={() => {
-                            if (showRegenerateMode) {
-                                setShowRegenerateMode(false);
-                            } else {
-                                navigate(-1);
-                            }
-                        }}
+                        onClick={handleBackClick}
                         className="size-10 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center active:scale-90 transition-transform shrink-0"
                     >
                         <span className="material-symbols-outlined text-white text-xl">arrow_back_ios_new</span>
@@ -590,6 +691,43 @@ const Ideation = () => {
                             </div>
                         </div>
 
+                        {/* 제목 톤 선택 */}
+                        <div className="col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-xl flex flex-col gap-3">
+                            <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-xs text-primary">palette</span>
+                                {language === 'KR' ? '제목 톤 (스타일)' : 'Title Tone'}
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { value: '', label: language === 'KR' ? '자동 선택' : 'Auto', icon: '🎲' },
+                                    { value: 'poetic', label: language === 'KR' ? '시적' : 'Poetic', icon: '🌸' },
+                                    { value: 'modern', label: language === 'KR' ? '현대적' : 'Modern', icon: '🔷' },
+                                    { value: 'cold', label: language === 'KR' ? '차가운' : 'Cold', icon: '🧊' },
+                                    { value: 'experimental', label: language === 'KR' ? '실험적' : 'Experimental', icon: '🧬' },
+                                    { value: 'emotional', label: language === 'KR' ? '감정적' : 'Emotional', icon: '💧' },
+                                    { value: 'abstractTone', label: language === 'KR' ? '추상적' : 'Abstract', icon: '◎' },
+                                    { value: 'direct', label: language === 'KR' ? '직설적' : 'Direct', icon: '🔪' },
+                                ].map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        onClick={() => setTitleTone(opt.value)}
+                                        className={`text-[10px] px-3 py-1.5 rounded-full border font-medium transition-all active:scale-95
+                                            ${titleTone === opt.value
+                                                ? 'bg-primary/30 border-primary/50 text-white shadow-[0_0_8px_rgba(91,19,236,0.3)]'
+                                                : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                                            }`}
+                                    >
+                                        {opt.icon} {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[9px] text-slate-500/70">
+                                {language === 'KR'
+                                    ? '선택한 톤에 따라 제목 생성 구조가 달라집니다. 매번 다른 톤을 선택하면 더 다양한 제목이 나옵니다.'
+                                    : 'Title structure varies by tone. Switching tones produces more diverse titles.'}
+                            </p>
+                        </div>
+
                         <div className="mb-8">
                             <div className="flex items-center justify-between mb-4 mt-2">
                                 <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
@@ -744,6 +882,39 @@ const Ideation = () => {
                         : 'Test mode: server usage check is temporarily unavailable.'}
                 </div>
             ) : null}
+
+            {isUnsavedModalOpen && (
+                <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-[#0D0A1C] border border-white/20 p-6 rounded-2xl w-full max-w-sm flex flex-col gap-4 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex bg-rose-500/20 w-12 h-12 rounded-full items-center justify-center mb-1">
+                            <span className="material-symbols-outlined text-rose-500">warning</span>
+                        </div>
+                        <h3 className="text-white text-lg font-bold tracking-tight">
+                            {language === 'KR' ? '저장되지 않은 변경사항' : 'Unsaved Changes'}
+                        </h3>
+                        <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line">
+                            {language === 'KR' 
+                                ? '변경 사항이 저장되지 않을 수 있습니다.\n창을 닫으시겠습니까?' 
+                                : 'Your changes may not be saved.\nAre you sure you want to leave?'}
+                        </p>
+                        <div className="flex flex-col gap-2 mt-4">
+                            <button onClick={handleSaveAndLeave} className="w-full bg-primary/20 text-primary border border-primary/50 py-3 rounded-xl text-sm font-bold hover:bg-primary/30 transition-colors">
+                                {language === 'KR' ? '저장 후 나가기' : 'Save and Leave'}
+                            </button>
+                            <button onClick={() => {
+                                setIsUnsavedModalOpen(false);
+                                if (trapStatePushed.current) window.history.back();
+                                setTimeout(() => performBackNavigation(), 10);
+                            }} className="w-full bg-rose-500/10 text-rose-400 border border-rose-500/30 py-3 rounded-xl text-sm font-bold hover:bg-rose-500/20 transition-colors">
+                                {language === 'KR' ? '계속 나가기' : 'Leave without saving'}
+                            </button>
+                            <button onClick={() => setIsUnsavedModalOpen(false)} className="w-full bg-white/5 text-slate-300 border border-white/10 py-3 rounded-xl text-sm font-bold hover:bg-white/10 transition-colors">
+                                {language === 'KR' ? '취소' : 'Cancel'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style jsx="true">{`
                 .no-scrollbar::-webkit-scrollbar {

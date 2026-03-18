@@ -49,15 +49,32 @@ const Library = () => {
     const navigate = useNavigate();
     const { language } = useStore();
     const t = i18n[language];
-    const { projects, listProjects, deleteProject, setProjectId } = useChoreographyStudioStore();
+    const { projects, listProjects, deleteProject, setProjectId, projectId: activeProjectId } = useChoreographyStudioStore();
     
     const [activeTab, setActiveTab] = useState(0);
     const [expandedProjectId, setExpandedProjectId] = useState(null);
     const [generatingDocId, setGeneratingDocId] = useState(null);
+    const [projectToDelete, setProjectToDelete] = useState(null);
+    const [showToast, setShowToast] = useState(false);
 
     React.useEffect(() => {
         listProjects().catch(() => {});
     }, [listProjects]);
+
+    const handleConfirmDelete = async () => {
+        if (!projectToDelete) return;
+        try {
+            await deleteProject(projectToDelete.id);
+            setProjectToDelete(null);
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
+            await listProjects();
+        } catch (error) {
+            console.error('Failed to delete project:', error);
+            alert(language === 'KR' ? '삭제에 실패했습니다.' : 'Failed to delete.');
+        }
+    };
+
 
     const handleGenerateDoc = (id) => {
         setGeneratingDocId(id);
@@ -120,7 +137,16 @@ const Library = () => {
                                 
                                 <div className="flex items-center justify-between">
                                     <div className="flex-1 min-w-0 pr-2">
-                                        <h3 className="text-[15px] font-bold text-white truncate mb-1">{project.title}</h3>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <h3 className="text-[15px] font-bold text-white truncate">{project.title}</h3>
+                                            <button 
+                                                onClick={() => setProjectToDelete(project)}
+                                                className="text-slate-500 hover:text-rose-400 p-1 flex items-center justify-center rounded transition-colors"
+                                                title={t.delete}
+                                            >
+                                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                                            </button>
+                                        </div>
                                         <p className="text-[10px] text-slate-400 flex items-center gap-1">
                                             <span className="material-symbols-outlined text-[12px]">schedule</span>
                                             {t.edited} {new Date(project.updatedAt).toLocaleDateString()}
@@ -131,7 +157,7 @@ const Library = () => {
                                             setProjectId(project.id);
                                             navigate('/ideation', { state: { mode: 'draft' } });
                                         }}
-                                        className="bg-primary/20 hover:bg-primary/30 text-primary px-4 py-2 rounded-xl text-[11px] font-bold active:scale-95 transition-all"
+                                        className="bg-primary/20 hover:bg-primary/30 text-primary px-4 py-2 rounded-xl text-[11px] font-bold active:scale-95 transition-all ml-2 shrink-0"
                                     >
                                         {t.continue}
                                     </button>
@@ -248,6 +274,48 @@ const Library = () => {
 
             </div>
             
+            {/* Delete Confirmation Modal */}
+            {projectToDelete && (
+                <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-[#0D0A1C] border border-white/20 p-6 rounded-2xl w-full max-w-sm flex flex-col gap-4 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex bg-rose-500/20 w-12 h-12 rounded-full items-center justify-center mb-1">
+                            <span className="material-symbols-outlined text-rose-500">delete_forever</span>
+                        </div>
+                        <h3 className="text-white text-lg font-bold tracking-tight">
+                            {language === 'KR' ? '프로젝트 삭제' : 'Delete Project'}
+                        </h3>
+                        <div>
+                            <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line mb-1">
+                                {language === 'KR' 
+                                    ? `"${projectToDelete.title}"\n이 프로젝트를 삭제하시겠습니까?\n삭제된 프로젝트는 복구할 수 없습니다.` 
+                                    : `"${projectToDelete.title}"\nAre you sure you want to delete this project?\nThis action cannot be undone.`}
+                            </p>
+                            {activeProjectId === projectToDelete.id && (
+                                <p className="text-rose-400 text-xs font-bold mt-2 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20">
+                                    {language === 'KR' ? '⚠️ 현재 작업 중인 프로젝트입니다.' : '⚠️ You are currently working on this project.'}
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex flex-col gap-2 mt-4">
+                            <button onClick={handleConfirmDelete} className="w-full bg-rose-500 hover:bg-rose-600 text-white py-3 rounded-xl text-sm font-bold transition-colors">
+                                {language === 'KR' ? '삭제' : 'Delete'}
+                            </button>
+                            <button onClick={() => setProjectToDelete(null)} className="w-full bg-white/5 text-slate-300 border border-white/10 py-3 rounded-xl text-sm font-bold hover:bg-white/10 transition-colors">
+                                {language === 'KR' ? '취소' : 'Cancel'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Toast Notification */}
+            {showToast && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[300] bg-emerald-500 border border-emerald-400 text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-4 fade-in duration-300">
+                    <span className="material-symbols-outlined text-sm">check_circle</span>
+                    <span className="text-[13px] font-bold">{language === 'KR' ? '프로젝트가 삭제되었습니다.' : 'Project has been deleted.'}</span>
+                </div>
+            )}
+
             <BottomNav />
         </div>
     );

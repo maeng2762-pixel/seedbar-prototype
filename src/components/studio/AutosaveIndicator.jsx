@@ -20,7 +20,7 @@ export default function AutosaveIndicator({ state = 'idle', updatedAt = null }) 
               ? 'bg-rose-400'
               : 'bg-slate-500'
       }`} />
-      <span>{label}</span>
+      <span>{state === 'saving' ? '저장 중...' : state === 'saved' ? '안전하게 저장됨' : state === 'failed' ? '저장 실패' : 'Autosave idle'}</span>
       {updatedAt ? <span className="text-slate-500 normal-case">{new Date(updatedAt).toLocaleTimeString()}</span> : null}
     </div>
   );
