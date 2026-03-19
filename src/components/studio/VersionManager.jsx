@@ -9,6 +9,10 @@ export default function VersionManager({
   onDelete,
   onGenerate,
   disabled = false,
+  busyAction = null,
+  busyVersionId = null,
+  errorMessage = '',
+  onDismissError,
   plan = 'free',
 }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -19,6 +23,7 @@ export default function VersionManager({
   const isPro = plan === 'pro' || plan === 'studio';
   const isFree = !isPro;
   const canAdd = isPro || versions.length < 2;
+  const isBusy = Boolean(disabled || busyAction);
 
   const handleToggleCompareMode = () => {
     setIsCompareMode(!isCompareMode);
@@ -64,7 +69,8 @@ export default function VersionManager({
           {isCompareMode && selectedForCompare.length === 2 && (
             <button
                type="button"
-               onClick={handleOpenCompare}
+             onClick={handleOpenCompare}
+             disabled={isBusy}
                className="px-3 py-2 text-[10px] uppercase tracking-widest font-semibold bg-teal-500/20 border border-teal-500/40 hover:bg-teal-500/30 text-white rounded-lg transition-all"
             >
                ⚖️ Compare Versions
@@ -73,27 +79,42 @@ export default function VersionManager({
           <button
              type="button"
              onClick={handleToggleCompareMode}
-             className={`px-3 py-2 text-[10px] uppercase tracking-widest font-semibold rounded-lg transition-all border ${isCompareMode ? 'bg-primary/20 border-primary/40 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'}`}
+             disabled={isBusy}
+             className={`px-3 py-2 text-[10px] uppercase tracking-widest font-semibold rounded-lg transition-all border disabled:opacity-40 disabled:cursor-not-allowed ${isCompareMode ? 'bg-primary/20 border-primary/40 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'}`}
           >
              {isCompareMode ? 'Cancel Compare' : 'Compare Mode'}
           </button>
           <button
             type="button"
             onClick={onGenerate}
-            disabled={disabled || !canAdd || isCompareMode}
+            disabled={isBusy || !canAdd || isCompareMode}
             className="px-3 py-2 text-[10px] uppercase tracking-widest font-semibold bg-primary/20 border border-primary/40 hover:bg-primary/30 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
-            ✨ Generate Variation
+            {busyAction === 'generate' ? 'Generating...' : '✨ Generate Variation'}
             {!canAdd && <span className="text-[8px] ml-1 opacity-60">PRO</span>}
           </button>
         </div>
       </div>
+
+      {errorMessage ? (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2">
+          <p className="text-[11px] leading-relaxed text-rose-200">{errorMessage}</p>
+          <button
+            type="button"
+            onClick={onDismissError}
+            className="shrink-0 text-[10px] uppercase tracking-[0.22em] text-rose-100/80 transition-colors hover:text-rose-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
         {versions.map((version) => {
           const isActive = activeVersionId === version.id && !isCompareMode;
           const isConfirming = confirmDeleteId === version.id;
           const isSelectedForCompare = selectedForCompare.includes(version.id);
+          const isRowBusy = busyVersionId === version.id;
 
           return (
             <div
@@ -105,8 +126,16 @@ export default function VersionManager({
                   ? 'bg-teal-500/15 border-teal-500/50 shadow-md shadow-teal-500/10' 
                   : 'bg-white/[0.02] border-white/10 hover:border-white/25 hover:bg-white/[0.05]'
               }`}
-              onClick={() => handleSelectVersion(version)}
+              onClick={() => {
+                if (isBusy) return;
+                handleSelectVersion(version);
+              }}
             >
+              {isRowBusy ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-dark/60 backdrop-blur-[2px]">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-white" />
+                </div>
+              ) : null}
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-white">
                   {version.label || `v${version.versionNumber}`}
@@ -124,6 +153,7 @@ export default function VersionManager({
                 <button
                   type="button"
                   onClick={() => onSelect?.(version)}
+                  disabled={isBusy}
                   className="flex-1 py-1.5 text-[9px] uppercase tracking-wider bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 rounded transition-all"
                 >
                   Open
@@ -131,16 +161,16 @@ export default function VersionManager({
                 <button
                   type="button"
                   onClick={() => onDuplicate?.(version.id)}
-                  disabled={!canAdd}
+                  disabled={isBusy || !canAdd}
                   className="flex-1 py-1.5 text-[9px] uppercase tracking-wider bg-violet-500/10 border border-violet-500/20 text-violet-300 hover:bg-violet-500/20 rounded transition-all disabled:opacity-40"
                 >
-                  Duplicate
+                  {isRowBusy && busyAction === 'duplicate' ? '...' : 'Duplicate'}
                 </button>
                 {!isConfirming ? (
                   <button
                     type="button"
                     onClick={() => setConfirmDeleteId(version.id)}
-                    disabled={versions.length <= 1}
+                    disabled={isBusy || versions.length <= 1}
                     className="flex-1 py-1.5 text-[9px] uppercase tracking-wider bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 rounded transition-all disabled:opacity-40"
                   >
                     Delete
@@ -153,6 +183,7 @@ export default function VersionManager({
                         onDelete?.(version.id);
                         setConfirmDeleteId(null);
                       }}
+                      disabled={isBusy}
                       className="flex-1 py-1.5 text-[9px] uppercase tracking-wider bg-rose-500/30 border border-rose-500/50 text-white rounded transition-all font-bold"
                     >
                       확인
@@ -160,6 +191,7 @@ export default function VersionManager({
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteId(null)}
+                      disabled={isBusy}
                       className="flex-1 py-1.5 text-[9px] uppercase tracking-wider bg-white/5 border border-white/10 text-slate-400 rounded transition-all"
                     >
                       취소

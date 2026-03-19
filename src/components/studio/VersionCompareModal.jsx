@@ -8,6 +8,8 @@ export default function VersionCompareModal({ versions, v1Id, v2Id, onClose }) {
 
   const v1 = useMemo(() => versions.find(v => v.id === v1Id), [versions, v1Id]);
   const v2 = useMemo(() => versions.find(v => v.id === v2Id), [versions, v2Id]);
+  const v1Content = v1?.generatedContent || v1?.content || {};
+  const v2Content = v2?.generatedContent || v2?.content || {};
 
   if (!v1 || !v2) return null;
 
@@ -65,27 +67,27 @@ export default function VersionCompareModal({ versions, v1Id, v2Id, onClose }) {
                  </div>
                  
                  <CompareSection title={isKr ? "안무 구조 (Structure)" : "Choreography Structure"}>
-                    <p className={getDiffClass(getStructureSummary(v1.content), getStructureSummary(v2.content))}>
-                        {getStructureSummary(v1.content)}
+                    <p className={getDiffClass(getStructureSummary(v1Content), getStructureSummary(v2Content))}>
+                        {getStructureSummary(v1Content)}
                     </p>
                  </CompareSection>
 
                  <CompareSection title={isKr ? "감정 곡선 (Emotion Curve)" : "Emotion Curve"}>
-                    <p className={getDiffClass(getEmotionCurveSummary(v1.content), getEmotionCurveSummary(v2.content))}>
-                        {getEmotionCurveSummary(v1.content)}
+                    <p className={getDiffClass(getEmotionCurveSummary(v1Content), getEmotionCurveSummary(v2Content))}>
+                        {getEmotionCurveSummary(v1Content)}
                     </p>
                  </CompareSection>
 
                  <CompareSection title={isKr ? "타임라인 (Timeline)" : "Timeline"}>
-                    <p className={getDiffClass(getTimelineSummary(v1.content), getTimelineSummary(v2.content))}>
-                        {getTimelineSummary(v1.content)}
-                        <span className="text-[10px] text-slate-500 ml-2">({v1.content?.timing?.totalDuration || '03:00'})</span>
+                    <p className={getDiffClass(getTimelineSummary(v1Content), getTimelineSummary(v2Content))}>
+                        {getTimelineSummary(v1Content)}
+                        <span className="text-[10px] text-slate-500 ml-2">({v1Content?.timing?.totalDuration || '03:00'})</span>
                     </p>
                  </CompareSection>
 
                  <CompareSection title={isKr ? "무대 동선 (Stage Flow)" : "Stage Flow"}>
-                    <p className={getDiffClass(getFlowSummary(v1.content), getFlowSummary(v2.content))}>
-                        {getFlowSummary(v1.content)}
+                    <p className={getDiffClass(getFlowSummary(v1Content), getFlowSummary(v2Content))}>
+                        {getFlowSummary(v1Content)}
                     </p>
                  </CompareSection>
               </div>
@@ -98,27 +100,27 @@ export default function VersionCompareModal({ versions, v1Id, v2Id, onClose }) {
                  </div>
 
                  <CompareSection title={isKr ? "안무 구조 (Structure)" : "Choreography Structure"}>
-                    <p className={getDiffClass(getStructureSummary(v2.content), getStructureSummary(v1.content))}>
-                        {getStructureSummary(v2.content)}
+                    <p className={getDiffClass(getStructureSummary(v2Content), getStructureSummary(v1Content))}>
+                        {getStructureSummary(v2Content)}
                     </p>
                  </CompareSection>
 
                  <CompareSection title={isKr ? "감정 곡선 (Emotion Curve)" : "Emotion Curve"}>
-                    <p className={getDiffClass(getEmotionCurveSummary(v2.content), getEmotionCurveSummary(v1.content))}>
-                        {getEmotionCurveSummary(v2.content)}
+                    <p className={getDiffClass(getEmotionCurveSummary(v2Content), getEmotionCurveSummary(v1Content))}>
+                        {getEmotionCurveSummary(v2Content)}
                     </p>
                  </CompareSection>
 
                  <CompareSection title={isKr ? "타임라인 (Timeline)" : "Timeline"}>
-                    <p className={getDiffClass(getTimelineSummary(v2.content), getTimelineSummary(v1.content))}>
-                        {getTimelineSummary(v2.content)}
-                        <span className="text-[10px] text-slate-500 ml-2">({v2.content?.timing?.totalDuration || '03:00'})</span>
+                    <p className={getDiffClass(getTimelineSummary(v2Content), getTimelineSummary(v1Content))}>
+                        {getTimelineSummary(v2Content)}
+                        <span className="text-[10px] text-slate-500 ml-2">({v2Content?.timing?.totalDuration || '03:00'})</span>
                     </p>
                  </CompareSection>
 
                  <CompareSection title={isKr ? "무대 동선 (Stage Flow)" : "Stage Flow"}>
-                    <p className={getDiffClass(getFlowSummary(v2.content), getFlowSummary(v1.content))}>
-                        {getFlowSummary(v2.content)}
+                    <p className={getDiffClass(getFlowSummary(v2Content), getFlowSummary(v1Content))}>
+                        {getFlowSummary(v2Content)}
                     </p>
                  </CompareSection>
               </div>

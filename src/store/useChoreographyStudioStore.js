@@ -30,11 +30,17 @@ const useChoreographyStudioStore = create((set, get) => ({
   sectionLoading: {},
   autosaveState: 'idle',
   autosaveUpdatedAt: null,
+  versionAction: {
+    pending: false,
+    type: null,
+    versionId: null,
+  },
   error: null,
 
   setProjectId: (projectId) => set({ projectId }),
   setActiveVersionId: (activeVersionId) => set({ activeVersionId }),
   setSlider: (key, value) => set((state) => ({ sliders: { ...state.sliders, [key]: value } })),
+  clearError: () => set({ error: null }),
 
   listProjects: async () => {
     const url = apiUrl('/api/choreography/projects');
@@ -103,43 +109,67 @@ const useChoreographyStudioStore = create((set, get) => ({
   createVersion: async (generatedContent, label) => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const url = apiUrl(`/api/choreography/projects/${projectId}/versions`);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getPlanHeaders(),
-      },
-      body: JSON.stringify({ generatedContent, label }),
-    });
-    const data = await parseResponseJson(res, url);
-    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to create version');
-    set({
-      versions: data.versions || [],
-      activeVersionId: data.version?.id || null,
-    });
-    return data;
+    const currentAction = get().versionAction;
+    if (currentAction?.pending) {
+      throw new Error('Another version action is already running. Please wait a moment.');
+    }
+    set({ versionAction: { pending: true, type: 'create', versionId: null }, error: null });
+    try {
+      const url = apiUrl(`/api/choreography/projects/${projectId}/versions`);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getPlanHeaders(),
+        },
+        body: JSON.stringify({ generatedContent, label }),
+      });
+      const data = await parseResponseJson(res, url);
+      if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to create version');
+      set({
+        versions: data.versions || [],
+        activeVersionId: data.version?.id || null,
+      });
+      return data;
+    } catch (error) {
+      set({ error: error.message || 'Failed to create version' });
+      throw error;
+    } finally {
+      set({ versionAction: { pending: false, type: null, versionId: null } });
+    }
   },
 
   generateVariations: async () => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const url = apiUrl(`/api/choreography/projects/${projectId}/variations`);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getPlanHeaders(),
-      },
-      body: JSON.stringify({ projectId }),
-    });
-    const data = await parseResponseJson(res, url);
-    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to generate variations');
-    set({
-      versions: data.versions || [],
-      activeVersionId: data.variations?.[0]?.id || null,
-    });
-    return data;
+    const currentAction = get().versionAction;
+    if (currentAction?.pending) {
+      throw new Error('Another version action is already running. Please wait a moment.');
+    }
+    set({ versionAction: { pending: true, type: 'generate', versionId: null }, error: null });
+    try {
+      const url = apiUrl(`/api/choreography/projects/${projectId}/variations`);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getPlanHeaders(),
+        },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await parseResponseJson(res, url);
+      if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to generate variations');
+      set({
+        versions: data.versions || [],
+        activeVersionId: data.variations?.[0]?.id || null,
+      });
+      return data;
+    } catch (error) {
+      set({ error: error.message || 'Failed to generate variations' });
+      throw error;
+    } finally {
+      set({ versionAction: { pending: false, type: null, versionId: null } });
+    }
   },
 
   regenerateSection: async (section, endpoint = '/api/choreography/regenerate-section') => {
@@ -277,42 +307,66 @@ const useChoreographyStudioStore = create((set, get) => ({
   deleteVersion: async (versionId) => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const url = apiUrl(`/api/choreography/projects/${projectId}/versions/${versionId}`);
-    const res = await fetch(url, {
-      method: 'DELETE',
-      headers: { ...getPlanHeaders() },
-    });
-    const data = await parseResponseJson(res, url);
-    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to delete version');
-    const { versions } = data;
-    const currentActive = get().activeVersionId;
-    const stillExists = versions.some((v) => v.id === currentActive);
-    set({
-      versions,
-      activeVersionId: stillExists ? currentActive : versions[0]?.id || null,
-    });
-    return versions;
+    const currentAction = get().versionAction;
+    if (currentAction?.pending) {
+      throw new Error('Another version action is already running. Please wait a moment.');
+    }
+    set({ versionAction: { pending: true, type: 'delete', versionId }, error: null });
+    try {
+      const url = apiUrl(`/api/choreography/projects/${projectId}/versions/${versionId}`);
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: { ...getPlanHeaders() },
+      });
+      const data = await parseResponseJson(res, url);
+      if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to delete version');
+      const { versions } = data;
+      const currentActive = get().activeVersionId;
+      const stillExists = versions.some((v) => v.id === currentActive);
+      set({
+        versions,
+        activeVersionId: stillExists ? currentActive : versions[0]?.id || null,
+      });
+      return versions;
+    } catch (error) {
+      set({ error: error.message || 'Failed to delete version' });
+      throw error;
+    } finally {
+      set({ versionAction: { pending: false, type: null, versionId: null } });
+    }
   },
 
   duplicateVersion: async (versionId, label) => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const url = apiUrl(`/api/choreography/projects/${projectId}/versions/${versionId}/duplicate`);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getPlanHeaders(),
-      },
-      body: JSON.stringify({ label }),
-    });
-    const data = await parseResponseJson(res, url);
-    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to duplicate version');
-    set({
-      versions: data.versions || [],
-      activeVersionId: data.version?.id || get().activeVersionId,
-    });
-    return data;
+    const currentAction = get().versionAction;
+    if (currentAction?.pending) {
+      throw new Error('Another version action is already running. Please wait a moment.');
+    }
+    set({ versionAction: { pending: true, type: 'duplicate', versionId }, error: null });
+    try {
+      const url = apiUrl(`/api/choreography/projects/${projectId}/versions/${versionId}/duplicate`);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getPlanHeaders(),
+        },
+        body: JSON.stringify({ label }),
+      });
+      const data = await parseResponseJson(res, url);
+      if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to duplicate version');
+      set({
+        versions: data.versions || [],
+        activeVersionId: data.version?.id || get().activeVersionId,
+      });
+      return data;
+    } catch (error) {
+      set({ error: error.message || 'Failed to duplicate version' });
+      throw error;
+    } finally {
+      set({ versionAction: { pending: false, type: null, versionId: null } });
+    }
   },
 
   generateTitle: async ({ genre, mood, theme } = {}) => {

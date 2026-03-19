@@ -12,12 +12,33 @@ import {
 import { ensureStageFlow } from '../services/stageFlowService.js';
 
 const ALLOWED_SECTIONS = ['story', 'movement', 'formation', 'music', 'stage', 'artist_note'];
+const activeVersionActionProjects = new Set();
 
 function requireOwnedProject(projectId, userId) {
   const project = choreographyProjectModel.getProject(projectId);
   if (!project) return { error: 'Project not found.', status: 404 };
   if (project.userId !== userId) return { error: 'Forbidden project access.', status: 403 };
   return { project };
+}
+
+async function withVersionActionLock(projectId, res, handler) {
+  if (activeVersionActionProjects.has(projectId)) {
+    return res.status(409).json({
+      ok: false,
+      error: 'Another version action is already in progress. Please wait a moment.',
+    });
+  }
+
+  activeVersionActionProjects.add(projectId);
+  try {
+    return await handler();
+  } catch (error) {
+    const message = error?.message || 'Version action failed.';
+    const status = /not found|minimum_version|limit/i.test(message) ? 400 : 500;
+    return res.status(status).json({ ok: false, error: message });
+  } finally {
+    activeVersionActionProjects.delete(projectId);
+  }
 }
 
 export function listProjectsController(req, res) {
@@ -88,12 +109,14 @@ export function createProjectVersionController(req, res) {
     });
   }
 
-  const generatedContent = req.body?.generatedContent || owned.project.currentContent || {};
-  const label = req.body?.label || null;
-  const version = choreographyProjectModel.createVersion(projectId, generatedContent, label);
-  choreographyProjectModel.updateProjectContent(projectId, generatedContent);
+  return withVersionActionLock(projectId, res, async () => {
+    const generatedContent = req.body?.generatedContent || owned.project.currentContent || {};
+    const label = req.body?.label || null;
+    const version = choreographyProjectModel.createVersion(projectId, generatedContent, label);
+    choreographyProjectModel.updateProjectContent(projectId, generatedContent);
 
-  return res.status(201).json({ ok: true, version, versions: choreographyProjectModel.listVersions(projectId) });
+    return res.status(201).json({ ok: true, version, versions: choreographyProjectModel.listVersions(projectId) });
+  });
 }
 
 export function deleteVersionController(req, res) {
@@ -102,13 +125,10 @@ export function deleteVersionController(req, res) {
   const owned = requireOwnedProject(projectId, userId);
   if (!owned.project) return res.status(owned.status).json({ ok: false, error: owned.error });
 
-  try {
+  return withVersionActionLock(projectId, res, async () => {
     const versions = choreographyProjectModel.deleteVersion(projectId, versionId);
     return res.json({ ok: true, deleted: true, versions });
-  } catch (err) {
-    const code = err.message?.startsWith('MINIMUM_VERSION') ? 400 : 404;
-    return res.status(code).json({ ok: false, error: err.message });
-  }
+  });
 }
 
 export function duplicateVersionController(req, res) {
@@ -126,9 +146,11 @@ export function duplicateVersionController(req, res) {
     });
   }
 
-  const newLabel = req.body?.label || null;
-  const version = choreographyProjectModel.duplicateVersion(projectId, versionId, newLabel);
-  return res.status(201).json({ ok: true, version, versions: choreographyProjectModel.listVersions(projectId) });
+  return withVersionActionLock(projectId, res, async () => {
+    const newLabel = req.body?.label || null;
+    const version = choreographyProjectModel.duplicateVersion(projectId, versionId, newLabel);
+    return res.status(201).json({ ok: true, version, versions: choreographyProjectModel.listVersions(projectId) });
+  });
 }
 
 export function listProjectVersionsController(req, res) {
@@ -260,11 +282,13 @@ export async function generateVariationsController(req, res) {
     });
   }
 
-  const variations = await generateProjectVariations({ project: owned.project, count: 3 });
-  return res.status(201).json({
-    ok: true,
-    variations,
-    versions: choreographyProjectModel.listVersions(projectId),
+  return withVersionActionLock(projectId, res, async () => {
+    const variations = await generateProjectVariations({ project: owned.project, count: 3 });
+    return res.status(201).json({
+      ok: true,
+      variations,
+      versions: choreographyProjectModel.listVersions(projectId),
+    });
   });
 }
 

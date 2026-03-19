@@ -171,6 +171,9 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         packageData,
         autosaveState,
         autosaveUpdatedAt,
+        versionAction,
+        error: studioError,
+        clearError,
     } = useChoreographyStudioStore();
     
     React.useEffect(() => {
@@ -285,6 +288,44 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             if (first?.generatedContent) {
                 setActiveVersionId(first.id);
                 onDataUpdate?.({ ...first.generatedContent, projectId, lastEdited: first.createdAt, projectStatus: first.generatedContent?.projectStatus || 'in_progress' });
+            }
+        } catch (error) {
+            onOpenUpgrade?.(error.message);
+        }
+    };
+
+    const handleSelectVersion = (version) => {
+        if (versionAction?.pending || !version) return;
+        clearError?.();
+        setActiveVersionId(version.id);
+        onDataUpdate?.({
+            ...version.generatedContent,
+            projectId,
+            lastEdited: version.createdAt,
+            projectStatus: version.generatedContent?.projectStatus || 'draft',
+        });
+    };
+
+    const handleDuplicateVersion = async (versionId) => {
+        try {
+            await duplicateVersion(versionId);
+        } catch (error) {
+            onOpenUpgrade?.(error.message);
+        }
+    };
+
+    const handleDeleteVersion = async (versionId) => {
+        try {
+            const remainingVersions = await deleteVersion(versionId);
+            const fallbackVersion = remainingVersions.find((version) => version.id === activeVersionId) || remainingVersions[0];
+            if (fallbackVersion?.generatedContent) {
+                setActiveVersionId(fallbackVersion.id);
+                onDataUpdate?.({
+                    ...fallbackVersion.generatedContent,
+                    projectId,
+                    lastEdited: fallbackVersion.createdAt,
+                    projectStatus: fallbackVersion.generatedContent?.projectStatus || 'draft',
+                });
             }
         } catch (error) {
             onOpenUpgrade?.(error.message);
@@ -1173,29 +1214,14 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     versions={versions || []}
                     activeVersionId={activeVersionId}
                     plan={policy?.name?.toLowerCase() || 'free'}
-                    onSelect={(version) => {
-                        setActiveVersionId(version.id);
-                        onDataUpdate?.({
-                            ...version.generatedContent,
-                            projectId,
-                            lastEdited: version.createdAt,
-                            projectStatus: version.generatedContent?.projectStatus || 'draft',
-                        });
-                    }}
-                    onDuplicate={async (versionId) => {
-                        try {
-                            await duplicateVersion(versionId);
-                        } catch (error) {
-                            onOpenUpgrade?.(error.message);
-                        }
-                    }}
-                    onDelete={async (versionId) => {
-                        try {
-                            await deleteVersion(versionId);
-                        } catch (error) {
-                            alert(error.message);
-                        }
-                    }}
+                    disabled={Boolean(versionAction?.pending)}
+                    busyAction={versionAction?.type}
+                    busyVersionId={versionAction?.versionId}
+                    errorMessage={studioError}
+                    onDismissError={() => clearError?.()}
+                    onSelect={handleSelectVersion}
+                    onDuplicate={handleDuplicateVersion}
+                    onDelete={handleDeleteVersion}
                     onGenerate={handleGenerateVariation}
                 />
 
