@@ -4,6 +4,7 @@ import BottomNav from '../components/BottomNav';
 import useStore from '../store/useStore';
 import useExploreStore from '../store/useExploreStore';
 import LanguageToggle from '../components/LanguageToggle';
+import { navigateToNewProject } from '../lib/projectNavigation';
 
 const i18n = {
     EN: {
@@ -94,7 +95,7 @@ const Explore = () => {
     }, [fetchExploreData]);
 
     const handleStartProject = (promptState) => {
-        navigate('/ideation', { state: { mode: 'create', ...promptState } });
+        navigateToNewProject(navigate, { mode: 'create', ...promptState });
     };
 
     return (

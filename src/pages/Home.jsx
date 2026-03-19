@@ -4,6 +4,7 @@ import BottomNav from '../components/BottomNav';
 import useStore from '../store/useStore';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
 import LanguageToggle from '../components/LanguageToggle';
+import { navigateToDraftProject, navigateToNewProject } from '../lib/projectNavigation';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -142,7 +143,7 @@ const Home = () => {
                             <button 
                                 onClick={() => {
                                     setProjectId(latestProject.id);
-                                    navigate(`/ideation?projectId=${latestProject.id}`, { state: { mode: 'draft' } });
+                                    navigateToDraftProject(navigate, latestProject.id);
                                 }}
                                 className="shrink-0 bg-primary/90 hover:bg-primary text-white text-[11px] font-bold py-2.5 px-3.5 rounded-xl transition-all active:scale-95 shadow-lg shadow-primary/30 flex items-center gap-1.5"
                             >
@@ -174,7 +175,7 @@ const Home = () => {
                     </p>
                     <div className="flex flex-col gap-4 w-full max-w-[320px] mx-auto">
                         <button
-                            onClick={() => navigate('/ideation', { state: { mode: 'planning' } })}
+                            onClick={() => navigateToNewProject(navigate)}
                             className="flex items-center justify-between group cursor-pointer overflow-hidden rounded-xl h-14 pl-6 pr-4 bg-primary text-white text-base font-bold transition-all active:scale-95 shadow-[0_0_20px_rgba(91,19,236,0.5)] hover:shadow-primary/80">
                             <span>{t.startBtn}</span>
                             <div className="bg-white/20 rounded-lg p-1.5 flex items-center justify-center group-hover:bg-white/30 transition-colors">
@@ -203,7 +204,7 @@ const Home = () => {
                                     <span className="text-white text-sm font-medium tracking-wide">{item.title}</span>
                                 </div>
                                 <button 
-                                    onClick={() => navigate('/ideation', { state: { mode: 'create', ...item.prompt } })}
+                                    onClick={() => navigateToNewProject(navigate, { mode: 'create', ...item.prompt })}
                                     className="border border-primary/50 text-primary hover:bg-primary/20 text-[10px] font-bold py-1.5 px-3 rounded-lg transition-colors active:scale-95"
                                 >
                                     {t.genIdeaBtn}
@@ -238,7 +239,7 @@ const Home = () => {
                                     </div>
                                     <div className="flex gap-2">
                                         <button 
-                                            onClick={() => navigate('/ideation', { state: { mode: 'create', ...work.promptState } })}
+                                            onClick={() => navigateToNewProject(navigate, { mode: 'create', ...work.promptState })}
                                             className="flex-1 bg-primary/20 border border-primary/30 hover:bg-primary/40 text-primary text-[10px] font-bold py-2 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5"
                                         >
                                             <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>

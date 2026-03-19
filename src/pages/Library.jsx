@@ -4,6 +4,7 @@ import useStore from '../store/useStore';
 import LanguageToggle from '../components/LanguageToggle';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
 import { useNavigate } from 'react-router-dom';
+import { navigateToDraftProject, navigateToNewProject } from '../lib/projectNavigation';
 
 const i18n = {
     EN: {
@@ -129,8 +130,15 @@ const Library = () => {
                 {activeTab === 0 && (
                     <div className="grid grid-cols-1 gap-4">
                         {projects.length === 0 ? (
-                            <div className="glass-panel p-4 rounded-2xl text-xs text-slate-400 text-center py-10">
-                                {language === 'KR' ? '저장된 프로젝트가 없습니다.' : 'No saved projects yet.'}
+                            <div className="glass-panel p-4 rounded-2xl text-center py-10">
+                                <p className="text-xs text-slate-400">{language === 'KR' ? '저장된 프로젝트가 없습니다.' : 'No saved projects yet.'}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => navigateToNewProject(navigate)}
+                                    className="mt-4 border border-white/15 bg-white/5 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-white/10"
+                                >
+                                    {language === 'KR' ? '새 프로젝트 시작' : 'Start New Project'}
+                                </button>
                             </div>
                         ) : projects.map((project) => (
                             <div key={project.id} className="glass-panel border-white/10 p-4 rounded-2xl flex flex-col gap-4">
@@ -155,7 +163,7 @@ const Library = () => {
                                     <button
                                         onClick={() => {
                                             setProjectId(project.id);
-                                            navigate('/ideation', { state: { mode: 'draft' } });
+                                            navigateToDraftProject(navigate, project.id);
                                         }}
                                         className="bg-primary/20 hover:bg-primary/30 text-primary px-4 py-2 rounded-xl text-[11px] font-bold active:scale-95 transition-all ml-2 shrink-0"
                                     >

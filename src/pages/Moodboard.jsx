@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { navigateToNewProject } from '../lib/projectNavigation';
 
 const Moodboard = () => {
     const navigate = useNavigate();
@@ -115,7 +116,7 @@ const Moodboard = () => {
                         <span className="material-symbols-outlined text-2xl">explore</span>
                     </button>
                     <div className="flex-1 flex justify-center -mt-10">
-                        <button onClick={() => navigate('/ideation')} className="size-14 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/40 border-4 border-background-dark active:scale-95 transition-transform">
+                        <button onClick={() => navigateToNewProject(navigate)} className="size-14 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/40 border-4 border-background-dark active:scale-95 transition-transform">
                             <span className="material-symbols-outlined text-white text-3xl">add</span>
                         </button>
                     </div>

@@ -25,15 +25,17 @@ const useAuthStore = create((set, get) => ({
   user: getStoredUser(),
   token: getAccessToken(),
   loading: false,
+  hydrated: false,
   error: null,
 
   isAuthenticated: () => isLoggedIn() && Boolean(get().user),
 
   hydrate: async () => {
+    set({ loading: true });
     const token = getAccessToken();
     const user = getStoredUser();
     if (!token || !user) {
-      set({ token: '', user: null });
+      set({ token: '', user: null, loading: false, hydrated: true });
       return null;
     }
 
@@ -45,11 +47,11 @@ const useAuthStore = create((set, get) => ({
 
       setStoredUser(data.user);
       setClientPlan(data.user?.plan || 'free');
-      set({ user: data.user, token, error: null });
+      set({ user: data.user, token, error: null, loading: false, hydrated: true });
       return data.user;
     } catch (_error) {
       clearAuthStorage();
-      set({ user: null, token: '', error: null });
+      set({ user: null, token: '', error: null, loading: false, hydrated: true });
       return null;
     }
   },

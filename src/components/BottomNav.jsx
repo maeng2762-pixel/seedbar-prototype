@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../store/useStore';
+import { navigateToNewProject } from '../lib/projectNavigation';
 
 const i18n = {
     EN: { 
@@ -47,7 +48,7 @@ const BottomNav = () => {
                             exit={{ opacity: 0, y: 50, scale: 0.95 }}
                             className="fixed bottom-28 left-4 right-4 z-[60] bg-slate-900 border border-white/10 rounded-2xl p-2 pointer-events-auto shadow-[0_0_30px_rgba(91,19,236,0.15)] glass-panel"
                         >
-                            <button className="w-full flex items-center gap-3 p-4 bg-primary/20 hover:bg-primary/30 rounded-xl mb-1 transition-colors group" onClick={() => { setIsModalOpen(false); navigate('/ideation', { state: { mode: 'planning' } }); }}>
+                            <button className="w-full flex items-center gap-3 p-4 bg-primary/20 hover:bg-primary/30 rounded-xl mb-1 transition-colors group" onClick={() => { setIsModalOpen(false); navigateToNewProject(navigate); }}>
                                 <div className="size-8 rounded-lg bg-primary/30 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                                     <span className="material-symbols-outlined text-[20px]">add_box</span>
                                 </div>

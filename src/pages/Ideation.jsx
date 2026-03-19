@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import LanguageToggle from '../components/LanguageToggle';
@@ -9,6 +9,7 @@ import { ChoreographyAIPipeline } from '../services/aiPipeline';
 import CoinPricingModal from '../components/CoinPricingModal';
 import useSubscriptionStore from '../store/useSubscriptionStore';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
+import { buildNewProjectRouteState } from '../lib/projectNavigation';
 
 const i18n = {
     EN: {
@@ -126,6 +127,10 @@ const i18n = {
 const pipeline = new ChoreographyAIPipeline();
 const UPGRADE_HINT_RE = /(monthly limit|upgrade|pro\/studio|studio plan|available on)/i;
 const BACKEND_MISSING_RE = /(api route not found|non_json|failed to fetch|networkerror|network error)/i;
+const EMPTY_ENTRY_ERROR = {
+    KR: '새 프로젝트 화면을 준비하는 중 문제가 발생했습니다.',
+    EN: 'We hit an issue while preparing the new project screen.',
+};
 
 function sanitizeGeneratedPayload(payload) {
     const next = JSON.parse(JSON.stringify(payload || {}));
@@ -150,9 +155,17 @@ const Ideation = () => {
     const location = useLocation();
     const { language } = useStore();
     const t = i18n[language] || i18n.EN;
-    const [showRegenerateMode, setShowRegenerateMode] = useState(location.state?.mode !== 'draft');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const urlProjectId = searchParams.get('projectId');
+    const safeEntryState = useMemo(
+        () => buildNewProjectRouteState(urlProjectId ? { mode: 'draft' } : (location.state || {})),
+        [location.state, urlProjectId],
+    );
+    const [showRegenerateMode, setShowRegenerateMode] = useState((urlProjectId ? 'draft' : safeEntryState.mode) !== 'draft');
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedData, setGeneratedData] = useState(null);
+    const [entryStatus, setEntryStatus] = useState(urlProjectId ? 'loading' : 'ready');
+    const [entryError, setEntryError] = useState('');
     const [isCoinModalOpen, setIsCoinModalOpen] = useState(false);
     const [upgradeReason, setUpgradeReason] = useState("");
     const {
@@ -164,8 +177,6 @@ const Ideation = () => {
         setPlan,
     } = useSubscriptionStore();
     const { initializeProject, projectId: studioProjectId, setProjectId, autosaveProject, fetchProject } = useChoreographyStudioStore();
-    const [searchParams, setSearchParams] = useSearchParams();
-    const urlProjectId = searchParams.get('projectId');
 
     const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
     
@@ -174,13 +185,13 @@ const Ideation = () => {
 
     const autosaveTimerRef = useRef(null);
 
-    const [projectName, setProjectName] = useState(location.state?.projectName || "");
-    const [genre, setGenre] = useState(location.state?.genre || "");
-    const [peopleCount, setPeopleCount] = useState(location.state?.peopleCount || "");
-    const [duration, setDuration] = useState(location.state?.duration || "");
-    const [moodKeywords, setMoodKeywords] = useState(location.state?.moodKeywords || []);
+    const [projectName, setProjectName] = useState(safeEntryState.projectName || "");
+    const [genre, setGenre] = useState(safeEntryState.genre || "");
+    const [peopleCount, setPeopleCount] = useState(safeEntryState.peopleCount || "");
+    const [duration, setDuration] = useState(safeEntryState.duration || "");
+    const [moodKeywords, setMoodKeywords] = useState(safeEntryState.moodKeywords || []);
     const [keywordInput, setKeywordInput] = useState("");
-    const [titleTone, setTitleTone] = useState("");
+    const [titleTone, setTitleTone] = useState(safeEntryState.titleTone || "");
     const isCompetition = genre === 'Contemporary Dance Competition';
 
     const getDynamicStyles = () => {
@@ -218,6 +229,41 @@ const Ideation = () => {
         return { stage: baseStage, costume: baseCostume };
     };
     const dynamicConcept = getDynamicConcept();
+
+    const loadProjectById = useCallback(async (projectIdToLoad) => {
+        if (!projectIdToLoad) return false;
+
+        setEntryStatus('loading');
+        setEntryError('');
+
+        try {
+            setProjectId(projectIdToLoad);
+            const payload = await fetchProject(projectIdToLoad);
+            const currentContent = payload?.project?.currentContent || payload?.currentContent || null;
+
+            if (!currentContent) {
+                throw new Error(language === 'KR' ? '프로젝트 데이터를 찾을 수 없습니다.' : 'Project data was not found.');
+            }
+
+            setGeneratedData(sanitizeGeneratedPayload({
+                ...currentContent,
+                projectId: payload?.project?.id || projectIdToLoad,
+                projectStatus: payload?.project?.status || currentContent?.projectStatus,
+                lastEdited: payload?.project?.updatedAt || currentContent?.lastEdited,
+                beatMarkers: payload?.beatMarkers || currentContent?.beatMarkers || [],
+                dancerRoles: payload?.dancerRoles || currentContent?.dancerRoles || [],
+                stageFlow: payload?.stageFlow || currentContent?.stageFlow,
+            }));
+            setShowRegenerateMode(false);
+            setEntryStatus('ready');
+            return true;
+        } catch (error) {
+            console.error('[Seedbar] failed to load ideation project:', error);
+            setEntryError(error?.message || EMPTY_ENTRY_ERROR[language] || EMPTY_ENTRY_ERROR.EN);
+            setEntryStatus('error');
+            return false;
+        }
+    }, [fetchProject, language, setProjectId]);
 
     const hasUnsavedChanges = useMemo(() => {
         return Boolean(!studioProjectId && (projectName || genre || duration || moodKeywords.length > 0 || peopleCount));
@@ -396,16 +442,9 @@ const Ideation = () => {
 
     useEffect(() => {
         if (!generatedData && urlProjectId) {
-            setProjectId(urlProjectId);
-            fetchProject(urlProjectId).then(data => {
-                const currentContent = data?.project?.currentContent || data?.currentContent || null;
-                if (currentContent) {
-                    setGeneratedData({ ...currentContent, projectId: urlProjectId });
-                    setShowRegenerateMode(false);
-                }
-            }).catch(console.error);
+            loadProjectById(urlProjectId);
         }
-    }, [generatedData, urlProjectId, fetchProject, setProjectId]);
+    }, [generatedData, loadProjectById, urlProjectId]);
 
     useEffect(() => {
         const pid = studioProjectId || generatedData?.projectId;
@@ -438,6 +477,27 @@ const Ideation = () => {
     }, [refreshCapabilities, language]);
 
     useEffect(() => {
+        if (urlProjectId) {
+            setShowRegenerateMode(false);
+            return;
+        }
+
+        setProjectId(null);
+        setEntryError('');
+        setEntryStatus('ready');
+        setShowRegenerateMode(safeEntryState.mode !== 'draft');
+
+        if (!generatedData) {
+            setProjectName(safeEntryState.projectName || '');
+            setGenre(safeEntryState.genre || '');
+            setPeopleCount(safeEntryState.peopleCount || '');
+            setDuration(safeEntryState.duration || '');
+            setMoodKeywords(safeEntryState.moodKeywords || []);
+            setTitleTone(safeEntryState.titleTone || '');
+        }
+    }, [generatedData, safeEntryState, urlProjectId]);
+
+    useEffect(() => {
         if (genre === 'Contemporary Dance Competition') {
             if (!duration) setDuration('03:00');
             if (!peopleCount) setPeopleCount('1');
@@ -445,33 +505,84 @@ const Ideation = () => {
     }, [genre]);
 
     useEffect(() => {
-        if (location.state?.mode === 'planning') {
-            setShowRegenerateMode(true);
-        } else if (location.state?.mode === 'draft') {
-            setShowRegenerateMode(false);
-        }
-    }, [location.state?.mode]);
-
-    useEffect(() => {
-        if (location.state?.mode !== 'draft') return;
+        if ((location.state?.mode || safeEntryState.mode) !== 'draft') return;
         if (!studioProjectId || generatedData) return;
-        fetchProject(studioProjectId)
-            .then((payload) => {
-                if (payload?.project?.currentContent) {
-                    setGeneratedData(sanitizeGeneratedPayload({
-                        ...payload.project.currentContent,
-                        projectId: payload.project.id,
-                        projectStatus: payload.project.status,
-                        lastEdited: payload.project.updatedAt,
-                        beatMarkers: payload.beatMarkers || [],
-                        dancerRoles: payload.dancerRoles || [],
-                        stageFlow: payload.stageFlow || payload.project.currentContent?.stageFlow,
-                    }));
-                    setShowRegenerateMode(false);
-                }
-            })
-            .catch(() => {});
-    }, [studioProjectId, generatedData, fetchProject, location.state?.mode]);
+        loadProjectById(studioProjectId).catch(() => {});
+    }, [generatedData, loadProjectById, location.state?.mode, safeEntryState.mode, studioProjectId]);
+
+    const retryEntryLoad = async () => {
+        if (urlProjectId || studioProjectId) {
+            await loadProjectById(urlProjectId || studioProjectId);
+            return;
+        }
+
+        setEntryError('');
+        setEntryStatus('ready');
+        setShowRegenerateMode(true);
+    };
+
+    const renderEntryFallback = () => {
+        if (entryStatus === 'loading' && !generatedData && !showRegenerateMode) {
+            return (
+                <div className="relative z-20 px-6 pb-12">
+                    <div className="mx-auto mt-10 max-w-3xl border border-white/10 bg-white/5 p-10 text-center backdrop-blur-md">
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-primary">{language === 'KR' ? '새 안무 프로젝트 로딩 중' : 'Loading Choreography Project'}</p>
+                        <div className="mx-auto mt-6 h-12 w-12 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                        <p className="mt-6 text-sm leading-relaxed text-slate-300">
+                            {language === 'KR'
+                                ? '프로젝트 데이터와 자동저장 상태를 불러오는 중입니다. 검은 화면 대신 안전한 로딩 화면을 표시합니다.'
+                                : 'Loading project data and autosave state. Showing a safe loading screen instead of a blank page.'}
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
+        if (entryStatus === 'error' && !generatedData) {
+            return (
+                <div className="relative z-20 px-6 pb-12">
+                    <div className="mx-auto mt-10 max-w-3xl border border-white/10 bg-white/5 p-10 text-center backdrop-blur-md">
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-primary">{language === 'KR' ? '프로젝트 진입 오류' : 'Project Entry Error'}</p>
+                        <h2 className="mt-4 text-2xl font-semibold text-white">
+                            {language === 'KR' ? '새 프로젝트 화면을 열지 못했습니다.' : 'We could not open the new project screen.'}
+                        </h2>
+                        <p className="mt-4 text-sm leading-relaxed text-slate-400">
+                            {entryError || EMPTY_ENTRY_ERROR[language] || EMPTY_ENTRY_ERROR.EN}
+                        </p>
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                            <button
+                                type="button"
+                                onClick={retryEntryLoad}
+                                className="border border-white/15 bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-black transition-colors hover:bg-slate-200"
+                            >
+                                {language === 'KR' ? '다시 시도' : 'Retry'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setGeneratedData(null);
+                                    setEntryError('');
+                                    setEntryStatus('ready');
+                                    setSearchParams({}, { replace: true });
+                                    setProjectId(null);
+                                    setShowRegenerateMode(true);
+                                    navigate('/ideation', {
+                                        replace: true,
+                                        state: buildNewProjectRouteState(),
+                                    });
+                                }}
+                                className="border border-white/15 bg-white/5 px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white transition-colors hover:bg-white/10"
+                            >
+                                {language === 'KR' ? '빈 입력 폼 열기' : 'Open Empty Form'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        return null;
+    };
 
     const handleAddKeyword = () => {
         if (keywordInput.trim() && !moodKeywords.includes(keywordInput.trim())) {
@@ -483,6 +594,24 @@ const Ideation = () => {
     const removeKeyword = (kw) => {
         setMoodKeywords(moodKeywords.filter(k => k !== kw));
     };
+
+    useEffect(() => {
+        if (urlProjectId) return;
+        if (generatedData) return;
+        if (showRegenerateMode) return;
+
+        // Self-heal any stale route state so a new project always lands on the planning form.
+        setEntryError('');
+        setEntryStatus('ready');
+        setShowRegenerateMode(true);
+        navigate('/ideation', {
+            replace: true,
+            state: buildNewProjectRouteState(),
+        });
+    }, [generatedData, navigate, showRegenerateMode, urlProjectId]);
+
+    const entryFallback = renderEntryFallback();
+    const shouldShowBlueprint = !showRegenerateMode && Boolean(generatedData);
 
     return (
         <div className="relative flex min-h-screen w-full flex-col bg-background-dark font-display text-slate-100 antialiased overflow-x-hidden selection:bg-primary/30">
@@ -535,7 +664,16 @@ const Ideation = () => {
             </header>
 
             <AnimatePresence mode="wait">
-                {!showRegenerateMode ? (
+                {entryFallback ? (
+                    <motion.div
+                        key="entry-fallback"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        {entryFallback}
+                    </motion.div>
+                ) : shouldShowBlueprint ? (
                     <motion.div
                         key="blueprint-view"
                         initial={{ opacity: 0, x: -20 }}
