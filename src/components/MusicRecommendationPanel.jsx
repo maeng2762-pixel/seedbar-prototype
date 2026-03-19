@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useMusicRecommendationStore from '../store/useMusicRecommendationStore';
+import useStore from '../store/useStore';
 
 const STRATEGY_LABEL = {
   trend: { ko: '트렌드 반영', en: '🔥 Trend', color: 'from-rose-500/20 to-orange-500/20 border-rose-500/30 text-rose-300' },
@@ -52,6 +53,7 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
   const hasSpotifyUrl = isSpotify && track.source_url;
   const hasPreview = Boolean(track.actual_audio);
   const strategyStyle = STRATEGY_LABEL[strategy] || {};
+  const isKr = useStore((s) => s.language) === 'KR';
 
   // Spotify embed URL: works by converting /track/xxx to /embed/track/xxx
   const spotifyEmbedUrl = hasSpotifyUrl
@@ -68,7 +70,7 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
         <div className="flex items-center gap-2">
           {isSelected && <span className="text-green-400 text-sm">✅</span>}
           <span className={`rounded-full bg-gradient-to-r ${strategyStyle.color || 'bg-primary/20 text-primary'} border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider`}>
-            {strategyStyle.en || strategy}
+            {isKr && strategyStyle.ko ? strategyStyle.ko : (strategyStyle.en || strategy)}
           </span>
         </div>
         <span className="text-[10px] text-slate-500 font-mono">{track.duration || '3:00'}</span>
@@ -114,7 +116,7 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
             }`}
           >
             <span className="text-sm">{showPlayer ? '⏸' : '▶'}</span>
-            {showPlayer ? '플레이어 닫기' : '여기서 재생'}
+            {showPlayer ? (isKr ? '플레이어 닫기' : 'Close Player') : (isKr ? '여기서 재생' : 'Play Here')}
           </button>
         ) : hasPreview ? (
           <audio controls preload="none" className="h-8 flex-1 min-w-0" src={track.actual_audio} />
@@ -127,7 +129,7 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
             isSelected ? 'bg-green-500/20 text-green-300 border-green-500/40' : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border-white/10'
           }`}
         >
-          {isSelected ? '선택됨' : '선택하기'}
+          {isSelected ? (isKr ? '선택됨' : 'Selected') : (isKr ? '선택하기' : 'Select')}
         </button>
 
         {track.source_url ? (
@@ -141,7 +143,7 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
             rel="noreferrer"
             href={track.source_url}
           >
-            {isSpotify ? '🎵 Spotify에서 열기' : '📺 YouTube에서 열기'}
+            {isSpotify ? (isKr ? '🎵 Spotify에서 열기' : '🎵 Open in Spotify') : (isKr ? '📺 YouTube에서 열기' : '📺 Open in YouTube')}
           </a>
         ) : null}
       </div>
@@ -203,12 +205,15 @@ export default function MusicRecommendationPanel({
     setRecommendations,
   } = useMusicRecommendationStore();
 
+  const language = useStore((s) => s.language);
+  const isKr = language === 'KR';
+
   const hasResult = useMemo(() => {
     return Object.values(recommendations || {}).some((arr) => Array.isArray(arr) && arr.length > 0);
   }, [recommendations]);
 
   const onRecommend = async () => {
-    await fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve });
+    await fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, language });
   };
 
   const autoKeyRef = useRef('');
@@ -227,11 +232,12 @@ export default function MusicRecommendationPanel({
       competitionMode: Boolean(competitionMode),
       tempo: tempo || '',
       emotionCurve: Array.isArray(emotionCurve) ? emotionCurve : [],
+      language: language || 'EN',
     });
     if (autoKeyRef.current === key || loading || hasResult) return;
     autoKeyRef.current = key;
-    fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve });
-  }, [autoRecommend, genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, loading, fetchRecommendations, initialRecommendations, setRecommendations, hasResult]);
+    fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, language });
+  }, [autoRecommend, genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, language, loading, fetchRecommendations, initialRecommendations, setRecommendations, hasResult]);
 
   useEffect(() => {
     if (onRecommendationsFetched && hasResult && recommendations !== initialRecommendations) {
@@ -273,7 +279,7 @@ export default function MusicRecommendationPanel({
       {/* Header */}
       <div className="mb-4">
         <p className="mb-1 text-[10px] font-semibold tracking-[0.3em] uppercase text-slate-500">
-          음악 추천
+          {isKr ? '음악 추천' : 'Music Recommendation'}
         </p>
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-base font-bold tracking-wide text-white flex items-center gap-2">
@@ -281,12 +287,12 @@ export default function MusicRecommendationPanel({
           </h3>
           {!hideActionButton ? (
             <button
-              type="button"
+               type="button"
               onClick={onRecommend}
               disabled={loading}
               className="rounded-lg bg-gradient-to-r from-primary to-violet-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60 hover:shadow-lg hover:shadow-primary/30 transition-all"
             >
-              {loading ? '🔄 추천 중...' : '✨ 음악 추천받기'}
+              {loading ? (isKr ? '🔄 추천 중...' : '🔄 Recommending...') : (isKr ? '✨ 음악 추천받기' : '✨ Get Recommendations')}
             </button>
           ) : null}
         </div>
@@ -296,7 +302,7 @@ export default function MusicRecommendationPanel({
       {error ? <p className="mb-3 rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-xs text-rose-300">⚠️ {error}</p> : null}
       {fingerprint ? (
         <p className="mb-3 text-[10px] text-slate-500 font-mono">
-          🔑 {fingerprint.slice(0, 12)}... {cacheHit ? '(캐시)' : '(새로 생성)'}
+          🔑 {fingerprint.slice(0, 12)}... {cacheHit ? (isKr ? '(캐시)' : '(Cache)') : (isKr ? '(새로 생성)' : '(New)')}
         </p>
       ) : null}
 
@@ -322,12 +328,12 @@ export default function MusicRecommendationPanel({
       ) : loading ? (
         <div className="flex items-center gap-3 py-8 justify-center">
           <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm text-slate-400 animate-pulse">AI가 안무에 맞는 음악을 분석하고 있어요...</p>
+          <p className="text-sm text-slate-400 animate-pulse">{isKr ? 'AI가 안무에 맞는 음악을 분석하고 있어요...' : 'AI is analyzing music that fits your choreography...'}</p>
         </div>
       ) : (
         <div className="py-6 text-center">
           <p className="text-sm text-slate-500">
-            {autoRecommend ? '음악 추천을 준비 중이에요...' : '아직 추천된 음악이 없어요. "음악 추천받기"를 눌러보세요!'}
+            {autoRecommend ? (isKr ? '음악 추천을 준비 중이에요...' : 'Preparing recommendations...') : (isKr ? '아직 추천된 음악이 없어요. "음악 추천받기"를 눌러보세요!' : 'No recommendations yet. Click "Get Recommendations" to begin!')}
           </p>
         </div>
       )}

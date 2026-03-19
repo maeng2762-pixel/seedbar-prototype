@@ -109,6 +109,9 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
             if (generatedPackage.lightingDirectorDoc) {
                 downloadFile(`Lighting_Director_Doc_${timestamp}.txt`, generatedPackage.lightingDirectorDoc);
             }
+            if (generatedPackage.costumePropDoc) {
+                downloadFile(`Costume_Prop_Table_${timestamp}.txt`, generatedPackage.costumePropDoc);
+            }
         }
 
         onClose();
@@ -234,6 +237,9 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
                                     <button onClick={() => setActiveTab('lighting')} className={`px-4 py-2 text-sm uppercase tracking-widest whitespace-nowrap ${activeTab === 'lighting' ? 'text-teal-400 border-b-2 border-teal-400 bg-white/5' : 'text-slate-400 hover:text-white'}`}>
                                         {isKr ? '조명감독 큐시트' : 'Lighting Doc'}
                                     </button>
+                                    <button onClick={() => setActiveTab('costume')} className={`px-4 py-2 text-sm uppercase tracking-widest whitespace-nowrap ${activeTab === 'costume' ? 'text-teal-400 border-b-2 border-teal-400 bg-white/5' : 'text-slate-400 hover:text-white'}`}>
+                                        {isKr ? '의상/소품 정리표' : 'Costume & Props'}
+                                    </button>
                                 </>
                             )}
                         </div>
@@ -343,6 +349,13 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
                                     value={generatedPackage.lightingDirectorDoc || ''}
                                     onChange={e => setGeneratedPackage({...generatedPackage, lightingDirectorDoc: e.target.value})}
                                     className="w-full h-full min-h-[400px] bg-black/30 border border-white/10 p-6 text-[#5B13EC]/80 outline-none focus:border-[#5B13EC]/50 whitespace-pre-wrap leading-relaxed font-mono text-sm"
+                                />
+                            )}
+                            {activeTab === 'costume' && (
+                                <textarea 
+                                    value={generatedPackage.costumePropDoc || ''}
+                                    onChange={e => setGeneratedPackage({...generatedPackage, costumePropDoc: e.target.value})}
+                                    className="w-full h-full min-h-[400px] bg-black/30 border border-white/10 p-6 text-pink-500/80 outline-none focus:border-pink-500/50 whitespace-pre-wrap leading-relaxed font-mono text-sm"
                                 />
                             )}
                         </div>

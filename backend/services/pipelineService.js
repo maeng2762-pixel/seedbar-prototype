@@ -39,7 +39,7 @@ export async function generateStep2Expansion(input, context, options = {}) {
   const cached = cacheService.get(key);
   if (cached) return { ...cached, cacheHit: true };
 
-  const system = 'Create high-quality but bounded JSON choreography package. Include `lma.body` (body part usage), `emotionCurve.energyIntensities` (energy curve intensities), and `prompt` inside each timeline item (containing `keywords`, `connection`, `direction`). Keep section lengths compact.';
+  const system = 'Create high-quality but bounded JSON choreography package. Include `lma.body` (body part usage), `emotionCurve.energyIntensities` (energy curve intensities), and `prompt` inside each timeline item (containing `keywords`, `connection`, `direction`). Keep section lengths compact. For the `pamphlet` object, MUST generate ALL text fields (`coverTitle`, `performanceDesc`, `artisticStatement`, `choreographerNote`, `musicCredits`, `cast`) as bilingual objects: { "en": "English text", "kr": "Korean text" }.';
   const fallback = async () => {
     const direction = await buildInternalMusicDirection(input, input.competitionMode);
     const external = await resolveExternalTracks(direction, options.allowExternalMusic);
@@ -78,17 +78,20 @@ export async function generateStep2Expansion(input, context, options = {}) {
         acousticRationale: { en: 'Internal direction first, external API only on narrowed candidates.', kr: '내부 방향성 확정 후 외부 API를 제한 호출합니다.' },
       },
       stage: {
-        lighting: 'Focused front key + narrow side strip',
-        costume: 'Neutral fitted silhouette with asymmetry',
-        props: 'Minimal / optional',
+        lighting: { en: 'Focused front key with cold color temperature (6000K), narrow side strip, dynamic intensity shifting during climax.', kr: '단위별 밝기 변화, 전면 키라이트(차가운 색온도), 좁은 측면 스트립 조명. 절정 부근에서 동적 강도 변화.' },
+        costume: { en: 'Neutral fitted silhouette, asymmetric layering with lightweight fabric responding to motion.', kr: '중립적 실루엣, 비대칭 레이어드, 움직임의 잔상을 극대화하는 가벼운 소재.' },
+        props: { en: 'A single modular block placed downstage right, used as an anchor point in Section 2.', kr: '보수적 형태의 모듈형 블록 1개, 무대 우측 하단 배치(섹션 2 활용).' },
+        stageObjects: { en: 'Minimalistic taped grid on the floor delineating isolated zones.', kr: '고립된 구역을 설정하기 위해 무대 바닥 마스킹 테이프로 그리드 구성.' },
+        spatialUse: { en: 'Start tightly in center, gradually pushing outwards to all corners, ending near the audience.', kr: '무대 중앙에서 타이트하게 시작하여 사방으로 확장하고 관객과 가까운 위치에서 종료.' },
+        visualMoodPerScene: { en: 'Intro: Sterile & cold. Dev: Distorted shadows. Climax: High contrast strobes. Res: Fading ember.', kr: '도입: 무균 상태의 차가움. 전개: 왜곡된 그림자 확장. 절정: 짙은 대비의 스트로브. 결말: 희미한 불씨.' }
       },
       pamphlet: {
-        coverTitle: input.selectedConceptTitle || 'Seedbar Piece',
-        performanceDesc: 'Structured contemporary competition-ready draft.',
+        coverTitle: { en: input.selectedConceptTitle || 'Seedbar Piece', kr: input.selectedConceptTitle || '시드바 피스' },
+        performanceDesc: { en: 'Structured contemporary competition-ready draft.', kr: '구조적이고 완성도 높은 컨템포러리 초안.' },
         artisticStatement: { en: 'A compressed but theory-backed choreographic architecture.', kr: '이론 기반의 압축형 안무 구조.' },
         choreographerNote: { en: 'Section-level regeneration enabled for cost control.', kr: '비용 통제를 위해 섹션 단위 재생성만 허용됩니다.' },
-        musicCredits: 'Seedbar Music Engine',
-        cast: 'TBA',
+        musicCredits: { en: 'Seedbar Music Engine', kr: '시드바 뮤직 엔진' },
+        cast: { en: 'TBA', kr: '미정' },
       },
       isCompetition: Boolean(input.competitionMode),
       chanceOperation: { enabled: true },
@@ -139,9 +142,12 @@ export async function regenerateSection(input, context, section) {
       ],
     },
     stage: {
-      lighting: 'Regenerated focused light plot',
-      costume: 'Regenerated silhouette notes',
-      props: 'Regenerated props recommendation',
+      lighting: { en: 'Regenerated focused light plot', kr: '재생성된 조명 플롯' },
+      costume: { en: 'Regenerated silhouette notes', kr: '재생성된 의상 실루엣' },
+      props: { en: 'Regenerated props recommendation', kr: '재생성된 소품 추천' },
+      stageObjects: { en: 'Regenerated stage layout', kr: '재생성된 무대 오브젝트' },
+      spatialUse: { en: 'Regenerated spatial choreography', kr: '재생성된 무대 동선' },
+      visualMoodPerScene: { en: 'Regenerated mood board', kr: '재생성된 시각 분위기 보드' }
     },
   };
 
@@ -191,6 +197,7 @@ Output JSON Format Requirements:
 - presentationScript: String containing a full presentation script. Use markers like "[Slide 1]" ensuring tone is highly engaging, narrative-driven, and perfectly matched to the slides. Avoid simply reading the bullets; expand on the "presentationPoint" and "coreMessage".
 - stageDirectorDoc: String. Scene Breakdown, Cue Points, Setting changes, and specific instructions for the stage manager (e.g., floor type, entry/exit points, prop placement).
 - lightingDirectorDoc: String. Detailed lighting plot sequence, color palettes, intensity changes, and mood cues.
+- costumePropDoc: String. Detailed table format summarizing costumes (silhouettes, fabrics, colors, relation to movement) and props (type, timing, usage, stage location).
 `;
   
   const user = JSON.stringify({
@@ -205,7 +212,8 @@ Output JSON Format Requirements:
     ],
     presentationScript: "[Slide 1]\nHello, this is the project...\n\n[Slide 2]\nThe core concept is...",
     stageDirectorDoc: "Stage Requirements\n1. Floor: Marley\n2. Cues: ...",
-    lightingDirectorDoc: "Lighting Cues\n1. Intro: Spotlight..."
+    lightingDirectorDoc: "Lighting Cues\n1. Intro: Spotlight...",
+    costumePropDoc: "Costume & Props\n1. Costume: Minimal fits\n2. Props: 1 Chair..."
   });
 
   const packageData = await metricsService.withTiming('export_package_gen', () => llmProvider.highCostJson({ system, user, fallback }));

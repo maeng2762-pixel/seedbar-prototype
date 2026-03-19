@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
 import useAuthStore from '../store/useAuthStore';
 import FlowPatternSimulator from './FlowPatternSimulator';
@@ -14,6 +15,7 @@ import StudioToolbar from './studio/StudioToolbar';
 import VersionManager from './studio/VersionManager';
 import ExportPackageModal from './ExportPackageModal';
 import { generateFlowFromTimeline } from '../services/aiPipeline';
+import { getSavedStageVisualization } from '../services/stageVisual3d';
 import { getPlanHeaders } from '../lib/subscriptionContext';
 import { apiUrl } from '../lib/apiClient';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
@@ -81,6 +83,7 @@ function parseTimelineTimeToSeconds(value) {
 }
 
 export default function ChoreographyDraft({ data, projectId = null, currentPlan = 'free', policy = null, dancersCount = 5, onDataUpdate, onOpenUpgrade }) {
+    const navigate = useNavigate();
     const language = useStore((s) => s.language);
     const token = useAuthStore((s) => s.token);
     const isKr = language === 'KR';
@@ -99,6 +102,47 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
     const [isTuning, setIsTuning] = useState(false);
     const [isSimpleMode, setIsSimpleMode] = useState(true);
     const [showHelpModal, setShowHelpModal] = useState(false);
+
+    const [expandedSections, setExpandedSections] = useState(() => {
+        try {
+            const saved = localStorage.getItem('studioExpandedSections');
+            return saved ? JSON.parse(saved) : {
+                titles: true, dna: true, concept: true, narrative: true, emotion: true,
+                timing: true, formation: true, music: true, studio: true, stage: true, artist_note: true
+            };
+        } catch {
+            return {
+                titles: true, dna: true, concept: true, narrative: true, emotion: true,
+                timing: true, formation: true, music: true, studio: true, stage: true, artist_note: true
+            };
+        }
+    });
+
+    const toggleSection = (sectionKey) => {
+        setExpandedSections(prev => {
+            const next = { ...prev, [sectionKey]: !prev[sectionKey] };
+            localStorage.setItem('studioExpandedSections', JSON.stringify(next));
+            return next;
+        });
+    };
+
+    const expandAllSections = () => {
+        const next = {
+            titles: true, dna: true, concept: true, narrative: true, emotion: true,
+            timing: true, formation: true, music: true, studio: true, stage: true, artist_note: true
+        };
+        setExpandedSections(next);
+        localStorage.setItem('studioExpandedSections', JSON.stringify(next));
+    };
+
+    const collapseAllSections = () => {
+        const next = {
+            titles: false, dna: false, concept: false, narrative: false, emotion: false,
+            timing: false, formation: false, music: false, studio: false, stage: false, artist_note: false
+        };
+        setExpandedSections(next);
+        localStorage.setItem('studioExpandedSections', JSON.stringify(next));
+    };
     
     React.useEffect(() => {
         const hasSeenHelp = localStorage.getItem('hasSeenStudioHelp');
@@ -177,6 +221,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         duration: draftData?.seedbarInput?.duration || draftData?.timing?.totalDuration || '03:00',
         competitionMode: Boolean(draftData?.seedbarInput?.competitionMode || isCompetitionMode),
     };
+    const stageVisualizations = draftData?.visualizations3d || {};
 
     React.useEffect(() => {
         if (!projectId) return;
@@ -438,6 +483,37 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         />
     );
 
+    const openStageVisualizationEditor = (assetType) => {
+        const targetProjectId = projectId || draftData?.projectId || null;
+        const query = new URLSearchParams();
+        if (targetProjectId) query.set('projectId', targetProjectId);
+        query.set('asset', assetType);
+        navigate(`/editor?${query.toString()}`, {
+            state: {
+                mode: 'stage-visual',
+                assetType,
+                projectId: targetProjectId,
+                projectContent: draftData,
+                savedVisualization: getSavedStageVisualization(draftData, assetType),
+            },
+        });
+    };
+
+    const renderStageVisualizationButton = (assetType) => {
+        const savedVisualization = stageVisualizations?.[assetType];
+        return (
+            <button
+                type="button"
+                onClick={() => openStageVisualizationEditor(assetType)}
+                className="px-3 py-1.5 border border-white/15 bg-white/5 hover:bg-white/10 text-[10px] uppercase tracking-[0.18em] text-white transition-colors"
+            >
+                {savedVisualization
+                    ? (isKr ? '수정하기' : 'Edit 3D')
+                    : (isKr ? '3D로 생성하여 보기' : 'View in 3D')}
+            </button>
+        );
+    };
+
     return (
         <div className="w-full flex flex-col gap-10 pb-8 relative font-serif text-slate-200">
             
@@ -461,6 +537,18 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     </div>
                 </div>
             )}
+
+            {/* Global Collapse/Expand */}
+            <div className="flex justify-center gap-4 pt-6 px-4">
+                 <button onClick={expandAllSections} className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white rounded transition-colors uppercase tracking-widest flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[16px]">expand_content</span>
+                     {isKr ? '전체 펼치기' : 'Expand All'}
+                 </button>
+                 <button onClick={collapseAllSections} className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white rounded transition-colors uppercase tracking-widest flex items-center gap-2">
+                     <span className="material-symbols-outlined text-[16px]">collapse_content</span>
+                     {isKr ? '전체 접기' : 'Collapse All'}
+                 </button>
+            </div>
 
             {/* Minimalist Header */}
             <div className="text-center pt-8 pb-4 border-b border-white/10 space-y-4">
@@ -486,11 +574,12 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* STEP 1: Title Generator — Hammer-Hit v4.0 (Diversity Engine) */}
-            <div className="bg-black/20 backdrop-blur-md border border-white/5 rounded-none p-10">
-                <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 mb-2 flex items-center justify-between">
+            <div className={`bg-black/20 backdrop-blur-md border border-white/5 rounded-none p-10 transition-all ${expandedSections.titles ? '' : 'h-[60px] overflow-hidden'}`}>
+                <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 mb-2 flex items-center justify-between cursor-pointer" onClick={() => toggleSection('titles')}>
                     <div className="flex items-center gap-3">
                         <span className="w-6 h-[1px] bg-slate-500"></span>
-                        {isKr ? "추천 작품 제목" : "Recommended Titles"}
+                        {isKr ? "추천 작품 제목 (Titles)" : "Recommended Titles"}
+                        <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.titles ? 'expand_less' : 'expand_more'}</span>
                     </div>
                     {draftData.titles._tone && (
                         <span className="text-[9px] bg-white/5 border border-white/10 text-white/40 px-3 py-1 rounded tracking-widest uppercase">
@@ -540,13 +629,14 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
 
             {/* 🎲 CHANCE OPERATION DNA (우연성 엔진 결과) */}
             {draftData.chanceOperation && (
-                <div className="bg-gradient-to-r from-[#5B13EC]/10 to-transparent border border-[#5B13EC]/20 p-6 relative">
+                <div className={`bg-gradient-to-r from-[#5B13EC]/10 to-transparent border border-[#5B13EC]/20 p-6 relative transition-all ${expandedSections.dna ? '' : 'h-[60px] overflow-hidden'}`}>
                     <div className="absolute top-3 right-4 text-[9px] uppercase tracking-widest text-[#5B13EC]/50 font-mono">
                         🎲 {draftData.chanceOperation.rollId}
                     </div>
-                    <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-[#5B13EC] mb-4 flex items-center gap-3">
+                    <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-[#5B13EC] mb-4 flex items-center gap-3 cursor-pointer" onClick={() => toggleSection('dna')}>
                         <span className="w-4 h-[1px] bg-[#5B13EC]"></span>
                         {isKr ? "AI 설계 핵심 DNA (AI Design DNA)" : "AI Design DNA"}
+                        <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.dna ? 'expand_less' : 'expand_more'}</span>
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* A. Choreographic Device */}
@@ -581,12 +671,13 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             )}
 
             {/* STEP 2: Concept Generator */}
-            <div id="section-story" className="bg-white/5 backdrop-blur-md border border-white/10 rounded-none p-10 relative overflow-hidden transition-all duration-700">
+            <div id="section-story" className={`bg-white/5 backdrop-blur-md border border-white/10 rounded-none p-10 relative overflow-hidden transition-all duration-700 ${expandedSections.concept ? '' : 'h-[75px] leading-none'}`}>
                 <div className="absolute top-0 left-0 w-1 h-full bg-white/20"></div>
                 <div className="mb-6 flex items-center justify-between gap-3">
-                    <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 flex items-center gap-3">
+                    <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 flex items-center gap-3 cursor-pointer" onClick={() => toggleSection('concept')}>
                         <span className="w-6 h-[1px] bg-slate-500"></span>
-                        {isKr ? '기획 의도' : 'Step 2: Core Concept'}
+                        {isKr ? '기획 의도 (Concept & Philosophy)' : 'Step 2: Core Concept'}
+                        <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.concept ? 'expand_less' : 'expand_more'}</span>
                     </h2>
                     {renderSectionAction('story')}
                 </div>
@@ -621,11 +712,12 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             {/* STEP 3: Narrative & AI Choreography Timing Engine */}
             <div className="flex flex-col gap-10">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="bg-black/20 backdrop-blur-md border border-white/5 p-10">
+                    <div className={`bg-black/20 backdrop-blur-md border border-white/5 p-10 transition-all ${expandedSections.narrative ? '' : 'h-[75px] overflow-hidden'}`}>
                         <div className="mb-6 flex items-center justify-between gap-3">
-                            <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 flex items-center gap-3">
+                            <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 flex items-center gap-3 cursor-pointer" onClick={() => toggleSection('narrative')}>
                                 <span className="w-6 h-[1px] bg-slate-500"></span>
                                 {isKr ? "단계 3: 안무 내러티브" : "Step 3: Narrative"}
+                                <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.narrative ? 'expand_less' : 'expand_more'}</span>
                             </h2>
                             {renderSectionAction('story')}
                         </div>
@@ -641,11 +733,12 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                         </div>
                     </div>
 
-                    <div className="bg-black/20 backdrop-blur-md border border-white/5 p-10 flex flex-col justify-between">
+                    <div className={`bg-black/20 backdrop-blur-md border border-white/5 p-10 flex flex-col justify-between transition-all ${expandedSections.emotion ? '' : 'h-[75px] overflow-hidden'}`}>
                         <div>
-                            <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 mb-2 flex items-center gap-3">
+                            <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 mb-2 flex items-center gap-3 cursor-pointer" onClick={() => toggleSection('emotion')}>
                                 <span className="w-6 h-[1px] bg-slate-500"></span>
-                                {isKr ? "감정 흐름 분석" : "Emotion Flow"}
+                                {isKr ? "감정 및 에너지 흐름 분석" : "Emotion & Energy Flow"}
+                                <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.emotion ? 'expand_less' : 'expand_more'}</span>
                             </h2>
                             <p className="text-xs text-slate-400 font-sans mb-8">
                                 {isKr ? "작품의 흐름에 따른 감정 강도 곡선입니다." : "Intensity curve mapped across the narrative timeframe."}
@@ -665,12 +758,13 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 </div>
 
                 {/* AI Choreography Timing Engine */}
-                <div id="section-movement" className="bg-white/5 backdrop-blur-md border border-white/10 p-8 flex flex-col relative overflow-hidden transition-all duration-700">
+                <div id="section-movement" className={`bg-white/5 backdrop-blur-md border border-white/10 p-8 flex flex-col relative overflow-hidden transition-all duration-700 ${expandedSections.timing ? '' : 'h-[80px]'}`}>
                     <div className="absolute top-0 left-0 w-1 h-full bg-[#5B13EC]"></div>
-                    <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-300 mb-6 flex items-center justify-between">
+                    <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-300 mb-6 flex items-center justify-between cursor-pointer" onClick={() => toggleSection('timing')}>
                         <div className="flex items-center gap-3">
                             <span className="w-4 h-[1px] bg-[#5B13EC]"></span>
                             {isKr ? "AI 안무 타이밍 엔진 (Choreography Timing)" : "AI Choreography Timing Engine"}
+                            <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.timing ? 'expand_less' : 'expand_more'}</span>
                         </div>
                         {renderSectionAction('movement')}
                     </h2>
@@ -861,11 +955,12 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* AI STAGE MAP ENGINE (2D Flow Visualization) */}
-            <div id="section-formation" className="w-full flex flex-col gap-4 my-8 transition-all duration-700">
-                 <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center justify-between">
+            <div id="section-formation" className={`w-full flex flex-col gap-4 my-8 transition-all duration-700 ${expandedSections.formation ? '' : 'h-[40px] overflow-hidden'}`}>
+                 <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center justify-between cursor-pointer" onClick={() => toggleSection('formation')}>
                      <div className="flex items-center gap-3">
                          <span className="w-4 h-[1px] bg-slate-400"></span>
                          {isKr ? "AI 스테이지 맵 엔진 (Stage Map Engine)" : "AI Stage Map Engine"}
+                         <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.formation ? 'expand_less' : 'expand_more'}</span>
                      </div>
                      <div className="flex items-center gap-2">
                          {renderSectionAction('formation')}
@@ -915,8 +1010,14 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* AI MUSIC ENGINE: Spotify + YouTube Only */}
-            <div id="section-music" className="bg-black/20 backdrop-blur-md border border-white/5 p-8 flex flex-col my-8 relative overflow-hidden transition-all duration-700">
+            <div id="section-music" className={`bg-black/20 backdrop-blur-md border border-white/5 p-8 flex flex-col my-8 relative overflow-hidden transition-all duration-700 ${expandedSections.music ? '' : 'h-[75px]'}`}>
                 <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#5B13EC] to-transparent" />
+                <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 mb-4 flex items-center gap-3 cursor-pointer z-10" onClick={() => toggleSection('music')}>
+                    <span className="w-4 h-[1px] bg-slate-400"></span>
+                    {isKr ? "음악 추천 엔진 (AI Music Engine)" : "AI Music Engine"}
+                    <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.music ? 'expand_less' : 'expand_more'}</span>
+                </h2>
+                <div className={expandedSections.music ? '' : 'hidden'}>
                 <MusicRecommendationPanel
                     genre={musicInput.genre}
                     mood={musicInput.mood}
@@ -945,10 +1046,18 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                         onDataUpdate?.(next);
                     }}
                 />
+                </div>
             </div>
 
             {/* ─── AI Choreography Studio ─── */}
-            <div className="bg-white/5 border border-white/10 p-6 md:p-8 backdrop-blur-sm space-y-6 relative" id="studio-section">
+            <div className={`bg-white/5 border border-white/10 p-6 md:p-8 backdrop-blur-sm space-y-6 relative overflow-hidden transition-all duration-700 ${expandedSections.studio ? '' : 'h-[80px]'}`} id="studio-section">
+                <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-[#5B13EC] mb-2 flex items-center justify-between cursor-pointer" onClick={() => toggleSection('studio')}>
+                    <div className="flex items-center gap-3">
+                        <span className="w-4 h-[1px] bg-[#5B13EC]"></span>
+                        {isKr ? "AI 안무 스튜디오 (AI Choreography Studio)" : "AI Choreography Studio"}
+                        <span className="material-symbols-outlined text-[16px] leading-none text-[#5B13EC]">{expandedSections.studio ? 'expand_less' : 'expand_more'}</span>
+                    </div>
+                </h2>
                 <div className="flex flex-wrap items-center justify-between mb-4 pb-4 border-b border-white/10">
                     <div className="flex items-center gap-3">
                         <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">
@@ -1176,77 +1285,111 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                         </div>
                     )}
                 </div>
-
-                <div className="border-t border-white/10 pt-5">
-                    <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-semibold text-white">{isKr ? 'Full Choreography Package' : 'Full Choreography Package'}</h3>
-                        <button
-                            onClick={async () => {
-                                try {
-                                    await fetchFullPackage();
-                                } catch (error) {
-                                    onOpenUpgrade?.(error.message);
-                                }
-                            }}
-                            className="px-3 py-2 text-xs font-semibold bg-white/10 border border-white/20 hover:bg-white/20"
-                        >
-                            {isKr ? '패키지 생성' : 'Build Package'}
-                        </button>
-                    </div>
-                    {packageData ? (
-                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                            <div className="bg-black/30 border border-white/10 p-3"><span className="text-slate-400">Title</span><p className="text-white mt-1">{packageData.title}</p></div>
-                            <div className="bg-black/30 border border-white/10 p-3"><span className="text-slate-400">Lighting</span><p className="text-white mt-1">{t(packageData.lightingSuggestions)}</p></div>
-                            <div className="bg-black/30 border border-white/10 p-3"><span className="text-slate-400">Costume</span><p className="text-white mt-1">{t(packageData.costumeSuggestions)}</p></div>
-                            {packageData.competitionStrategy ? (
-                                <div className="bg-black/30 border border-white/10 p-3"><span className="text-slate-400">Competition Strategy</span><p className="text-white mt-1">{t(packageData.competitionStrategy)}</p></div>
-                            ) : null}
-                        </div>
-                    ) : null}
-                </div>
             </div>
 
             {/* VISUALS: Stage & Costume */}
-            <div id="section-stage" className="grid grid-cols-1 gap-8 mb-8 transition-all duration-700">
-                <div className="bg-white/5 border border-white/10 p-8 backdrop-blur-sm">
+            <div id="section-stage" className={`grid grid-cols-1 gap-8 mb-8 transition-all duration-700 ${expandedSections.stage ? '' : 'h-[75px] overflow-hidden'}`}>
+                <div className="bg-white/5 border border-white/10 p-8 backdrop-blur-sm relative">
                     <div className="mb-6 flex items-center justify-between gap-3">
-                        <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center gap-3">
+                        <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-400 flex items-center gap-3 cursor-pointer" onClick={() => toggleSection('stage')}>
                             <span className="w-4 h-[1px] bg-slate-400"></span>
                             {isKr ? "무대 및 비주얼 컨셉" : "Stage & Visual Concept"}
+                            <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.stage ? 'expand_less' : 'expand_more'}</span>
                         </h2>
                         {renderSectionAction('stage')}
                     </div>
-                    <ul className="space-y-4 font-sans text-xs text-slate-300 uppercase tracking-wide">
-                        <li className="flex flex-col border-b border-white/5 pb-2"><span className="text-slate-500 mb-1">Lighting</span> <span className="normal-case tracking-normal">{draftData.stage.lighting}</span></li>
-                        <li className="flex flex-col border-b border-white/5 pb-2"><span className="text-slate-500 mb-1">Costume</span> <span className="normal-case tracking-normal">{draftData.stage.costume}</span></li>
-                        <li className="flex flex-col"><span className="text-slate-500 mb-1">Props & Space</span> <span className="normal-case tracking-normal">{draftData.stage.props}</span></li>
-                    </ul>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-black/30 border border-white/5 rounded-lg">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                                <h3 className="text-[10px] text-teal-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[14px]">highlight</span> {isKr ? '조명 (Lighting)' : 'Lighting'}
+                                </h3>
+                                {renderStageVisualizationButton('lighting')}
+                            </div>
+                            <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.lighting) || 'N/A'}</p>
+                            {stageVisualizations?.lighting && (
+                                <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-teal-400/70">
+                                    {isKr ? `저장된 3D 시안 · ${formatRelativeTime(stageVisualizations.lighting.savedAt || stageVisualizations.lighting.generatedAt)}` : `Saved 3D concept · ${formatRelativeTime(stageVisualizations.lighting.savedAt || stageVisualizations.lighting.generatedAt)}`}
+                                </p>
+                            )}
+                        </div>
+                        <div className="p-4 bg-black/30 border border-white/5 rounded-lg">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                                <h3 className="text-[10px] text-pink-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[14px]">checkroom</span> {isKr ? '의상 (Costume)' : 'Costume'}
+                                </h3>
+                                {renderStageVisualizationButton('costume')}
+                            </div>
+                            <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.costume) || 'N/A'}</p>
+                            {stageVisualizations?.costume && (
+                                <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-pink-400/70">
+                                    {isKr ? `저장된 3D 시안 · ${formatRelativeTime(stageVisualizations.costume.savedAt || stageVisualizations.costume.generatedAt)}` : `Saved 3D concept · ${formatRelativeTime(stageVisualizations.costume.savedAt || stageVisualizations.costume.generatedAt)}`}
+                                </p>
+                            )}
+                        </div>
+                        <div className="p-4 bg-black/30 border border-white/5 rounded-lg">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                                <h3 className="text-[10px] text-[#5B13EC] font-bold uppercase tracking-widest flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[14px]">chair</span> {isKr ? '소품 (Props)' : 'Props'}
+                                </h3>
+                                {renderStageVisualizationButton('props')}
+                            </div>
+                            <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.props) || 'N/A'}</p>
+                            {stageVisualizations?.props && (
+                                <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-primary/80">
+                                    {isKr ? `저장된 3D 시안 · ${formatRelativeTime(stageVisualizations.props.savedAt || stageVisualizations.props.generatedAt)}` : `Saved 3D concept · ${formatRelativeTime(stageVisualizations.props.savedAt || stageVisualizations.props.generatedAt)}`}
+                                </p>
+                            )}
+                        </div>
+                        <div className="p-4 bg-black/30 border border-white/5 rounded-lg">
+                            <h3 className="text-[10px] text-orange-400 font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px]">foundation</span> {isKr ? '무대 오브젝트 (Stage Objects)' : 'Stage Objects'}
+                            </h3>
+                            <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.stageObjects) || 'N/A'}</p>
+                        </div>
+                        <div className="p-4 bg-black/30 border border-white/5 rounded-lg">
+                            <h3 className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px]">pan_tool_alt</span> {isKr ? '공간 사용 방식 (Spatial Use)' : 'Spatial Use'}
+                            </h3>
+                            <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.spatialUse) || 'N/A'}</p>
+                        </div>
+                        <div className="p-4 bg-black/30 border border-white/5 rounded-lg">
+                            <h3 className="text-[10px] text-green-400 font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px]">theater_comedy</span> {isKr ? '장면별 시각 분위기 (Visual Mood per Scene)' : 'Visual Mood per Scene'}
+                            </h3>
+                            <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.visualMoodPerScene) || 'N/A'}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* STEP 7: Pamphlet Designer (Exhibition Print Format) */}
-            <div id="section-artist_note" className="bg-slate-200 text-slate-900 p-12 mt-4 relative transition-all duration-700">
-                <div className="absolute top-4 right-6 text-[10px] uppercase tracking-[0.3em] font-sans text-slate-400">Step 7: Print Ready Pamphlet</div>
+            <div id="section-artist_note" className={`bg-slate-200 text-slate-900 p-12 mt-4 relative transition-all duration-700 ${expandedSections.artist_note ? '' : 'h-[75px] overflow-hidden'}`}>
+                <div className="absolute top-4 right-6 text-[10px] uppercase tracking-[0.3em] font-sans text-slate-400 cursor-pointer flex items-center gap-2" onClick={() => toggleSection('artist_note')}>
+                    {isKr ? 'Step 7: 최종 인쇄용 팜플렛 (Print Ready Pamphlet)' : 'Step 7: Print Ready Pamphlet'}
+                    <span className="material-symbols-outlined text-[16px]">{expandedSections.artist_note ? 'expand_less' : 'expand_more'}</span>
+                </div>
                 <div className="absolute top-4 left-6">
                     {renderSectionAction('artist_note')}
                 </div>
                 
-                <h1 className="text-4xl md:text-5xl font-light italic mb-8 mt-4 text-center">{draftData.pamphlet.coverTitle}</h1>
-                <p className="text-center text-sm tracking-widest uppercase font-sans mb-12 border-b border-slate-300 pb-8 mx-auto max-w-lg">{draftData.pamphlet.performanceDesc}</p>
+                <h1 className="text-4xl md:text-5xl font-light italic mb-8 mt-4 text-center">{t(draftData.pamphlet.coverTitle)}</h1>
+                <p className="text-center text-sm tracking-widest uppercase font-sans mb-12 border-b border-slate-300 pb-8 mx-auto max-w-lg">{t(draftData.pamphlet.performanceDesc)}</p>
                 
                 <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 font-sans">
                     <div>
-                        <h4 className="text-xs uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-300 pb-2">Artistic Statement</h4>
+                        <h4 className="text-xs uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-300 pb-2">{isKr ? '예술 철학 (Artistic Statement)' : 'Artistic Statement'}</h4>
                         <p className="text-sm font-serif leading-relaxed text-justify">{t(draftData.pamphlet.artisticStatement)}</p>
                     </div>
                     <div>
-                        <h4 className="text-xs uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-300 pb-2">Choreographer Note</h4>
+                        <h4 className="text-xs uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-300 pb-2">{isKr ? '안무가 노트 (Choreographer Note)' : 'Choreographer Note'}</h4>
                         <p className="text-sm font-serif leading-relaxed text-justify">{t(draftData.pamphlet.choreographerNote)}</p>
                     </div>
                     <div className="md:col-span-2 flex flex-col items-center mt-8 border-t border-slate-300 pt-8 gap-2">
-                        <span className="text-xs uppercase tracking-widest text-slate-500">Credits</span>
-                        <p className="text-sm text-center">{draftData.pamphlet.musicCredits}</p>
-                        <p className="text-sm text-center">{draftData.pamphlet.cast}</p>
+                        <span className="text-xs uppercase tracking-widest text-slate-500">{isKr ? '크레딧 (Credits)' : 'Credits'}</span>
+                        <p className="text-sm text-center">{t(draftData.pamphlet.musicCredits)}</p>
+                        <p className="text-sm text-center">{t(draftData.pamphlet.cast)}</p>
                     </div>
                 </div>
             </div>

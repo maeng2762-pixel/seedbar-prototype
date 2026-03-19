@@ -29,6 +29,7 @@ function fingerprint(input) {
     duration: input.duration || '03:00',
     tempo: input.tempo || '',
     emotionCurve: Array.isArray(input.emotionCurve) ? input.emotionCurve : [],
+    language: input.language || 'EN',
   };
   const raw = JSON.stringify(normalized);
   return crypto.createHash('sha1').update(raw).digest('hex');
@@ -168,16 +169,18 @@ function buildQueryFallbackTrack(strategyName, strategy = {}) {
 
 function fallbackPayload(input) {
   const comp = Boolean(input.competitionMode);
+  const isKr = input.language === 'KR';
+  
   const notes = comp
     ? {
-      trend: 'Competition-safe kinetic tension arc tailored for judges.',
-      balanced: 'Body readability with restrained melodic load.',
-      counterpoint: 'Deliberate contrast and silence-ready structure for memorability.',
+      trend: isKr ? '안무 대회 심사의 기준이 될 만한 현대적인 긴장감과 전개를 지닙니다.' : 'Competition-safe kinetic tension arc tailored for judges.',
+      balanced: isKr ? '동작의 가독성과 서정적인 멜로디 라인을 적절히 배분한 선택입니다.' : 'Body readability with restrained melodic load.',
+      counterpoint: isKr ? '의도적인 대비감과 무음 구간을 활용하여 안무의 임팩트를 극대화합니다.' : 'Deliberate contrast and silence-ready structure for memorability.',
     }
     : {
-      trend: 'Current contemporary trend texture with clear emotional progression.',
-      balanced: 'Blend of texture and rhythm for broad usability.',
-      counterpoint: 'Unexpected but fitting contrast for choreographic impact.',
+      trend: isKr ? '명확한 감정선 상승과 트렌디한 질감을 동시에 갖춘 음악입니다.' : 'Current contemporary trend texture with clear emotional progression.',
+      balanced: isKr ? '안무 구성에 유연하게 활용할 수 있는 리듬과 공간감을 지닙니다.' : 'Blend of texture and rhythm for broad usability.',
+      counterpoint: isKr ? '예상치 못한 질감 뉘앙스가 안무에 신선한 포인트가 되어줍니다.' : 'Unexpected but fitting contrast for choreographic impact.',
     };
 
   return {
@@ -217,12 +220,18 @@ function fallbackPayload(input) {
   };
 }
 
-function buildSystemPrompt() {
+function buildSystemPrompt(input) {
+  const isKr = input?.language === 'KR';
+  const languageInstruction = isKr 
+    ? 'CRITICAL: You MUST write the "rationale" field STRICTLY in fluent Korean (한국어). Do not use English for the rationale.' 
+    : 'CRITICAL: You MUST write the "rationale" field in English.';
+
   return [
     'You are Seedbar Music Strategy Engine.',
     'Return compact JSON only.',
     'Generate three recommendation strategies: trend, balanced, counterpoint.',
     'Each strategy must include spotify and youtube query strings, excludes list, and one-sentence rationale.',
+    languageInstruction,
     'CRITICAL: The queries are for finding MUSIC TRACKS, not dance videos.',
     'NEVER include words like "dance", "choreography", "performance", "routine" in any query.',
     'YouTube queries MUST target actual songs/music — use terms like "official audio", "soundtrack", "ambient music", "instrumental".',
@@ -236,7 +245,7 @@ function buildSystemPrompt() {
 async function createMusicStrategy(input) {
   const fallback = () => fallbackPayload(input).strategy;
   const payload = await llmProvider.lowCostJson({
-    system: buildSystemPrompt(),
+    system: buildSystemPrompt(input),
     user: {
       genre: input.genre,
       mood: input.mood,

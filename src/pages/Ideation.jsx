@@ -398,8 +398,9 @@ const Ideation = () => {
         if (!generatedData && urlProjectId) {
             setProjectId(urlProjectId);
             fetchProject(urlProjectId).then(data => {
-                if (data?.currentContent) {
-                    setGeneratedData({ ...data.currentContent, projectId: urlProjectId });
+                const currentContent = data?.project?.currentContent || data?.currentContent || null;
+                if (currentContent) {
+                    setGeneratedData({ ...currentContent, projectId: urlProjectId });
                     setShowRegenerateMode(false);
                 }
             }).catch(console.error);
