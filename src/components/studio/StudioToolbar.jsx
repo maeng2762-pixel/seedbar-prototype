@@ -15,7 +15,6 @@ export default function StudioToolbar({
   disabled = false,
   plan = 'free',
   language = 'EN',
-  isSimpleMode = false,
 }) {
   const isKr = language === 'KR';
   const isPro = plan === 'pro' || plan === 'studio';
@@ -30,12 +29,12 @@ export default function StudioToolbar({
         </h3>
         <p className="text-xs text-slate-400">
           {isKr 
-            ? '원하는 기능을 선택하여 안무를 수정하거나 새 버전을 만드세요.' 
-            : 'Select a tool to modify choreography or create a new version.'}
+            ? '하나의 스튜디오 화면 안에서 재작성, 변형, 분위기 조정, 버전 저장까지 이어서 작업할 수 있습니다.' 
+            : 'Work inside one studio space to rewrite, vary, tune, and save versions without switching modes.'}
         </p>
       </div>
 
-      <div className={`grid gap-3 ${isSimpleMode ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+      <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
         {ACTIONS.map(({ key, label, labelKr, descKr, descEn, color }) => {
           const isLocked = !isPro && (key === 'rewrite' || key === 'tune' || key === 'variation');
           return (
@@ -51,11 +50,9 @@ export default function StudioToolbar({
                 <span>{isKr ? labelKr : label}</span>
                 {isLocked && <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-black/50 text-white/70">PRO</span>}
               </div>
-              {isSimpleMode && (
-                <p className="text-[11px] text-white/60 leading-relaxed mt-1">
-                  {isKr ? descKr : descEn}
-                </p>
-              )}
+              <p className="text-[11px] text-white/60 leading-relaxed mt-1">
+                {isKr ? descKr : descEn}
+              </p>
             </button>
           );
         })}

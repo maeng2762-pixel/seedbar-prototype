@@ -305,7 +305,7 @@ export default function Planner() {
                             </button>
                         </div>
 
-                        <h2 className="text-2xl font-bold text-white mb-2 relative z-10">Upgrade to Pro</h2>
+                        <h2 className="text-2xl font-bold text-white mb-2 relative z-10">Upgrade to a Paid Plan</h2>
                         <p className="text-sm text-slate-300 mb-6 relative z-10">무제한 AI 작품 생성과 발표용 PPT 자동 내보내기는 <strong className="text-white">Pro 티어</strong> 전용 기능입니다.</p>
 
                         <div className="space-y-3 mb-8 relative z-10">
@@ -332,4 +332,3 @@ export default function Planner() {
         </div>
     );
 }
-

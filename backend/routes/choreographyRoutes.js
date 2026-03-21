@@ -3,6 +3,7 @@ import {
   createProjectController,
   createProjectVersionController,
   deleteProjectController,
+  listDeletedProjectsController,
   deleteVersionController,
   duplicateVersionController,
   generateTitleController,
@@ -14,6 +15,7 @@ import {
   listProjectVersionsController,
   regenerateSectionController,
   rewriteSectionController,
+  restoreProjectController,
   saveAutosaveController,
   tuneChoreographyController,
   updateProjectController,
@@ -22,10 +24,12 @@ import {
 const router = Router();
 
 router.get('/projects', listProjectsController);
+router.get('/projects-trash', listDeletedProjectsController);
 router.post('/projects', createProjectController);
 router.get('/projects/:projectId', getProjectController);
 router.put('/projects/:projectId', updateProjectController);
 router.delete('/projects/:projectId', deleteProjectController);
+router.post('/projects/:projectId/restore', restoreProjectController);
 router.post('/projects/:projectId/versions', createProjectVersionController);
 router.get('/projects/:projectId/versions', listProjectVersionsController);
 router.delete('/projects/:projectId/versions/:versionId', deleteVersionController);

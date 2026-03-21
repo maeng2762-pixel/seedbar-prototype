@@ -9,6 +9,7 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import musicRoutes from './routes/musicRoutes.js';
 import choreographyRoutes from './routes/choreographyRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import billingRoutes from './routes/billingRoutes.js';
 import { requestContext, requireAuth } from './middleware/requestContext.js';
 
 export function createApp() {
@@ -22,6 +23,7 @@ export function createApp() {
   app.use('/api/pipeline', requireAuth, pipelineRoutes);
   app.use('/api/export', requireAuth, exportRoutes);
   app.use('/api/plans', requireAuth, planRoutes);
+  app.use('/api/billing', requireAuth, billingRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/music', requireAuth, musicRoutes);
   app.use('/api/choreography', requireAuth, choreographyRoutes);

@@ -42,6 +42,9 @@ const useSubscriptionStore = create((set, get) => ({
       });
       const data = await parseResponseJson(res, url);
       if (!res.ok) throw new Error(data?.error || 'Failed to load plan capabilities.');
+      if (data.currentPlan) {
+        setClientPlan(data.currentPlan);
+      }
       set({
         loading: false,
         error: null,

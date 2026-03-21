@@ -45,7 +45,7 @@ export const PLAN_POLICIES = {
 
 export function normalizePlan(plan) {
   const key = String(plan || 'free').toLowerCase();
-  if (key.includes('premium') || key.includes('studio') || key.includes('expert')) return 'studio';
+  if (key.includes('premium') || key.includes('studio') || key.includes('expert') || key.includes('team') || key.includes('school')) return 'studio';
   if (key.includes('pro')) return 'pro';
   return 'free';
 }

@@ -1,5 +1,5 @@
 import { loginWithEmail, registerWithEmail } from '../services/authService.js';
-import { ensureUser, listUsers, setUserPlanByEmail } from '../models/userModel.js';
+import { deleteUserById, ensureUser, listUsers, setUserPlanByEmail } from '../models/userModel.js';
 
 function responseUser(user) {
   return {
@@ -40,6 +40,19 @@ export function meController(req, res) {
 
 export function logoutController(_req, res) {
   return res.json({ ok: true });
+}
+
+export function deleteAccountController(req, res) {
+  if (!req.context?.isAuthenticated || !req.context?.userId) {
+    return res.status(401).json({ ok: false, error: 'Not authenticated.' });
+  }
+
+  const deleted = deleteUserById(req.context.userId);
+  if (!deleted) {
+    return res.status(404).json({ ok: false, error: 'Account not found.' });
+  }
+
+  return res.json({ ok: true, deleted: true });
 }
 
 export function createSeedAccountsController(_req, res) {

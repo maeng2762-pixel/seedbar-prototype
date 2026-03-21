@@ -6,261 +6,198 @@ import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
 import LanguageToggle from '../components/LanguageToggle';
 import { navigateToDraftProject, navigateToNewProject } from '../lib/projectNavigation';
 
-const Home = () => {
-    const navigate = useNavigate();
-    const { language } = useStore();
-    const { projects, listProjects, setProjectId } = useChoreographyStudioStore();
-
-    const i18n = {
-        EN: {
-            continuePreview: 'Continue Project',
-            lastEdited: 'Last edited: ',
-            continueBtn: 'Continue Editing',
-            title: "Choreography Reimagined",
-            desc: 'Experience the fusion of human movement and artificial intelligence.',
-            startBtn: 'Start New Creation',
-            learnBtn: 'Practice & Learn',
-            aiInspiration: 'Today\'s AI Inspiration',
-            genIdeaBtn: 'Generate Idea',
-            featured: 'Featured Works',
-            viewAll: 'View all',
-            save: 'Save',
-            remix: 'Remix'
-        },
-        KR: {
-            continuePreview: '최근 작업 이어하기',
-            lastEdited: '마지막 수정: ',
-            continueBtn: '계속 작업하기',
-            title: "창작의 경계를 넘어서다",
-            desc: '인간의 움직임과 인공지능이 만나는 새로운 예술적 경험을 시작하세요.',
-            startBtn: '새 프로젝트 시작하기',
-            learnBtn: '연습 및 학습하기',
-            aiInspiration: '오늘의 AI 영감',
-            genIdeaBtn: '아이디어 생성',
-            featured: '추천 작품',
-            viewAll: '전체 보기',
-            save: '보관함에 저장',
-            remix: '이 안무로 리믹스'
-        }
-    };
-
-    const t = i18n[language] || i18n.EN;
-
-    useEffect(() => {
-        listProjects().catch(() => {});
-    }, [listProjects]);
-
-    // Find the single most recently modified project
-    const latestProject = projects?.length 
-        ? [...projects].sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0] 
-        : null;
-
-    const formatRelativeTime = (dateStr) => {
-        if (!dateStr) return '';
-        const diffRules = [
-            { max: 60, text: '방금 전', textEn: 'Just now' },
-            { max: 3600, text: '분 전', textEn: ' mins ago', val: 60 },
-            { max: 86400, text: '시간 전', textEn: ' hours ago', val: 3600 },
-            { max: Infinity, text: '일 전', textEn: ' days ago', val: 86400 }
-        ];
-        const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
-        for (let rule of diffRules) {
-            if (seconds < rule.max) {
-                if (rule.max === 60) return language === 'KR' ? rule.text : rule.textEn;
-                const amt = Math.floor(seconds / rule.val);
-                return `${amt}${language === 'KR' ? rule.text : rule.textEn}`;
-            }
-        }
-    };
-
-
-    const defaultThumbnailUrl = 'https://lh3.googleusercontent.com/aida-public/AB6AXuATo1NG19Rt5g4x2eojodNB3BkIRKGKoIRirHCzAi4iyB950KaYecpg36Z3PIsukW4FF6kTJlZOHEwp8TD4Acbn71FyFSIjhye2NW3YpK6U9Q--xB0YPiZUjfzAyFhTsX64cJDqqml39-UzNDPCKKzFhZHk0nYCdC0gXwxwP6UJLH9CSsW-3NSj7UTBjYpLhy90P3zrUwgxdKHDB-8-UFT-Ncw3f2e6Xh8pmSRfTCjuL4iKOrMatIbg5IoAknwdKrSXlJ_-Hullbg';
-
-    const aiInspirations = [
-        { id: 'ai1', title: language === 'KR' ? '감정 기반 움직임' : 'Emotion-based Movement', icon: 'favorite', prompt: { moodKeywords: ['#Emotional'] } },
-        { id: 'ai2', title: language === 'KR' ? '공간 중심 안무 아이디어' : 'Space-centric Choreography', icon: 'view_in_ar', prompt: { moodKeywords: ['#Spatial', '#Formation'] } },
-        { id: 'ai3', title: language === 'KR' ? '리듬 기반 움직임' : 'Rhythm-based Movement', icon: 'graphic_eq', prompt: { moodKeywords: ['#Rhythmic', '#Dynamic'] } }
-    ];
-
-    const featuredWorks = [
-        {
-            id: 'f1', title: 'Neon Flow', author: 'AI-Gen #042',
-            image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0MrZpBDEK_y7jL8T4qVGj-CzqStkLhjU3oakguMIc0tTKjzm0kPOobI7ynzDjKtXV9zakujz8YeQXW2f57IyrfzscQJOF6ZAvR1C1mUN5h2nkrgJ0KZL3bWrNWc3wfD_zgiu3L_gqqzqMiT9xLwlcUmUID0o8-N_alFf2G9Z-F4b9p-LWB7kLlz3HFQZPB46vycMW7NADG2N656B08Ic5XANmtC3BSb5wcX8TfICK_fey5fQxQ-KAq6DtfxAy7Z0fygj8a2nFtg',
-            promptState: { genre: 'Contemporary', moodKeywords: ['#Neon', '#Flow'] }
-        },
-        {
-            id: 'f2', title: 'Liquid Grace', author: 'AI-Gen #089',
-            image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCjNiUzAod5vPLKQymH5BkGCIOnHsELxjb7bMkqTbHFKyjflvi-bHvtTgV7TiD6WAIz_YVd3-1HEPlg6KGuk_4-BMygRWofovqZyDgzSW4T43ZKuEk5YpxPp-Fc7zelTg-Np3ASBQkvLgKS5bwVuRMACAyGyBw1lh-ysxOeIb7BDwFxQQLo4Aas0xzKfjXUpyTgQX0M7LTZGTBHI3Hh28kJYqWqt_zsFWHvQcIcsj6dVXeMAEqwIR98Rt0aDX4VGCaMo8jzcBDjYQ',
-            promptState: { genre: 'Lyrical', moodKeywords: ['#Liquid', '#Grace'] }
-        }
-    ];
-
-    return (
-        <div className="relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 overflow-x-hidden overflow-y-auto">
-            {/* Background */}
-            <div className="fixed inset-0 z-0">
-                <div className="absolute inset-0 bg-gradient-to-b from-background-dark/20 via-background-dark/90 to-background-dark z-10 transition-colors"></div>
-                <div
-                    className="w-full h-full bg-cover bg-center opacity-40 pointer-events-none"
-                    style={{ backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuCXE6qwdSbDPutfwDiB8LNKFdhyPW_6OieztmmDYe9pIt16MwqRkgh96rhamNL8WoC6xc-bfab9azEywq5MPi1KWDyZ4NMCUu2fMBkjgSY8eUSPAhVxH_PtrV6jeJBRgLqq4D1mOmWLYzG0ISE8R3zGnMJMfExiEaMQilJ8-R9QqKq6t8WN3KtoPfSXF4mlKCWtr1Xi46UqdQu7QZ_-KxTdeq-ED5MFDU4dTE8mihi5TIaxePzV1_zwUbqsoiEEFzo1V4viC4_cbA')` }}>
-                </div>
-            </div>
-
-            {/* Top Navigation Area */}
-            <div className="relative z-20 flex items-center justify-between p-6 pt-12">
-                <div className="flex items-center gap-2">
-                    <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
-                        <span className="material-symbols-outlined text-primary text-xl">temp_preferences_custom</span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <LanguageToggle />
-                    <div className="size-10 rounded-full border-2 border-primary/50 overflow-hidden shadow-[0_0_10px_rgba(91,19,236,0.3)]">
-                        <img alt="Profile" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDehU8vtmOe_kzFXeXUq5uvkK1eYjGLudVbitAP71slxbnRmQdOX8fhT7SWMilUbjVCzmIOqnpXj8GYwzwSeHoMnEZ-8Y9UC0yZYiELfyUykxnXHRxrliMxdoj3QrStc2l03ySidtUu8li1GLxEizHg0pBSwcbH-p33cZsbfuI3pq5yeaHtNwDP3s1Il39Vkex_9dKJyQIdZuqAD49QFwxoKuzcmfozfCUiG5TW0Xa-vRFRfucKXP9rUHj45cyLcR5yCc3bNLMTmA" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content Scrollable Area */}
-            <div className="relative z-20 px-6 pb-28 space-y-8 mt-2">
-                
-                {/* 1. Continue Project */}
-                <section>
-                    <h2 className="text-sm font-bold text-white mb-3 tracking-wide">{t.continuePreview}</h2>
-                    {latestProject ? (
-                        <div className="glass-panel p-3 rounded-2xl flex items-center gap-4 bg-white/5 border border-primary/20 hover:border-primary/50 transition-colors shadow-[0_0_15px_rgba(91,19,236,0.1)] relative overflow-hidden">
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/60"></div>
-                            <img src={latestProject.thumbnailUrl || defaultThumbnailUrl} alt={latestProject.title} className="size-16 rounded-xl object-cover opacity-90 shadow-sm" />
-                            <div className="flex-1 min-w-0 pr-2 pb-0.5">
-                                <h3 className="text-white text-[15px] font-bold truncate leading-tight mb-1">{latestProject.title}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[10px] bg-white/10 text-primary-light px-1.5 py-0.5 rounded font-bold tracking-wider uppercase">
-                                        {latestProject.status === 'draft_planning' ? (language === 'KR' ? '초안 작성중' : 'Draft') : (language === 'KR' ? '작업 중' : 'In Progress')}
-                                    </span>
-                                    <p className="text-slate-400 text-[10px] truncate">{t.lastEdited}{formatRelativeTime(latestProject.updatedAt)}</p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => {
-                                    setProjectId(latestProject.id);
-                                    navigateToDraftProject(navigate, latestProject.id);
-                                }}
-                                className="shrink-0 bg-primary/90 hover:bg-primary text-white text-[11px] font-bold py-2.5 px-3.5 rounded-xl transition-all active:scale-95 shadow-lg shadow-primary/30 flex items-center gap-1.5"
-                            >
-                                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                                {t.continueBtn}
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="glass-panel p-6 rounded-2xl flex flex-col items-center justify-center gap-3 bg-white/5 border border-white/10 text-center relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[40px] rounded-full pointer-events-none"></div>
-                            <div className="size-12 rounded-full bg-white/5 flex items-center justify-center mb-1">
-                                <span className="material-symbols-outlined text-2xl text-slate-400">inventory_2</span>
-                            </div>
-                            <div>
-                                <h3 className="text-white text-sm font-bold mb-1 tracking-tight">{language === 'KR' ? '최근 작업한 프로젝트가 없습니다.' : 'No recent projects found.'}</h3>
-                                <p className="text-slate-400 text-xs">{language === 'KR' ? '아래에서 새 프로젝트를 시작해보세요.' : 'Start a new creation below.'}</p>
-                            </div>
-                        </div>
-                    )}
-                </section>
-
-                {/* Hero / Main CTAs */}
-                <section className="text-center py-6">
-                    <h1 className="text-gradient tracking-tight text-4xl font-extrabold leading-tight pb-2 drop-shadow-lg">
-                        {t.title}
-                    </h1>
-                    <p className="text-slate-300 text-sm max-w-[280px] mx-auto mb-8 leading-relaxed font-medium drop-shadow-md">
-                        {t.desc}
-                    </p>
-                    <div className="flex flex-col gap-4 w-full max-w-[320px] mx-auto">
-                        <button
-                            onClick={() => navigateToNewProject(navigate)}
-                            className="flex items-center justify-between group cursor-pointer overflow-hidden rounded-xl h-14 pl-6 pr-4 bg-primary text-white text-base font-bold transition-all active:scale-95 shadow-[0_0_20px_rgba(91,19,236,0.5)] hover:shadow-primary/80">
-                            <span>{t.startBtn}</span>
-                            <div className="bg-white/20 rounded-lg p-1.5 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                                <span className="material-symbols-outlined text-xl">auto_awesome</span>
-                            </div>
-                        </button>
-                        <button className="flex items-center justify-between group cursor-pointer overflow-hidden rounded-xl h-14 pl-6 pr-4 glass-panel bg-white/10 text-white text-base font-bold transition-all active:scale-95 border border-white/10">
-                            <span>{t.learnBtn}</span>
-                            <div className="bg-primary/30 rounded-lg p-1.5 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-xl text-primary-light">school</span>
-                            </div>
-                        </button>
-                    </div>
-                </section>
-
-                {/* 2. AI Inspiration */}
-                <section>
-                    <h2 className="text-sm font-bold text-white mb-3 tracking-wide">{t.aiInspiration}</h2>
-                    <div className="grid grid-cols-1 gap-2">
-                        {aiInspirations.map(item => (
-                            <div key={item.id} className="glass-panel p-4 rounded-2xl flex items-center justify-between group bg-white/5 border border-white/10 hover:border-primary/30 transition-all">
-                                <div className="flex items-center gap-3">
-                                    <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary/30 transition-all">
-                                        <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                                    </div>
-                                    <span className="text-white text-sm font-medium tracking-wide">{item.title}</span>
-                                </div>
-                                <button 
-                                    onClick={() => navigateToNewProject(navigate, { mode: 'create', ...item.prompt })}
-                                    className="border border-primary/50 text-primary hover:bg-primary/20 text-[10px] font-bold py-1.5 px-3 rounded-lg transition-colors active:scale-95"
-                                >
-                                    {t.genIdeaBtn}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-
-                {/* 3. Featured Works */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-white font-bold text-sm tracking-wide">{t.featured}</h3>
-                        <span className="text-primary text-[10px] font-bold cursor-pointer hover:text-primary-hover">{t.viewAll}</span>
-                    </div>
-                    <div className="flex overflow-x-auto gap-4 -mx-6 px-6 no-scrollbar snap-x pb-2">
-                        {featuredWorks.map(work => (
-                            <div key={work.id} className="snap-start min-w-[240px] rounded-2xl overflow-hidden glass-panel relative group bg-white/5 border border-white/10 shadow-lg">
-                                <div className="aspect-[4/3] w-full relative overflow-hidden">
-                                    <img alt={work.title} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-700" src={work.image} />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/30 to-transparent"></div>
-                                    <div className="absolute top-3 right-3 bg-white/20 hover:bg-primary transition-colors backdrop-blur-md size-8 rounded-full flex items-center justify-center cursor-pointer shadow-lg active:scale-95 border border-white/20">
-                                        <span className="material-symbols-outlined text-base text-white">play_arrow</span>
-                                    </div>
-                                </div>
-                                <div className="p-4 relative z-10 -mt-6">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <p className="text-white text-base font-bold truncate tracking-tight">{work.title}</p>
-                                            <p className="text-slate-400 text-[10px] mt-0.5">{work.author}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => navigateToNewProject(navigate, { mode: 'create', ...work.promptState })}
-                                            className="flex-1 bg-primary/20 border border-primary/30 hover:bg-primary/40 text-primary text-[10px] font-bold py-2 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                                        >
-                                            <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
-                                            {t.remix}
-                                        </button>
-                                        <button 
-                                            className="size-8 shrink-0 bg-white/5 hover:bg-white/20 border border-white/10 flex items-center justify-center rounded-xl transition-colors active:scale-95"
-                                        >
-                                            <span className="material-symbols-outlined text-[16px] text-slate-300">bookmark_add</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            </div>
-
-            <BottomNav />
-        </div>
-    );
+const i18n = {
+  EN: {
+    continuePreview: 'Continue Project',
+    lastEdited: 'Last edited',
+    continueBtn: 'Continue',
+    title: 'Seedbar Studio',
+    desc: 'Practical choreography planning for working dancers, choreographers, and teams.',
+    startBtn: 'Start New Project',
+    learnBtn: 'Practice & Learn',
+    libraryBtn: 'Open Library',
+    libraryDesc: 'Saved projects, autosave recovery, and production package access.',
+    emptyTitle: 'No recent project yet',
+    emptyDesc: 'Create a new choreography project or reopen your saved work from the library.',
+    quickTitle: 'What you can do today',
+    quickProject: 'Create a new choreography draft',
+    quickLearn: 'Study curated dance references',
+    quickLibrary: 'Recover, restore, and manage projects',
+  },
+  KR: {
+    continuePreview: '최근 작업 이어하기',
+    lastEdited: '마지막 수정',
+    continueBtn: '계속 작업',
+    title: 'Seedbar Studio',
+    desc: '실제 무용수와 안무가가 계속 쓰게 되는 실전형 안무 기획 도구.',
+    startBtn: '새 안무 프로젝트 생성',
+    learnBtn: '연습 및 학습하기',
+    libraryBtn: '보관함 바로가기',
+    libraryDesc: '저장된 프로젝트, 자동저장 복구, 프로덕션 패키지에 빠르게 접근합니다.',
+    emptyTitle: '최근 작업한 프로젝트가 없습니다.',
+    emptyDesc: '새 프로젝트를 시작하거나 보관함에서 저장된 작업을 다시 열어보세요.',
+    quickTitle: '지금 바로 할 수 있는 일',
+    quickProject: '새 안무 초안 만들기',
+    quickLearn: '큐레이션된 무용 학습 자료 보기',
+    quickLibrary: '프로젝트 복구 및 관리하기',
+  },
 };
 
-export default Home;
+function formatRelativeTime(dateStr, language) {
+  if (!dateStr) return '';
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return language === 'KR' ? '방금 전' : 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}${language === 'KR' ? '분 전' : ' mins ago'}`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}${language === 'KR' ? '시간 전' : ' hours ago'}`;
+  return `${Math.floor(seconds / 86400)}${language === 'KR' ? '일 전' : ' days ago'}`;
+}
+
+export default function Home() {
+  const navigate = useNavigate();
+  const { language } = useStore();
+  const { projects, listProjects, setProjectId } = useChoreographyStudioStore();
+  const t = i18n[language] || i18n.EN;
+
+  useEffect(() => {
+    listProjects().catch(() => {});
+  }, [listProjects]);
+
+  const latestProject = projects?.length
+    ? [...projects].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0]
+    : null;
+
+  return (
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden overflow-y-auto bg-background-dark font-display text-slate-100">
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(91,19,236,0.2),transparent_35%),linear-gradient(180deg,#120f1d_0%,#09070f_100%)]" />
+      </div>
+
+      <div className="relative z-20 flex items-center justify-between px-6 pb-5 pt-12">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-full border border-primary/30 bg-primary/15">
+            <span className="material-symbols-outlined text-xl text-primary">temp_preferences_custom</span>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-primary">Seedbar</p>
+            <h1 className="text-lg font-semibold text-white">{t.title}</h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <LanguageToggle />
+          <button
+            type="button"
+            onClick={() => navigate('/profile')}
+            className="size-10 overflow-hidden rounded-full border border-primary/40 shadow-[0_0_12px_rgba(91,19,236,0.2)]"
+          >
+            <img
+              alt="Profile"
+              className="h-full w-full object-cover"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDehU8vtmOe_kzFXeXUq5uvkK1eYjGLudVbitAP71slxbnRmQdOX8fhT7SWMilUbjVCzmIOqnpXj8GYwzwSeHoMnEZ-8Y9UC0yZYiELfyUykxnXHRxrliMxdoj3QrStc2l03ySidtUu8li1GLxEizHg0pBSwcbH-p33cZsbfuI3pq5yeaHtNwDP3s1Il39Vkex_9dKJyQIdZuqAD49QFwxoKuzcmfozfCUiG5TW0Xa-vRFRfucKXP9rUHj45cyLcR5yCc3bNLMTmA"
+            />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative z-20 flex flex-1 flex-col gap-8 px-6 pb-28">
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-md">
+          <p className="max-w-md text-sm leading-relaxed text-slate-300">{t.desc}</p>
+          <div className="mt-6 grid grid-cols-1 gap-3">
+            <button
+              type="button"
+              onClick={() => navigateToNewProject(navigate)}
+              className="flex items-center justify-between rounded-2xl bg-primary px-5 py-4 text-left text-white shadow-[0_0_20px_rgba(91,19,236,0.35)] transition-transform active:scale-[0.98]"
+            >
+              <div>
+                <p className="text-sm font-bold">{t.startBtn}</p>
+                <p className="mt-1 text-xs text-white/75">{t.quickProject}</p>
+              </div>
+              <span className="material-symbols-outlined text-xl">auto_awesome</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/explore')}
+              className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-left text-white transition-colors hover:bg-white/10"
+            >
+              <div>
+                <p className="text-sm font-bold">{t.learnBtn}</p>
+                <p className="mt-1 text-xs text-slate-400">{t.quickLearn}</p>
+              </div>
+              <span className="material-symbols-outlined text-xl text-primary-light">school</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/library')}
+              className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-left text-white transition-colors hover:bg-white/10"
+            >
+              <div>
+                <p className="text-sm font-bold">{t.libraryBtn}</p>
+                <p className="mt-1 text-xs text-slate-400">{t.quickLibrary}</p>
+              </div>
+              <span className="material-symbols-outlined text-xl text-primary-light">folder_open</span>
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold tracking-wide text-white">{t.continuePreview}</h2>
+            <button
+              type="button"
+              onClick={() => navigate('/library')}
+              className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary"
+            >
+              {t.libraryBtn}
+            </button>
+          </div>
+
+          {latestProject ? (
+            <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-white/[0.04] p-4 shadow-[0_0_15px_rgba(91,19,236,0.08)]">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/70" />
+              <div className="flex items-center gap-4">
+                <div className="flex size-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                  <span className="material-symbols-outlined text-2xl text-primary">theater_comedy</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-base font-bold text-white">{latestProject.title}</h3>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-primary-light">
+                      {latestProject.status === 'draft_planning' ? 'Draft' : 'In Progress'}
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {t.lastEdited}: {formatRelativeTime(latestProject.updatedAt, language)}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProjectId(latestProject.id);
+                    navigateToDraftProject(navigate, latestProject.id);
+                  }}
+                  className="rounded-2xl bg-primary/90 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-primary"
+                >
+                  {t.continueBtn}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-white/5">
+                <span className="material-symbols-outlined text-2xl text-slate-400">inventory_2</span>
+              </div>
+              <h3 className="mt-4 text-sm font-bold text-white">{t.emptyTitle}</h3>
+              <p className="mt-2 text-xs leading-relaxed text-slate-400">{t.emptyDesc}</p>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <h2 className="text-sm font-bold tracking-wide text-white">{t.quickTitle}</h2>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">{t.libraryDesc}</p>
+        </section>
+      </div>
+
+      <BottomNav />
+    </div>
+  );
+}

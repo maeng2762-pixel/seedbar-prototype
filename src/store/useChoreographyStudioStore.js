@@ -22,6 +22,7 @@ async function parseResponseJson(res, url) {
 const useChoreographyStudioStore = create((set, get) => ({
   projectId: null,
   projects: [],
+  deletedProjects: [],
   versions: [],
   activeVersionId: null,
   sliders: defaultSliders,
@@ -50,6 +51,17 @@ const useChoreographyStudioStore = create((set, get) => ({
     const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load projects');
     set({ projects: data.projects || [] });
+    return data.projects || [];
+  },
+
+  listDeletedProjects: async () => {
+    const url = apiUrl('/api/choreography/projects-trash');
+    const res = await fetch(url, {
+      headers: { ...getPlanHeaders() },
+    });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load deleted projects');
+    set({ deletedProjects: data.projects || [] });
     return data.projects || [];
   },
 
@@ -264,9 +276,28 @@ const useChoreographyStudioStore = create((set, get) => ({
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to delete project');
     set((state) => ({
       projects: state.projects.filter((p) => p.id !== projectId),
+      deletedProjects: state.deletedProjects,
       projectId: state.projectId === projectId ? null : state.projectId,
     }));
     return true;
+  },
+
+  restoreProject: async (projectId) => {
+    const url = apiUrl(`/api/choreography/projects/${projectId}/restore`);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getPlanHeaders(),
+      },
+    });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to restore project');
+    set((state) => ({
+      projects: [data.project, ...state.projects.filter((project) => project.id !== projectId)],
+      deletedProjects: state.deletedProjects.filter((project) => project.id !== projectId),
+    }));
+    return data.project;
   },
 
   autosaveProject: async (autosaveData) => {
@@ -369,7 +400,7 @@ const useChoreographyStudioStore = create((set, get) => ({
     }
   },
 
-  generateTitle: async ({ genre, mood, theme } = {}) => {
+  generateTitle: async ({ genre, mood, theme, count = 1 } = {}) => {
     const url = apiUrl('/api/choreography/generate-title');
     const res = await fetch(url, {
       method: 'POST',
@@ -377,11 +408,11 @@ const useChoreographyStudioStore = create((set, get) => ({
         'Content-Type': 'application/json',
         ...getPlanHeaders(),
       },
-      body: JSON.stringify({ genre, mood, theme }),
+      body: JSON.stringify({ genre, mood, theme, count }),
     });
     const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to generate title');
-    return data.title;
+    return count > 1 ? (data.titles || [data.title].filter(Boolean)) : data.title;
   },
 }));
 

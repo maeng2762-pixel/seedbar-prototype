@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createSeedAccountsController,
+  deleteAccountController,
   listUsersForTestingController,
   loginController,
   logoutController,
@@ -16,6 +17,7 @@ router.post('/signup', signupController);
 router.post('/login', loginController);
 router.post('/logout', logoutController);
 router.get('/me', requireAuth, meController);
+router.delete('/account', requireAuth, deleteAccountController);
 
 router.post('/dev/seed', createSeedAccountsController);
 router.post('/dev/set-plan', setPlanForTestingController);

@@ -7,6 +7,6 @@ const router = Router();
 
 router.post('/step1/draft', quotaGuard('generation'), step1DraftController);
 router.post('/step2/expand', quotaGuard('expand'), step2ExpandController);
-router.post('/step2/regenerate/:section', requirePlanCapability('canRegenerateSections', 'Section regeneration is available on Pro/Studio plans.'), quotaGuard('expand'), regenerateSectionController);
+router.post('/step2/regenerate/:section', requirePlanCapability('canRegenerateSections', 'Section regeneration is available on paid plans.'), quotaGuard('expand'), regenerateSectionController);
 
 export default router;

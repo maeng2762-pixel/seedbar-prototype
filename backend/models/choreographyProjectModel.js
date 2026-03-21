@@ -22,6 +22,7 @@ function mapProject(row) {
     title: row.title,
     status: row.status || currentContent?.projectStatus || 'draft',
     teamSize: Number(row.team_size || 1),
+    deletedAt: row.deleted_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     currentContent,
@@ -74,13 +75,20 @@ class ChoreographyProjectModel {
     return mapProject(row);
   }
 
-  listProjectsByUser(userId) {
-    const rows = db.prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC').all(userId);
+  listProjectsByUser(userId, { includeDeleted = false } = {}) {
+    const rows = includeDeleted
+      ? db.prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC').all(userId)
+      : db.prepare('SELECT * FROM projects WHERE user_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC').all(userId);
+    return rows.map(mapProject);
+  }
+
+  listDeletedProjectsByUser(userId) {
+    const rows = db.prepare('SELECT * FROM projects WHERE user_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC').all(userId);
     return rows.map(mapProject);
   }
 
   countProjectsByUser(userId) {
-    const row = db.prepare('SELECT COUNT(*) as count FROM projects WHERE user_id = ?').get(userId);
+    const row = db.prepare('SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND deleted_at IS NULL').get(userId);
     return Number(row?.count || 0);
   }
 
@@ -112,11 +120,18 @@ class ChoreographyProjectModel {
     return this.updateProject(projectId, { currentContent: nextContent });
   }
 
-  deleteProject(projectId) {
+  softDeleteProject(projectId) {
     const found = this.getProject(projectId);
     if (!found) return false;
-    db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
+    db.prepare('UPDATE projects SET deleted_at = ?, status = ?, updated_at = ? WHERE id = ?').run(nowIso(), 'trashed', nowIso(), projectId);
     return true;
+  }
+
+  restoreProject(projectId) {
+    const found = this.getProject(projectId);
+    if (!found) return null;
+    db.prepare('UPDATE projects SET deleted_at = NULL, status = ?, updated_at = ? WHERE id = ?').run('draft', nowIso(), projectId);
+    return this.getProject(projectId);
   }
 
   getVersion(versionId) {
@@ -180,6 +195,8 @@ class ChoreographyProjectModel {
       DO UPDATE SET autosave_data = excluded.autosave_data, updated_at = excluded.updated_at
     `).run(projectId, JSON.stringify(autosaveData || {}), updatedAt);
 
+    this.saveSnapshot(projectId, autosaveData, { intervalMinutes: 10 });
+
     return this.getAutosave(projectId);
   }
 
@@ -191,6 +208,35 @@ class ChoreographyProjectModel {
       autosaveData: parseJson(row.autosave_data, {}),
       updatedAt: row.updated_at,
     };
+  }
+
+  saveSnapshot(projectId, snapshotData, { intervalMinutes = 10 } = {}) {
+    const lastSnapshot = db.prepare('SELECT created_at FROM project_snapshots WHERE project_id = ? ORDER BY created_at DESC LIMIT 1').get(projectId);
+    const now = new Date();
+    if (lastSnapshot?.created_at) {
+      const diffMs = now.getTime() - new Date(lastSnapshot.created_at).getTime();
+      if (diffMs < intervalMinutes * 60 * 1000) {
+        return null;
+      }
+    }
+
+    const id = `snap_${crypto.randomUUID()}`;
+    const createdAt = now.toISOString();
+    db.prepare(`
+      INSERT INTO project_snapshots (id, project_id, snapshot_data, created_at)
+      VALUES (?, ?, ?, ?)
+    `).run(id, projectId, JSON.stringify(snapshotData || {}), createdAt);
+    return { id, projectId, createdAt };
+  }
+
+  listSnapshots(projectId, limit = 10) {
+    const rows = db.prepare('SELECT * FROM project_snapshots WHERE project_id = ? ORDER BY created_at DESC LIMIT ?').all(projectId, limit);
+    return rows.map((row) => ({
+      id: row.id,
+      projectId: row.project_id,
+      snapshotData: parseJson(row.snapshot_data, {}),
+      createdAt: row.created_at,
+    }));
   }
 }
 

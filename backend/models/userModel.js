@@ -82,6 +82,13 @@ export function listUsers() {
   return rows.map(mapUser);
 }
 
+export function deleteUserById(userId) {
+  const user = getUserById(userId);
+  if (!user) return false;
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  return true;
+}
+
 export function ensureUser(email = 'seedbar-free@example.com', plan = 'free', password = 'seedbar1234') {
   const existing = getUserByEmail(email);
   if (existing) {

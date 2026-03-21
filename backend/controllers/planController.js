@@ -16,7 +16,7 @@ export function consumeGenerationController(req, res) {
   if (!quotaService.canConsume(userId, plan, 'generation')) {
     return res.status(429).json({
       ok: false,
-      error: 'You have reached the monthly limit. Upgrade to Pro for unlimited choreography generation.',
+      error: 'You have reached the monthly limit. Upgrade to a paid plan for unlimited choreography generation.',
       usage: quotaService.getUsage(userId, plan),
       plan,
     });

@@ -12,7 +12,7 @@ export function createExportJobController(req, res) {
     return res.status(403).json({ error: 'PPT export is available on Studio plan.' });
   }
   if (requiresPdf && !featureAccessService.canAccess(plan, 'canExportPDF')) {
-    return res.status(403).json({ error: 'PDF export is available on Pro/Studio plans.' });
+    return res.status(403).json({ error: 'PDF export is available on paid plans.' });
   }
 
   const job = exportQueue.createJob({

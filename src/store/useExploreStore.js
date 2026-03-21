@@ -1,130 +1,152 @@
 import { create } from 'zustand';
 
-const mockLatestReferences = [
+const curatedLibrary = {
+  latestReferences: [
     {
-        id: 'lr1',
-        title: 'Gravity Defiance',
-        genre: 'Contemporary',
-        dancers: 1,
-        learningObject: '도입부 긴장 형성에 좋은 레퍼런스',
-        description: '오프닝에서 중력에 반하는 극단적인 체공 시간을 사용해 긴장을 유발하는 솔로 레퍼런스.',
-        image: 'https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&q=80',
-        promptState: { genre: 'Contemporary', peopleCount: '1', moodKeywords: ['#Tension', '#Gravity Defying'] }
+      id: 'latest-1',
+      title: 'Sadler’s Wells Digital Stage',
+      category: 'Latest References',
+      source: 'Sadler’s Wells',
+      period: 'Recent',
+      rationale: '공식 공연 기관이 공개한 최신 무용 레퍼런스를 안정적으로 참고할 수 있습니다.',
+      description: 'Official digital stage archive with contemporary dance excerpts, talks, and rehearsal context.',
+      image: 'https://images.unsplash.com/photo-1543360212-32a222345b59?auto=format&fit=crop&q=80',
+      externalUrl: 'https://www.sadlerswells.com',
+      promptState: { genre: 'Contemporary Dance', moodKeywords: ['#Stage', '#Contemporary', '#Reference'] },
     },
     {
-        id: 'lr2',
-        title: 'Syncopated Isolation',
-        genre: 'Hip-Hop',
-        dancers: 3,
-        learningObject: '엇박자 리듬과 아이솔레이션의 결합',
-        description: '정박을 쪼개어 쓰는 아이솔레이션(Isolation) 기술의 최신 활용 사례.',
-        image: 'https://images.unsplash.com/photo-1516997121675-4c2d1684aa3e?auto=format&fit=crop&q=80',
-        promptState: { genre: 'Hip-Hop', peopleCount: '3', moodKeywords: ['#Syncopation', '#Isolation'] }
-    }
-];
-
-const mockTodayDanceVids = [
+      id: 'latest-2',
+      title: 'The Royal Ballet & Opera Insights',
+      category: 'Latest References',
+      source: 'Royal Ballet & Opera',
+      period: 'Recent',
+      rationale: '공식 기관의 리허설/하이라이트 자료라 작품성과 학습 가치를 동시에 확인하기 좋습니다.',
+      description: 'Performance excerpts and behind-the-scenes material from a major repertory institution.',
+      image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80',
+      externalUrl: 'https://www.rbo.org.uk',
+      promptState: { genre: 'Ballet', moodKeywords: ['#Precision', '#Rehearsal', '#Institutional'] },
+    },
+  ],
+  todayDanceVids: [
     {
-        id: 'td1',
-        title: 'Fluidity in Chaos',
-        genre: 'Experimental',
-        dancers: 5,
-        learningObject: '빠른 군무 속 유연한 동선 전환',
-        description: '다수가 빠르게 얽히는 상황에서 혼란스럽지 않게 유기적으로 동선이 전환되는 예시.',
-        image: 'https://images.unsplash.com/photo-1543360212-32a222345b59?auto=format&fit=crop&q=80',
-        promptState: { genre: 'Experimental', peopleCount: '5', moodKeywords: ['#Fluid', '#Chaos'] }
-    }
-];
-
-const mockPerformanceHighlights = [
-    {
-        id: 'ph1',
-        title: 'The Silent Climax',
-        genre: 'Lyrical Dance',
-        dancers: 2,
-        learningObject: '절정 직전 에너지 축적 방식 참고',
-        description: '음악이 고조되기 전 오히려 움직임을 최소화하여 폭발력을 비축하는 듀엣 장면.',
-        image: 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?auto=format&fit=crop&q=80',
-        promptState: { genre: 'Lyrical Dance', peopleCount: '2', moodKeywords: ['#Silence', '#Climax'] }
+      id: 'today-1',
+      title: 'Contemporary Performance Clip',
+      category: 'Today’s Dance Video',
+      source: 'Official Performance Clip',
+      period: '2016-2025',
+      rationale: '짧은 구간 안에 밀도 높은 움직임과 시선 설계가 있어 빠르게 참고하기 좋습니다.',
+      description: 'A short, high-impact contemporary clip selected for movement density and strong visual composition.',
+      image: 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?auto=format&fit=crop&q=80',
+      externalUrl: 'https://www.youtube.com/results?search_query=official+contemporary+dance+performance+clip',
+      promptState: { genre: 'Contemporary Dance', moodKeywords: ['#Impact', '#Clip', '#Performance'] },
     },
     {
-        id: 'ph2',
-        title: 'Asymmetric Echo',
-        genre: 'Modern',
-        dancers: 7,
-        learningObject: '비대칭 구도에서의 시각적 밸런스',
-        description: '7인의 군무가 비대칭으로 서 있을 때 에너지를 어떻게 분배하는지 보여주는 하이라이트.',
-        image: 'https://images.unsplash.com/photo-1518834107812-67b0b7c58434?auto=format&fit=crop&q=80',
-        promptState: { genre: 'Modern', peopleCount: '7', moodKeywords: ['#Asymmetric', '#Balance'] }
-    }
-];
-
-const mockStructureRef = [
+      id: 'today-2',
+      title: 'Acclaimed Ballet Highlight',
+      category: 'Today’s Dance Video',
+      source: 'Official Ballet Channel',
+      period: '2010-2025',
+      rationale: '고전 형식을 현대적으로 읽는 방법을 관찰하기에 적합합니다.',
+      description: 'A well-regarded ballet highlight chosen for clarity of line, timing, and stage architecture.',
+      image: 'https://images.unsplash.com/photo-1516997121675-4c2d1684aa3e?auto=format&fit=crop&q=80',
+      externalUrl: 'https://www.youtube.com/results?search_query=official+ballet+highlight',
+      promptState: { genre: 'Ballet', moodKeywords: ['#Line', '#Timing', '#Highlight'] },
+    },
+  ],
+  highlights: [
     {
-        id: 'sr1',
-        title: 'A-B-A Canon Structure',
-        description: '캐논(Canon) 기법을 활용한 A-B-A 서사 구조',
-        motionPrompt: '한 명의 무용수가 동작을 시작하면, 2박자 뒤 다음 무용수가 똑같이 따라하며 캐논을 형성한다.',
-        learningObject: '시간차를 둔 돌림노래식 안무 전개 학습',
-        energy: 'Medium',
-        genre: 'Contemporary',
-        promptState: { genre: 'Contemporary', moodKeywords: ['#Canon', '#Structure'] }
+      id: 'highlight-1',
+      title: 'Climax Cut Reference',
+      category: 'Performance Highlights',
+      source: 'Performance Highlight',
+      period: 'Short Clip',
+      rationale: '카타르시스가 강한 핵심 구간만 참고하고 싶을 때 유용합니다.',
+      description: 'Focused excerpt designed to study climax timing, acceleration, and stage emphasis.',
+      image: 'https://images.unsplash.com/photo-1518834107812-67b0b7c58434?auto=format&fit=crop&q=80',
+      externalUrl: 'https://www.youtube.com/results?search_query=dance+performance+highlight+official',
+      promptState: { genre: 'Modern Dance', moodKeywords: ['#Climax', '#Acceleration', '#Highlight'] },
+    },
+  ],
+  structureNotes: [
+    {
+      id: 'structure-1',
+      title: 'Canon / Counterpoint Structure',
+      category: 'Choreography Structure',
+      source: 'Dance Analysis Note',
+      period: 'Study',
+      rationale: '구조를 읽는 눈을 키워서 안무 설계에 바로 가져다 쓰기 좋습니다.',
+      description: 'Reference note on canon, counterpoint, and timing offsets inside ensemble choreography.',
+      image: 'https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&q=80',
+      externalUrl: 'https://scholar.google.com/scholar?q=choreography+canon+counterpoint+dance',
+      promptState: { genre: 'Contemporary Dance', moodKeywords: ['#Canon', '#Counterpoint', '#Structure'] },
     },
     {
-        id: 'sr2',
-        title: 'Converging Paths',
-        description: '사방에서 중앙으로 수렴하는 기승전결',
-        motionPrompt: '스테이지 외곽에 흩어져 있던 댄서들이 하나의 중앙 구심점을 향해 소용돌이치며 모여든다.',
-        learningObject: '군무의 시선 집중 및 수렴 과정 학습용',
-        energy: 'High',
-        genre: 'Jazz',
-        promptState: { genre: 'Jazz', moodKeywords: ['#Converging', '#Climax'] }
-    }
-];
-
-const mockMovementLearning = [
+      id: 'structure-2',
+      title: 'Breath-Led Phrase Architecture',
+      category: 'Choreography Structure',
+      source: 'Movement Research',
+      period: 'Study',
+      rationale: '감정 곡선과 호흡 중심 구조를 연결하는 데 도움이 됩니다.',
+      description: 'A movement research angle on phrase length, stillness, and breath-led transitions.',
+      image: 'https://images.unsplash.com/photo-1502519144081-acca18599776?auto=format&fit=crop&q=80',
+      externalUrl: 'https://scholar.google.com/scholar?q=breath+phrase+architecture+dance',
+      promptState: { genre: 'Experimental Contemporary', moodKeywords: ['#Breath', '#Phrase', '#Stillness'] },
+    },
+  ],
+  workshops: [
     {
-        id: 'ml1',
-        title: 'Smooth Floor Transition',
-        dancers: '1',
-        description: '스탠딩 상태에서 플로어로 미끄러지듯 전환하는 기술.',
-        learningObject: '플로어워크 전환 학습용',
-        preview: 'https://images.unsplash.com/photo-1502519144081-acca18599776?auto=format&fit=crop&q=80',
-        promptState: { genre: 'Contemporary', peopleCount: '1', moodKeywords: ['#Floorwork', '#Transition'] }
+      id: 'workshop-1',
+      title: 'Floorwork Training Session',
+      category: 'Workshop / 따라하기',
+      source: 'Workshop / Class',
+      period: 'Training',
+      rationale: '바로 따라 하면서 신체 감각을 익히기에 좋은 실용 자료입니다.',
+      description: 'Practical floorwork and transition training material for repeat practice.',
+      image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80',
+      externalUrl: 'https://www.youtube.com/results?search_query=official+contemporary+dance+floorwork+workshop',
+      promptState: { genre: 'Contemporary Dance', moodKeywords: ['#Floorwork', '#Training', '#Technique'] },
     },
     {
-        id: 'ml2',
-        title: 'Weight Shift Delay',
-        dancers: '2',
-        description: '체중을 넘기기 직전 0.5초의 딜레이를 주어 긴장감을 유도.',
-        learningObject: '무게 중심 컨트롤 및 타이밍 심화',
-        preview: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80',
-        promptState: { genre: 'Experimental', peopleCount: '2', moodKeywords: ['#Weight Shift', '#Delay'] }
-    }
-];
+      id: 'workshop-2',
+      title: 'Rhythm & Body Coordination Drill',
+      category: 'Workshop / 따라하기',
+      source: 'Training Clip',
+      period: 'Training',
+      rationale: '리듬감과 분절을 동시에 연습하기에 좋습니다.',
+      description: 'Short drill for rhythmic phrasing, weight shift, and upper-body coordination.',
+      image: 'https://images.unsplash.com/photo-1516997121675-4c2d1684aa3e?auto=format&fit=crop&q=80',
+      externalUrl: 'https://www.youtube.com/results?search_query=dance+rhythm+coordination+workshop',
+      promptState: { genre: 'Contemporary Dance', moodKeywords: ['#Rhythm', '#Coordination', '#Drill'] },
+    },
+  ],
+  researchInsights: [
+    {
+      id: 'research-1',
+      title: 'Dance Research Insight',
+      category: 'Research Insight',
+      source: 'Academic / Archive',
+      period: 'Reference',
+      rationale: '논문/비평 기반이라 단순 이미지 소비보다 깊은 안무 인사이트를 줍니다.',
+      description: 'Research-driven prompt for reading staging, phrasing, and audience attention in dance.',
+      image: 'https://images.unsplash.com/photo-1582215286596-85fb9fbd6c9c?q=80&w=800&auto=format&fit=crop',
+      externalUrl: 'https://scholar.google.com/scholar?q=dance+performance+analysis+audience+attention',
+      promptState: { genre: 'Contemporary Dance', moodKeywords: ['#Research', '#Analysis', '#Insight'] },
+    },
+  ],
+};
 
 const useExploreStore = create((set) => ({
-    latestReferences: [],
-    todayDanceVids: [],
-    performanceHighlights: [],
-    structureRef: [],
-    movementLearning: [],
-    loading: false,
+  sections: {},
+  loading: false,
 
-    fetchExploreData: async () => {
-        set({ loading: true });
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        set({
-            latestReferences: mockLatestReferences,
-            todayDanceVids: mockTodayDanceVids,
-            performanceHighlights: mockPerformanceHighlights,
-            structureRef: mockStructureRef,
-            movementLearning: mockMovementLearning,
-            loading: false
-        });
-    }
+  fetchExploreData: async () => {
+    set({ loading: true });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    set({
+      sections: curatedLibrary,
+      loading: false,
+    });
+  },
 }));
 
 export default useExploreStore;
-

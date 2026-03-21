@@ -100,8 +100,8 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
     const [flowPatternData, setFlowPatternData] = useState(data?.flow?.flow_pattern || []);
     const [showRefSelectModal, setShowRefSelectModal] = useState(null);
     const [isTuning, setIsTuning] = useState(false);
-    const [isSimpleMode, setIsSimpleMode] = useState(true);
     const [showHelpModal, setShowHelpModal] = useState(false);
+    const [studioNotice, setStudioNotice] = useState('');
 
     const [expandedSections, setExpandedSections] = useState(() => {
         try {
@@ -225,12 +225,27 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         competitionMode: Boolean(draftData?.seedbarInput?.competitionMode || isCompetitionMode),
     };
     const stageVisualizations = draftData?.visualizations3d || {};
+    const studioContext = {
+        genre: musicInput.genre,
+        mood: musicInput.mood,
+        keywords: musicInput.keywords,
+    };
+    const PLAN_GUARD_RE = /(monthly limit|upgrade|paid plan|available on|regeneration is available|mood sliders are available|export is available|competition mode)/i;
 
     React.useEffect(() => {
         if (!projectId) return;
         setProjectId(projectId);
         refreshVersions().catch(() => {});
     }, [projectId, setProjectId, refreshVersions]);
+
+    const handleStudioError = (error, fallbackMessage = null) => {
+        const message = error?.message || fallbackMessage || (isKr ? '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.' : 'We could not complete that request. Please try again.');
+        if (PLAN_GUARD_RE.test(message)) {
+            onOpenUpgrade?.(message);
+            return;
+        }
+        setStudioNotice(message);
+    };
 
     const applySectionPatch = (section, content) => {
         const next = JSON.parse(JSON.stringify(draftData || {}));
@@ -269,7 +284,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 }
             }, 100);
         } catch (error) {
-            onOpenUpgrade?.(error.message);
+            handleStudioError(error);
         }
     };
 
@@ -277,7 +292,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         try {
             await createVersion(draftData, draftData?.pamphlet?.coverTitle || draftData?.titles?.scientific?.en || null);
         } catch (error) {
-            onOpenUpgrade?.(error.message);
+            handleStudioError(error);
         }
     };
 
@@ -290,7 +305,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 onDataUpdate?.({ ...first.generatedContent, projectId, lastEdited: first.createdAt, projectStatus: first.generatedContent?.projectStatus || 'in_progress' });
             }
         } catch (error) {
-            onOpenUpgrade?.(error.message);
+            handleStudioError(error);
         }
     };
 
@@ -310,7 +325,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         try {
             await duplicateVersion(versionId);
         } catch (error) {
-            onOpenUpgrade?.(error.message);
+            handleStudioError(error);
         }
     };
 
@@ -328,7 +343,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 });
             }
         } catch (error) {
-            onOpenUpgrade?.(error.message);
+            handleStudioError(error);
         }
     };
 
@@ -342,7 +357,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 100);
         } catch (error) {
-            onOpenUpgrade?.(error.message);
+            handleStudioError(error);
         } finally {
             setIsTuning(false);
         }
@@ -352,7 +367,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         const canExportPdf = Boolean(policy?.canExportPDF);
         const canExportPpt = Boolean(policy?.canExportPPT);
         if (!canExportPdf && !canExportPpt) {
-            onOpenUpgrade?.(isKr ? 'Export는 Pro/Studio 플랜에서 사용할 수 있습니다.' : 'Export is available on Pro/Studio plans.');
+            onOpenUpgrade?.(isKr ? '내보내기는 유료 플랜에서 사용할 수 있습니다.' : 'Export is available on paid plans.');
             return;
         }
 
@@ -441,7 +456,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
 
     const handleRegenClick = () => {
         if (!policy?.canRegenerateSections) {
-            onOpenUpgrade?.(isKr ? '부분 재생성은 Pro/Studio 플랜에서 가능합니다.' : 'Section regeneration is available on Pro/Studio plans.');
+            onOpenUpgrade?.(isKr ? '부분 재생성은 유료 플랜에서 가능합니다.' : 'Section regeneration is available on paid plans.');
         } else {
             alert(isKr ? "재생성 진행합니다 (시뮬레이션)" : "Regenerating...");
         }
@@ -549,8 +564,8 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 className="px-3 py-1.5 border border-white/15 bg-white/5 hover:bg-white/10 text-[10px] uppercase tracking-[0.18em] text-white transition-colors"
             >
                 {savedVisualization
-                    ? (isKr ? '수정하기' : 'Edit 3D')
-                    : (isKr ? '3D로 생성하여 보기' : 'View in 3D')}
+                    ? (isKr ? '수정하기' : 'Edit Visual')
+                    : (isKr ? '비주얼로 보기' : 'View Visual')}
             </button>
         );
     };
@@ -609,7 +624,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 </div>
                 {currentPlan === 'free' ? (
                     <div className="text-[11px] text-amber-300/90 font-sans">
-                        Upgrade to Pro to unlock rewrite and unlimited creation.
+                        Upgrade to a paid plan to unlock rewrite and advanced studio tools.
                     </div>
                 ) : null}
             </div>
@@ -992,7 +1007,12 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 </div>
 
                 {/* Movement Reference Library */}
-                <MovementReferenceLibrary isKr={isKr} onAddReference={(ref) => setShowRefSelectModal(ref)} />
+                <MovementReferenceLibrary
+                    isKr={isKr}
+                    projectSeed={`${projectId || 'draft'}:${draftData?.pamphlet?.coverTitle || draftData?.titles?.scientific?.en || 'seedbar'}`}
+                    projectContext={studioContext}
+                    onAddReference={(ref) => setShowRefSelectModal(ref)}
+                />
             </div>
 
             {/* AI STAGE MAP ENGINE (2D Flow Visualization) */}
@@ -1102,22 +1122,13 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 <div className="flex flex-wrap items-center justify-between mb-4 pb-4 border-b border-white/10">
                     <div className="flex items-center gap-3">
                         <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                            {isKr ? '작업 공간 모드' : 'Workspace Mode'}
+                            {isKr ? '통합 스튜디오' : 'Unified Studio'}
                         </span>
-                        <div className="flex items-center bg-black/40 rounded-full p-1 border border-white/10">
-                            <button
-                                onClick={() => setIsSimpleMode(true)}
-                                className={`px-4 py-1.5 text-[11px] rounded-full transition-all font-semibold ${isSimpleMode ? 'bg-[#5B13EC] text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                            >
-                                {isKr ? '간단 모드' : 'Simple'}
-                            </button>
-                            <button
-                                onClick={() => setIsSimpleMode(false)}
-                                className={`px-4 py-1.5 text-[11px] rounded-full transition-all font-semibold ${!isSimpleMode ? 'bg-[#5B13EC] text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                            >
-                                {isKr ? '고급 모드' : 'Advanced'}
-                            </button>
-                        </div>
+                        <p className="max-w-xl text-xs leading-relaxed text-slate-400">
+                            {isKr
+                                ? '간단/고급 모드를 나누지 않고, 하나의 작업 화면 안에서 필요한 기능을 바로 사용할 수 있도록 통합했습니다.'
+                                : 'Simple and advanced modes are merged so the right tools stay available in one studio workspace.'}
+                        </p>
                     </div>
                     
                     <button 
@@ -1196,7 +1207,6 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     plan={policy?.name?.toLowerCase() || 'free'}
                     language={isKr ? 'KR' : 'EN'}
                     disabled={false}
-                    isSimpleMode={isSimpleMode}
                     onRewrite={() => {
                         const sectionKey = window.prompt(
                             isKr ? '재작성할 섹션을 입력하세요:\nstory / movement / formation / music / stage / artist_note'
@@ -1225,14 +1235,27 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     onGenerate={handleGenerateVariation}
                 />
 
+                {studioNotice ? (
+                    <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-xs leading-relaxed text-amber-100">
+                        <div className="flex items-start justify-between gap-3">
+                            <span>{studioNotice}</span>
+                            <button
+                                type="button"
+                                onClick={() => setStudioNotice('')}
+                                className="shrink-0 text-amber-100/70 transition-colors hover:text-amber-50"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">close</span>
+                            </button>
+                        </div>
+                    </div>
+                ) : null}
+
                 {/* (Removed duplicate old Rewrite Buttons Grid) */}
                 <div className="border-t border-white/10 pt-5">
                     <h3 className="text-sm font-semibold text-white mb-1">{isKr ? 'Mood Sliders' : 'Mood Sliders'}</h3>
-                    {isSimpleMode && (
-                        <p className="text-xs text-slate-400 mb-4">
-                            {isKr ? '슬라이더를 조작해 원하는 분위기를 만든 후 아래 적용 버튼을 누르면, AI가 프로젝트 전체 내용을 튜닝합니다.' : 'Adjust sliders to set the mood, then let AI tune the content.'}
-                        </p>
-                    )}
+                    <p className="text-xs text-slate-400 mb-4">
+                        {isKr ? '슬라이더를 조작해 원하는 분위기를 만든 후 아래 적용 버튼을 누르면, AI가 프로젝트 전체 내용을 튜닝합니다.' : 'Adjust sliders to set the mood, then let AI tune the content.'}
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
                             { key: 'intensity', label: 'Intensity', desc: isKr ? '에너지 강도와 장면 압축감' : 'Energy intensity & scene compression' },
@@ -1244,7 +1267,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                                 <div className="flex items-center justify-between text-xs text-slate-300 mb-1">
                                     <span className="flex items-center gap-2">
                                         {s.label}
-                                        <span className={`text-[10px] text-slate-500 ${isSimpleMode ? '' : 'hidden sm:inline'}`}>({s.desc})</span>
+                                        <span className="hidden text-[10px] text-slate-500 sm:inline">({s.desc})</span>
                                     </span>
                                     <span>{sliders?.[s.key] ?? 50}</span>
                                 </div>
@@ -1336,7 +1359,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                             <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.lighting) || 'N/A'}</p>
                             {stageVisualizations?.lighting && (
                                 <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-teal-400/70">
-                                    {isKr ? `저장된 3D 시안 · ${formatRelativeTime(stageVisualizations.lighting.savedAt || stageVisualizations.lighting.generatedAt)}` : `Saved 3D concept · ${formatRelativeTime(stageVisualizations.lighting.savedAt || stageVisualizations.lighting.generatedAt)}`}
+                                    {isKr ? `저장된 2D 컨셉 · ${formatRelativeTime(stageVisualizations.lighting.savedAt || stageVisualizations.lighting.generatedAt)}` : `Saved visual concept · ${formatRelativeTime(stageVisualizations.lighting.savedAt || stageVisualizations.lighting.generatedAt)}`}
                                 </p>
                             )}
                         </div>
@@ -1350,7 +1373,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                             <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.costume) || 'N/A'}</p>
                             {stageVisualizations?.costume && (
                                 <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-pink-400/70">
-                                    {isKr ? `저장된 3D 시안 · ${formatRelativeTime(stageVisualizations.costume.savedAt || stageVisualizations.costume.generatedAt)}` : `Saved 3D concept · ${formatRelativeTime(stageVisualizations.costume.savedAt || stageVisualizations.costume.generatedAt)}`}
+                                    {isKr ? `저장된 2D 컨셉 · ${formatRelativeTime(stageVisualizations.costume.savedAt || stageVisualizations.costume.generatedAt)}` : `Saved visual concept · ${formatRelativeTime(stageVisualizations.costume.savedAt || stageVisualizations.costume.generatedAt)}`}
                                 </p>
                             )}
                         </div>
@@ -1364,7 +1387,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                             <p className="text-sm text-slate-300 font-serif leading-relaxed h-[80px] overflow-y-auto custom-scrollbar pr-2">{t(draftData.stage?.props) || 'N/A'}</p>
                             {stageVisualizations?.props && (
                                 <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-primary/80">
-                                    {isKr ? `저장된 3D 시안 · ${formatRelativeTime(stageVisualizations.props.savedAt || stageVisualizations.props.generatedAt)}` : `Saved 3D concept · ${formatRelativeTime(stageVisualizations.props.savedAt || stageVisualizations.props.generatedAt)}`}
+                                    {isKr ? `저장된 2D 컨셉 · ${formatRelativeTime(stageVisualizations.props.savedAt || stageVisualizations.props.generatedAt)}` : `Saved visual concept · ${formatRelativeTime(stageVisualizations.props.savedAt || stageVisualizations.props.generatedAt)}`}
                                 </p>
                             )}
                         </div>
@@ -1426,7 +1449,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 <div className="flex flex-wrap justify-center gap-6">
                     <div className="relative group">
                         <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] py-1.5 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-xl">
-                            {isKr ? 'Pro/Studio에서 섹션 재생성이 가능합니다.' : 'Section regeneration is available on Pro/Studio.'}
+                            {isKr ? '유료 플랜에서 섹션 재생성이 가능합니다.' : 'Section regeneration is available on paid plans.'}
                         </div>
                         <button onClick={handleRegenClick} className="px-6 py-3 bg-white/5 border border-white/20 text-white rounded-none hover:bg-white/10 transition-all text-sm uppercase tracking-widest font-sans font-light">
                             {isKr ? '재생성' : 'Regenerate'}
@@ -1434,7 +1457,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     </div>
                     <div className="relative group">
                         <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] py-1.5 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-xl">
-                            {isKr ? 'PPT 및 프로덕션 패키지 생성 (Pro/Studio)' : 'Generate Pitch & Production Package (Pro/Studio)'}
+                            {isKr ? 'PPT 및 프로덕션 패키지 생성 (유료 플랜)' : 'Generate Pitch & Production Package (Paid Plans)'}
                         </div>
                         <button 
                             onClick={() => setIsExportModalOpen(true)}

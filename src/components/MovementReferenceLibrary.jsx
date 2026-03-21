@@ -110,13 +110,31 @@ const CATEGORY_COLORS = {
   Floor: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10',
 };
 
-export default function MovementReferenceLibrary({ isKr, onAddReference }) {
+function hashSeed(input = '') {
+  let hash = 0;
+  const text = String(input || 'seedbar');
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function seededUnit(seed, salt = '') {
+  const value = hashSeed(`${seed}:${salt}`);
+  return (value % 1000) / 1000;
+}
+
+export default function MovementReferenceLibrary({ isKr, onAddReference, projectSeed = '', projectContext = {} }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [playingId, setPlayingId] = useState(null);
   const [videoErrors, setVideoErrors] = useState({});
   const videoRefs = useRef({});
 
   const t = (val) => val[isKr ? 'kr' : 'en'] || val.en;
+  const projectSignature = useMemo(() => {
+    const keywords = Array.isArray(projectContext?.keywords) ? projectContext.keywords.join('|') : '';
+    return [projectSeed, projectContext?.genre || '', projectContext?.mood || '', keywords, searchTerm].join('|');
+  }, [projectContext?.genre, projectContext?.keywords, projectContext?.mood, projectSeed, searchTerm]);
 
   const curatedReferences = useMemo(() => {
     let refs = RAW_REFERENCES;
@@ -147,6 +165,24 @@ export default function MovementReferenceLibrary({ isKr, onAddReference }) {
     // 이미 에러가 발생한 id는 리스트에서 기본적으로 숨기고, 유사한 카테고리의 대체 영상을 노출합니다.
     refs = refs.filter(r => !videoErrors[r.id]);
 
+    const keywordText = `${projectContext?.genre || ''} ${projectContext?.mood || ''} ${Array.isArray(projectContext?.keywords) ? projectContext.keywords.join(' ') : ''}`.toLowerCase();
+    const categoryAffinity = {
+      Floor: /floor|ground|gravity|release/.test(keywordText) ? 6 : 0,
+      Body: /body|spiral|improv|improvisation|breath|isolation/.test(keywordText) ? 6 : 0,
+      Space: /space|line|extension|suspension|ballet/.test(keywordText) ? 6 : 0,
+      Rhythm: /rhythm|pulse|percussive|syncopation|groove/.test(keywordText) ? 6 : 0,
+    };
+
+    refs = [...refs]
+      .map((ref, index) => ({
+        ...ref,
+        weightedScore:
+          ref.score +
+          (categoryAffinity[ref.category] || 0) +
+          seededUnit(projectSignature, `${ref.id}:${index}`) * 10,
+      }))
+      .sort((a, b) => b.weightedScore - a.weightedScore);
+
     // 5. 다양성 강화: 카테고리별로 고르게 섞이도록 정렬 (Round-Robin 생성)
     const grouped = { Body: [], Space: [], Rhythm: [], Floor: [] };
     refs.forEach(r => { if (grouped[r.category]) grouped[r.category].push(r); });
@@ -163,8 +199,14 @@ export default function MovementReferenceLibrary({ isKr, onAddReference }) {
       });
     }
 
-    return diverseList;
-  }, [searchTerm, isKr, videoErrors]);
+    return diverseList.slice(0, 6);
+  }, [isKr, projectContext?.genre, projectContext?.keywords, projectContext?.mood, projectSignature, searchTerm, videoErrors]);
+
+  const diversityScore = useMemo(() => {
+    const categories = new Set(curatedReferences.map((item) => item.category));
+    const keywords = new Set(curatedReferences.map((item) => item.keyword));
+    return Math.min(100, 40 + categories.size * 15 + keywords.size * 8);
+  }, [curatedReferences]);
 
   const handlePlay = (id) => {
     setPlayingId(id);
@@ -197,6 +239,9 @@ export default function MovementReferenceLibrary({ isKr, onAddReference }) {
           </h2>
           <p className="text-sm text-slate-400 font-light">
             {isKr ? 'AI가 엄선한 고품질 실제 무용 레퍼런스만을 시각적 다양성에 맞춰 제공합니다.' : 'Curated, high-quality real human movement references focused on choreographic value.'}
+          </p>
+          <p className="mt-2 text-[11px] uppercase tracking-[0.24em] text-teal-300/80">
+            {isKr ? `프로젝트 다양성 점수 ${diversityScore}` : `Project diversity score ${diversityScore}`}
           </p>
         </div>
         
@@ -313,7 +358,7 @@ export default function MovementReferenceLibrary({ isKr, onAddReference }) {
         {curatedReferences.length === 0 && (
           <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-500 border border-dashed border-white/10 rounded-2xl bg-black/20">
             <span className="material-symbols-outlined text-4xl mb-3 opacity-50">search_off</span>
-            <p className="text-sm">{isKr ? "엄격한 필터 기준(80점 이상, 실사 무용)에 맞는 레퍼런스가 없습니다." : "No high-quality references match the strict criteria."}</p>
+            <p className="text-sm">{isKr ? "조건에 맞는 레퍼런스를 찾지 못했습니다. 검색어를 바꾸거나 지워서 더 넓은 움직임 풀을 확인해보세요." : "No references matched this search yet. Try another keyword or clear the search to explore a wider movement pool."}</p>
           </div>
         )}
       </div>

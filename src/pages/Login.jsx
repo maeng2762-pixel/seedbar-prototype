@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
 import useAuthStore from '../store/useAuthStore';
 
@@ -152,9 +152,9 @@ export default function Login() {
           </div>
 
           <div className="flex items-center gap-4">
-            <a className="text-slate-500 dark:text-slate-500 text-xs font-medium hover:text-primary transition-colors cursor-pointer">{t.terms}</a>
+            <Link to="/policies?tab=terms" className="text-slate-500 dark:text-slate-500 text-xs font-medium hover:text-primary transition-colors cursor-pointer">{t.terms}</Link>
             <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></div>
-            <a className="text-slate-500 dark:text-slate-500 text-xs font-medium hover:text-primary transition-colors cursor-pointer">{t.privacy}</a>
+            <Link to="/policies?tab=privacy" className="text-slate-500 dark:text-slate-500 text-xs font-medium hover:text-primary transition-colors cursor-pointer">{t.privacy}</Link>
           </div>
         </div>
       </div>

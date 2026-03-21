@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import useStore from '../store/useStore';
@@ -7,237 +7,176 @@ import LanguageToggle from '../components/LanguageToggle';
 import { navigateToNewProject } from '../lib/projectNavigation';
 
 const i18n = {
-    EN: {
-        title: 'Discovery Hub',
-        subtitle: 'Curated Dance References & Learning',
-        search: 'Search for references to study...',
-        latestReferences: 'Latest References',
-        todayDanceVids: "Today's Dance Videos",
-        performanceHighlights: 'Performance Highlights',
-        structureRef: 'Choreography Structure Reference',
-        movementLearning: 'Movement Detail Learning',
-        startProject: 'Apply this Reference',
-        seeAll: 'See All'
-    },
-    KR: {
-        title: '탐색 스튜디오',
-        subtitle: '보고 배우는 무용 레퍼런스 공간',
-        search: '안무에 바로 참고할 수 있는 영상 찾기...',
-        latestReferences: '최신 레퍼런스',
-        todayDanceVids: '오늘의 무용 영상',
-        performanceHighlights: '공연 하이라이트',
-        structureRef: '안무 구조 참고',
-        movementLearning: '움직임 디테일 학습',
-        startProject: '이 레퍼런스 적용하기',
-        seeAll: '전체 보기'
-    }
+  EN: {
+    title: 'Practice & Learn',
+    subtitle: 'A focused dance learning space with curated references, workshops, and analysis notes.',
+    search: 'Search by keyword, source, or idea...',
+    openSource: 'Open Source',
+    apply: 'Use in Project',
+    why: 'Why it is worth studying',
+    loading: 'Preparing curated learning references...',
+  },
+  KR: {
+    title: '연습 및 학습하기',
+    subtitle: '중구난방 피드 대신, 실제로 참고 가치 있는 무용 영상과 구조 자료만 큐레이션합니다.',
+    search: '키워드, 출처, 아이디어로 찾기...',
+    openSource: '원문 보기',
+    apply: '프로젝트에 적용',
+    why: '왜 참고 가치가 있는지',
+    loading: '학습용 큐레이션 자료를 준비하는 중입니다...',
+  },
 };
 
-const ExploreCard = ({ item, t, onStart }) => (
-    <div className="relative rounded-2xl overflow-hidden glass-panel group mb-4">
-        <div className="h-48 relative overflow-hidden">
-            <img alt={item.title} className="absolute inset-0 w-full h-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105" src={item.image || item.preview} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent"></div>
-            <div className="absolute top-3 left-3 flex gap-1">
-                <div className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-bold text-white uppercase tracking-wider">{item.genre}</div>
-                {item.dancers && (
-                    <div className="bg-[#5B13EC]/80 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-bold text-white tracking-wider">
-                        {item.dancers} Dancers
-                    </div>
-                )}
-            </div>
-            <div className="absolute top-3 right-3">
-                <button className="bg-black/40 hover:bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white/80 hover:text-white transition-colors">
-                    <span className="material-symbols-outlined text-sm">bookmark</span>
-                </button>
-            </div>
-            
-            <div className="absolute bottom-3 left-3 right-3 flex flex-col justify-end">
-                {item.learningObject && (
-                    <div className="inline-block bg-[#5B13EC]/20 border border-[#5B13EC]/40 text-teal-300 text-[9px] font-bold px-2 py-0.5 rounded backdrop-blur-sm w-max mb-1.5">
-                        💡 {item.learningObject}
-                    </div>
-                )}
-                <div className="flex justify-between items-end gap-2">
-                    <div className="flex-[0_0_70%] pr-2">
-                        <h3 className="text-white text-lg font-bold truncate mb-1">{item.title}</h3>
-                        <p className="text-slate-300 text-[10px] line-clamp-2 leading-relaxed">{item.description}</p>
-                    </div>
-                    <button 
-                        onClick={() => onStart(item.promptState)}
-                        className="shrink-0 bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md rounded-lg px-3 py-1.5 text-[9px] font-bold text-white active:scale-95 transition-all text-center"
-                    >
-                        {t.startProject}
-                    </button>
+const sectionMeta = {
+  latestReferences: { en: 'Latest References', kr: '최신 레퍼런스' },
+  todayDanceVids: { en: 'Today’s Dance Videos', kr: '오늘의 무용 영상' },
+  highlights: { en: 'Performance Highlights', kr: '공연 하이라이트' },
+  structureNotes: { en: 'Choreography Structure Reference', kr: '안무 구조 참고' },
+  workshops: { en: 'Workshop / Follow Along', kr: '워크숍 / 따라하기' },
+  researchInsights: { en: 'Research Insight', kr: '논문 기반 안무 인사이트' },
+};
+
+function localized(label, language) {
+  return language === 'KR' ? label.kr || label.en : label.en || label.kr;
+}
+
+function ExploreSection({ title, items, language, onApply }) {
+  const t = i18n[language];
+  if (!items?.length) return null;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="h-px w-5 bg-primary" />
+        <h2 className="text-sm font-bold uppercase tracking-[0.24em] text-white">{title}</h2>
+      </div>
+      <div className="grid grid-cols-1 gap-4">
+        {items.map((item) => (
+          <article key={item.id} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-md">
+            <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
+              <div className="relative min-h-[220px]">
+                <img alt={item.title} className="absolute inset-0 h-full w-full object-cover opacity-80" src={item.image} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
+                  <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/70">
+                    {item.source}
+                  </span>
+                  <span className="rounded-full border border-primary/30 bg-primary/15 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-primary-light">
+                    {item.period}
+                  </span>
                 </div>
-            </div>
-        </div>
-    </div>
-);
-
-
-const Explore = () => {
-    const { language } = useStore();
-    const t = i18n[language];
-    const navigate = useNavigate();
-
-    const {
-        latestReferences,
-        todayDanceVids,
-        performanceHighlights,
-        structureRef,
-        movementLearning,
-        fetchExploreData
-    } = useExploreStore();
-
-    useEffect(() => {
-        fetchExploreData();
-    }, [fetchExploreData]);
-
-    const handleStartProject = (promptState) => {
-        navigateToNewProject(navigate, { mode: 'create', ...promptState });
-    };
-
-    return (
-        <div className="relative flex min-h-screen w-full flex-col bg-background-dark font-display text-slate-100 antialiased overflow-x-hidden pb-28">
-            <div className="sticky top-0 z-40 bg-background-dark/80 backdrop-blur-md pt-12 pb-4 px-6 border-b border-white/5">
-                <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-2xl font-extrabold tracking-tight text-white">{t.title}</h1>
-                    <LanguageToggle />
+              </div>
+              <div className="flex flex-col gap-4 p-5">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">{item.category}</p>
+                  <h3 className="mt-2 text-xl font-semibold text-white">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-300">{item.description}</p>
                 </div>
-                <p className="text-[11px] text-[#5B13EC] font-bold uppercase tracking-widest mb-1">{t.subtitle}</p>
-                <p className="text-xs text-slate-400 mb-4">{language === 'KR' ? '안무에 바로 참고할 수 있는 영상만 큐레이션합니다' : 'Curated dance references you can immediately apply.'}</p>
-                <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
-                    <input className="w-full h-12 pl-12 pr-4 bg-slate-800/40 border border-[#5B13EC]/20 rounded-2xl text-sm focus:ring-1 focus:ring-[#5B13EC]/50 text-white placeholder:text-slate-500 glass-panel tracking-tight" placeholder={t.search} type="text" />
+                <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-emerald-300">{t.why}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-200">{item.rationale}</p>
                 </div>
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <a
+                    href={item.externalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-white/10"
+                  >
+                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                    {t.openSource}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => onApply(item.promptState)}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-[0_0_18px_rgba(91,19,236,0.24)] transition-colors hover:bg-primary/90"
+                  >
+                    <span className="material-symbols-outlined text-sm">auto_fix_high</span>
+                    {t.apply}
+                  </button>
+                </div>
+              </div>
             </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-            <div className="px-6 space-y-12 mt-4">
-                
-                {/* 1. 최신 레퍼런스 */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                            <span className="w-1 h-3 bg-[#5B13EC] rounded-full"></span>
-                            {t.latestReferences}
-                        </h2>
-                        <span className="text-[10px] text-slate-400 cursor-pointer hover:text-white transition-colors">{t.seeAll}</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        {latestReferences.map(item => (
-                            <ExploreCard key={item.id} item={item} t={t} onStart={handleStartProject} />
-                        ))}
-                    </div>
-                </section>
+export default function Explore() {
+  const { language } = useStore();
+  const t = i18n[language] || i18n.EN;
+  const navigate = useNavigate();
+  const { sections, loading, fetchExploreData } = useExploreStore();
+  const [searchTerm, setSearchTerm] = useState('');
 
-                {/* 2. 오늘의 무용 영상 */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                            <span className="w-1 h-3 bg-[#5B13EC] rounded-full"></span>
-                            {t.todayDanceVids}
-                        </h2>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        {todayDanceVids.map(item => (
-                            <ExploreCard key={item.id} item={item} t={t} onStart={handleStartProject} />
-                        ))}
-                    </div>
-                </section>
+  useEffect(() => {
+    fetchExploreData().catch(() => {});
+  }, [fetchExploreData]);
 
-                {/* 3. 공연 하이라이트 */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                            <span className="w-1 h-3 bg-[#5B13EC] rounded-full"></span>
-                            {t.performanceHighlights}
-                        </h2>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        {performanceHighlights.map(item => (
-                            <ExploreCard key={item.id} item={item} t={t} onStart={handleStartProject} />
-                        ))}
-                    </div>
-                </section>
+  const filteredSections = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return sections;
 
-                {/* 4. 안무 구조 참고 */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                            <span className="w-1 h-3 bg-[#5B13EC] rounded-full"></span>
-                            {t.structureRef}
-                        </h2>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                        {structureRef.map(item => (
-                            <div key={item.id} className="relative glass-panel bg-gradient-to-br from-[#5B13EC]/10 to-transparent border border-[#5B13EC]/20 p-4 rounded-xl flex flex-col justify-between">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="material-symbols-outlined text-[#5B13EC] text-xl">account_tree</span>
-                                    <h3 className="text-xs font-bold text-white leading-tight">{item.title}</h3>
-                                </div>
-                                <div className="inline-block bg-teal-500/10 border border-teal-500/20 text-teal-300 text-[10px] font-bold px-2 py-0.5 rounded backdrop-blur-sm w-max mb-3">
-                                    🎯 {item.learningObject}
-                                </div>
-                                
-                                <div className="bg-black/40 rounded-lg p-3 mb-3 border border-white/5">
-                                    <p className="text-[11px] text-white/90 leading-relaxed font-semibold">{item.motionPrompt}</p>
-                                </div>
-                                <p className="text-[10px] text-slate-400 leading-snug mb-4">{item.description}</p>
-
-                                <button 
-                                    onClick={() => handleStartProject(item.promptState)}
-                                    className="w-full flex items-center justify-center gap-2 bg-[#5B13EC] hover:bg-[#4a0ebb] text-white text-[11px] font-bold py-2.5 rounded-lg transition-colors active:scale-95"
-                                >
-                                    {t.startProject}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-
-                {/* 5. 움직임 디테일 학습 */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                            <span className="w-1 h-3 bg-[#5B13EC] rounded-full"></span>
-                            {t.movementLearning}
-                        </h2>
-                    </div>
-                    <div className="flex overflow-x-auto gap-4 -mx-6 px-6 no-scrollbar snap-x pb-4">
-                        {movementLearning.map(item => (
-                            <div key={item.id} className="snap-start shrink-0 w-[240px] rounded-xl overflow-hidden glass-panel border border-white/10 bg-slate-900/50">
-                                <div className="h-[140px] relative overflow-hidden">
-                                     <img alt={item.title} className="w-full h-full object-cover opacity-70" src={item.preview} />
-                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
-                                     <div className="absolute top-2 right-2 flex gap-1">
-                                        <button className="bg-black/50 hover:bg-black/70 backdrop-blur-md p-1.5 rounded-full text-white/80 hover:text-white transition-colors">
-                                            <span className="material-symbols-outlined text-[12px]">bookmark</span>
-                                        </button>
-                                     </div>
-                                </div>
-                                <div className="p-4 bg-gradient-to-b from-slate-900 to-black relative z-10 border-t border-white/5">
-                                    <div className="inline-block bg-teal-500/10 text-teal-300 text-[9px] font-bold px-1.5 py-0.5 rounded mb-2 w-max truncate">
-                                        💡 {item.learningObject}
-                                    </div>
-                                    <h3 className="text-xs font-bold text-white mb-1">{item.title}</h3>
-                                    <p className="text-[10px] text-slate-400 mb-3 line-clamp-2 leading-relaxed h-8">{item.description}</p>
-                                    <button 
-                                        onClick={() => handleStartProject(item.promptState)}
-                                        className="w-full border border-[#5B13EC]/50 hover:bg-[#5B13EC]/10 text-white text-[10px] font-bold py-2 rounded active:scale-95 transition-all"
-                                    >
-                                        {t.startProject}
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-
-            </div>
-            <BottomNav />
-        </div>
+    return Object.fromEntries(
+      Object.entries(sections || {}).map(([key, items]) => [
+        key,
+        (items || []).filter((item) => {
+          const haystack = [item.title, item.description, item.rationale, item.source, item.category].join(' ').toLowerCase();
+          return haystack.includes(query);
+        }),
+      ]),
     );
-};
+  }, [searchTerm, sections]);
 
-export default Explore;
+  const handleApply = (promptState) => {
+    navigateToNewProject(navigate, { mode: 'create', ...(promptState || {}) });
+  };
+
+  return (
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-dark font-display text-slate-100 pb-28">
+      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top,rgba(91,19,236,0.18),transparent_30%),linear-gradient(180deg,#110d1b_0%,#08060c_100%)]" />
+
+      <div className="sticky top-0 z-30 border-b border-white/5 bg-background-dark/85 px-6 pb-5 pt-12 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">{t.title}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">{t.subtitle}</p>
+          </div>
+          <LanguageToggle />
+        </div>
+        <div className="relative mt-5">
+          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">search</span>
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder={t.search}
+            className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-12 pr-4 text-sm text-white outline-none transition-colors focus:border-primary/40"
+          />
+        </div>
+      </div>
+
+      <div className="relative z-20 flex flex-col gap-8 px-6 py-6">
+        {loading ? (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-white" />
+            <p className="mt-4 text-sm text-slate-300">{t.loading}</p>
+          </div>
+        ) : (
+          Object.entries(filteredSections || {}).map(([key, items]) => (
+            <ExploreSection
+              key={key}
+              title={localized(sectionMeta[key] || { en: key, kr: key }, language)}
+              items={items}
+              language={language}
+              onApply={handleApply}
+            />
+          ))
+        )}
+      </div>
+
+      <BottomNav />
+    </div>
+  );
+}

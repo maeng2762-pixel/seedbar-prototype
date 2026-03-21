@@ -10,6 +10,7 @@ import PPTGenerator from './pages/PPTGenerator';
 import Explore from './pages/Explore';
 import Library from './pages/Library';
 import Profile from './pages/Profile';
+import PolicyCenter from './pages/PolicyCenter';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import useAuthStore from './store/useAuthStore';
@@ -25,6 +26,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/policies" element={<PolicyCenter />} />
         <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
         <Route path="/ideation" element={<ProtectedRoute><AppErrorBoundary><Ideation /></AppErrorBoundary></ProtectedRoute>} />

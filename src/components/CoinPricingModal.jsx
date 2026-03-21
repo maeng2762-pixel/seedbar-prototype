@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useStore from '../store/useStore';
+import useBillingStore from '../store/useBillingStore';
 
 const i18n = {
   KR: {
@@ -44,6 +45,16 @@ export default function CoinPricingModal({ isOpen, onClose, currentPlan = 'free'
   const t = i18n[language] || i18n.EN;
   const initialIdx = Math.max(0, PLAN_META.findIndex((p) => p.id === currentPlan));
   const [selectedIdx, setSelectedIdx] = useState(initialIdx);
+  const nativeStatus = useBillingStore((state) => state.nativeStatus);
+  const billingLoading = useBillingStore((state) => state.loading);
+  const refreshNativeStatus = useBillingStore((state) => state.refreshNativeStatus);
+  const purchasePlan = useBillingStore((state) => state.purchasePlan);
+
+  useEffect(() => {
+    if (isOpen) {
+      refreshNativeStatus().catch(() => {});
+    }
+  }, [isOpen, refreshNativeStatus]);
 
   if (!isOpen) return null;
 
@@ -122,19 +133,33 @@ export default function CoinPricingModal({ isOpen, onClose, currentPlan = 'free'
 
             <div className="flex flex-col items-center justify-center w-full max-w-xs md:max-w-sm mt-2 md:mt-4 pb-2">
               <button
-                onClick={() => {
+                onClick={async () => {
                   const selected = PLAN_META[selectedIdx]?.id || 'free';
-                  if (onSelectPlan) onSelectPlan(selected);
-                  onClose?.();
+                  try {
+                    if (selected !== 'free' && nativeStatus?.available) {
+                      await purchasePlan(selected);
+                    }
+                    if (onSelectPlan) {
+                      await onSelectPlan(selected);
+                    }
+                    onClose?.();
+                  } catch (error) {
+                    window.alert(error.message || 'Unable to complete purchase.');
+                  }
                 }}
+                disabled={billingLoading}
                 className="w-full py-3.5 md:py-4 rounded-xl font-bold text-[14px] md:text-lg text-white bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 shadow-[0_0_20px_rgba(91,19,236,0.4)] transition-all"
               >
                 <span className="flex items-center justify-center gap-2">
                   <span className="material-symbols-outlined text-[20px]">rocket_launch</span>
-                  {t.checkout}
+                  {billingLoading ? '...' : t.checkout}
                 </span>
               </button>
-              <p className="text-[10px] md:text-[11px] text-white/30 font-medium tracking-wide mt-4 px-4">{t.disclaimer}</p>
+              <p className="text-[10px] md:text-[11px] text-white/30 font-medium tracking-wide mt-4 px-4">
+                {nativeStatus?.available
+                  ? (language === 'KR' ? '모바일 빌드에서는 앱스토어 / 플레이스토어 결제 흐름을 우선 사용합니다.' : 'In the mobile build, App Store / Play Store billing flow is used first.')
+                  : t.disclaimer}
+              </p>
             </div>
           </div>
         </motion.div>

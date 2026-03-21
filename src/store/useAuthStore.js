@@ -117,6 +117,36 @@ const useAuthStore = create((set, get) => ({
     clearAuthStorage();
     set({ user: null, token: '', error: null });
   },
+
+  deleteAccount: async () => {
+    set({ loading: true, error: null });
+    try {
+      const url = apiUrl('/api/auth/account');
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+      const data = await parseResponseJson(res, url);
+      if (!res.ok || !data.ok) throw new Error(data?.error || 'Account deletion failed.');
+
+      clearAuthStorage();
+      set({ user: null, token: '', error: null, loading: false });
+      return true;
+    } catch (error) {
+      set({ loading: false, error: error.message || 'Account deletion failed.' });
+      throw error;
+    }
+  },
+
+  syncUser: (user) => {
+    if (!user) return;
+    setStoredUser(user);
+    setClientPlan(user?.plan || 'free');
+    set((state) => ({ ...state, user }));
+  },
 }));
 
 export default useAuthStore;

@@ -50,7 +50,16 @@ const Library = () => {
     const navigate = useNavigate();
     const { language } = useStore();
     const t = i18n[language];
-    const { projects, listProjects, deleteProject, setProjectId, projectId: activeProjectId } = useChoreographyStudioStore();
+    const {
+        projects,
+        deletedProjects,
+        listProjects,
+        listDeletedProjects,
+        deleteProject,
+        restoreProject,
+        setProjectId,
+        projectId: activeProjectId
+    } = useChoreographyStudioStore();
     
     const [activeTab, setActiveTab] = useState(0);
     const [expandedProjectId, setExpandedProjectId] = useState(null);
@@ -60,7 +69,8 @@ const Library = () => {
 
     React.useEffect(() => {
         listProjects().catch(() => {});
-    }, [listProjects]);
+        listDeletedProjects().catch(() => {});
+    }, [listDeletedProjects, listProjects]);
 
     const handleConfirmDelete = async () => {
         if (!projectToDelete) return;
@@ -70,6 +80,7 @@ const Library = () => {
             setShowToast(true);
             setTimeout(() => setShowToast(false), 3000);
             await listProjects();
+            await listDeletedProjects();
         } catch (error) {
             console.error('Failed to delete project:', error);
             alert(language === 'KR' ? '삭제에 실패했습니다.' : 'Failed to delete.');
@@ -150,7 +161,7 @@ const Library = () => {
                                             <button 
                                                 onClick={() => setProjectToDelete(project)}
                                                 className="text-slate-500 hover:text-rose-400 p-1 flex items-center justify-center rounded transition-colors"
-                                                title={t.delete}
+                                                title={language === 'KR' ? '휴지통으로 이동' : 'Move to trash'}
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">delete</span>
                                             </button>
@@ -236,6 +247,44 @@ const Library = () => {
                                 )}
                             </div>
                         ))}
+
+                        {deletedProjects.length > 0 && (
+                            <div className="glass-panel border-white/10 p-4 rounded-2xl flex flex-col gap-3">
+                                <div>
+                                    <h3 className="text-[14px] font-bold text-white">{language === 'KR' ? '삭제 보관함' : 'Trash & Recovery'}</h3>
+                                    <p className="text-[10px] text-slate-400 mt-1">
+                                        {language === 'KR' ? '삭제된 프로젝트는 30일 동안 복구할 수 있습니다.' : 'Deleted projects remain restorable for 30 days.'}
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {deletedProjects.map((project) => (
+                                        <div key={project.id} className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold text-white">{project.title}</p>
+                                                <p className="mt-1 text-[10px] text-slate-500">
+                                                    {language === 'KR' ? '삭제 시각' : 'Deleted'} {new Date(project.deletedAt || project.updatedAt).toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        await restoreProject(project.id);
+                                                        await listProjects();
+                                                        await listDeletedProjects();
+                                                    } catch (error) {
+                                                        alert(error.message);
+                                                    }
+                                                }}
+                                                className="shrink-0 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-200 transition-colors hover:bg-emerald-500/20"
+                                            >
+                                                {language === 'KR' ? '복구' : 'Restore'}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

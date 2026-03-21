@@ -259,7 +259,7 @@ function StageVisualizationEditor() {
 
     const handleSave = async () => {
         if (!projectContent || !workingVisualization) {
-            setError(isKr ? '저장할 3D 시안 데이터가 아직 준비되지 않았습니다.' : 'The 3D concept is not ready to save yet.');
+            setError(isKr ? '저장할 비주얼 컨셉 데이터가 아직 준비되지 않았습니다.' : 'The visual concept is not ready to save yet.');
             return;
         }
 
@@ -310,11 +310,11 @@ function StageVisualizationEditor() {
         return (
             <div className="flex min-h-screen items-center justify-center bg-background-dark px-6 text-center text-slate-300">
                 <div className="max-w-lg border border-white/10 bg-white/5 p-8">
-                    <p className="text-sm uppercase tracking-[0.25em] text-white/50">{isKr ? '3D 비주얼 스튜디오' : '3D Visual Studio'}</p>
+                    <p className="text-sm uppercase tracking-[0.25em] text-white/50">{isKr ? '2D 비주얼 스튜디오' : '2D Visual Studio'}</p>
                     <h1 className="mt-4 text-2xl font-semibold text-white">{isKr ? '프로젝트 데이터를 찾지 못했습니다.' : 'We could not find the project data.'}</h1>
                     <p className="mt-4 text-sm leading-relaxed text-slate-400">
                         {isKr
-                            ? '안무설계도 화면에서 다시 조명, 소품, 의상 카드의 버튼을 눌러 들어오면 저장 가능한 3D 편집기로 연결됩니다.'
+                            ? '안무설계도 화면에서 다시 조명, 소품, 의상 카드의 버튼을 눌러 들어오면 저장 가능한 비주얼 편집기로 연결됩니다.'
                             : 'Open this page again from the lighting, props, or costume card inside the choreography studio so the editor has the right project context.'}
                     </p>
                     <button
@@ -342,7 +342,7 @@ function StageVisualizationEditor() {
                             <span className="material-symbols-outlined text-xl text-white">arrow_back_ios_new</span>
                         </button>
                         <div>
-                            <p className="text-[10px] uppercase tracking-[0.28em] text-white/40">{isKr ? '안무설계도 기반 3D 스튜디오' : '3D Studio from Choreography Blueprint'}</p>
+                            <p className="text-[10px] uppercase tracking-[0.28em] text-white/40">{isKr ? '안무설계도 기반 2D 비주얼 스튜디오' : '2D Visual Studio from Choreography Blueprint'}</p>
                             <h1 className="mt-2 text-2xl font-semibold text-white md:text-3xl">{projectTitle}</h1>
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                                 <span className={`border px-3 py-1 text-[10px] uppercase tracking-[0.2em] ${accent.chip}`}>
@@ -351,7 +351,7 @@ function StageVisualizationEditor() {
                                 <span className="border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/60">
                                     {savedVisualization
                                         ? (isKr ? '저장된 버전 존재' : 'Saved version exists')
-                                        : (isKr ? '새 3D 시안' : 'New 3D concept')}
+                                        : (isKr ? '새 2D 컨셉' : 'New visual concept')}
                                 </span>
                             </div>
                         </div>
@@ -405,8 +405,8 @@ function StageVisualizationEditor() {
                             <div className="flex min-h-[460px] flex-col items-center justify-center gap-4 border border-white/10 bg-black/20">
                                 <div className="h-12 w-12 animate-spin rounded-full border-2 border-white/20 border-t-white" />
                                 <div className="text-center">
-                                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">{isKr ? '3D 씬 생성 중' : 'Generating 3D Scene'}</p>
-                                    <p className="mt-2 text-sm text-slate-300">{isKr ? '안무설계도 문맥을 읽어 현실적인 공연 비주얼로 정리하고 있습니다.' : 'Reading the choreography blueprint and shaping it into a realistic performance visual.'}</p>
+                                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">{isKr ? '2D 비주얼 컨셉 생성 중' : 'Generating visual concept'}</p>
+                                    <p className="mt-2 text-sm text-slate-300">{isKr ? '안무설계도 문맥을 읽어 현실적인 공연 참고 비주얼로 정리하고 있습니다.' : 'Reading the choreography blueprint and shaping it into a practical production visual reference.'}</p>
                                 </div>
                             </div>
                         ) : (
@@ -651,4 +651,3 @@ const Editor3D = () => {
 };
 
 export default Editor3D;
-

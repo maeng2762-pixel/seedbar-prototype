@@ -7,7 +7,7 @@ export function quotaGuard(resource, message) {
       const isGeneration = resource === 'generation' || resource === 'draft';
       return res.status(429).json({
         error: message || (isGeneration
-          ? 'You have reached the monthly limit. Upgrade to Pro for unlimited choreography generation.'
+          ? 'You have reached the monthly limit. Upgrade to a paid plan for unlimited choreography generation.'
           : `Monthly quota exceeded for ${resource}`),
         resource,
         plan,

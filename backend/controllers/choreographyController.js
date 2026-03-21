@@ -47,6 +47,12 @@ export function listProjectsController(req, res) {
   return res.json({ ok: true, projects });
 }
 
+export function listDeletedProjectsController(req, res) {
+  const { userId } = req.context;
+  const projects = choreographyProjectModel.listDeletedProjectsByUser(userId);
+  return res.json({ ok: true, projects });
+}
+
 export function createProjectController(req, res) {
   const { userId, plan } = req.context;
   const policy = getPlanPolicy(plan);
@@ -55,7 +61,7 @@ export function createProjectController(req, res) {
   if (policy.maxProjects != null && projectCount >= policy.maxProjects) {
     return res.status(429).json({
       ok: false,
-      error: 'Free plan supports up to 2 projects. Upgrade to Pro for unlimited projects.',
+      error: 'Free plan supports up to 2 projects. Upgrade to a paid plan for more projects.',
       limit: policy.maxProjects,
       current: projectCount,
     });
@@ -88,8 +94,18 @@ export function deleteProjectController(req, res) {
   const owned = requireOwnedProject(projectId, userId);
   if (!owned.project) return res.status(owned.status).json({ ok: false, error: owned.error });
 
-  choreographyProjectModel.deleteProject(projectId);
-  return res.json({ ok: true, deleted: true });
+  choreographyProjectModel.softDeleteProject(projectId);
+  return res.json({ ok: true, deleted: true, softDeleted: true });
+}
+
+export function restoreProjectController(req, res) {
+  const { userId } = req.context;
+  const { projectId } = req.params;
+  const owned = requireOwnedProject(projectId, userId);
+  if (!owned.project) return res.status(owned.status).json({ ok: false, error: owned.error });
+
+  const restored = choreographyProjectModel.restoreProject(projectId);
+  return res.json({ ok: true, project: restored });
 }
 
 export function createProjectVersionController(req, res) {
@@ -103,7 +119,7 @@ export function createProjectVersionController(req, res) {
   if (policy.maxVersions != null && currentVersions.length >= policy.maxVersions) {
     return res.status(429).json({
       ok: false,
-      error: 'Free plan supports up to 2 versions. Upgrade to Pro for unlimited versions.',
+      error: 'Free plan supports up to 2 versions. Upgrade to a paid plan for more versions.',
       limit: policy.maxVersions,
       current: currentVersions.length,
     });
@@ -142,7 +158,7 @@ export function duplicateVersionController(req, res) {
   if (policy.maxVersions != null && currentVersions.length >= policy.maxVersions) {
     return res.status(429).json({
       ok: false,
-      error: 'Version limit reached. Upgrade to Pro for unlimited versions.',
+      error: 'Version limit reached. Upgrade to a paid plan for more versions.',
     });
   }
 
@@ -188,6 +204,7 @@ export function getProjectController(req, res) {
     timeline,
     formationDesign,
     stageFlow,
+    snapshots: choreographyProjectModel.listSnapshots(projectId, 6),
     ...buildStudioMeta(owned.project),
   });
 }
@@ -219,7 +236,7 @@ export async function regenerateSectionController(req, res) {
   const { userId, plan } = req.context;
   const policy = getPlanPolicy(plan);
   if (!policy.canRegenerateSections) {
-    return res.status(403).json({ ok: false, error: 'Section regeneration is available on Pro/Studio plans only.' });
+    return res.status(403).json({ ok: false, error: 'Section regeneration is available on paid plans only.' });
   }
 
   const projectId = req.body?.projectId;
@@ -239,7 +256,7 @@ export async function rewriteSectionController(req, res) {
   const { userId, plan } = req.context;
   const policy = getPlanPolicy(plan);
   if (!policy.canRegenerateSections) {
-    return res.status(403).json({ ok: false, error: 'Rewrite is available on Pro/Studio plans only.' });
+    return res.status(403).json({ ok: false, error: 'Rewrite is available on paid plans only.' });
   }
 
   const projectId = req.body?.projectId;
@@ -258,16 +275,26 @@ export async function rewriteSectionController(req, res) {
 export async function generateTitleController(req, res) {
   const { userId } = req.context;
   const { genre, mood, theme } = req.body || {};
+  const count = Math.max(1, Math.min(6, Number(req.body?.count || 1)));
   const existingTitles = choreographyProjectModel.findSimilarTitles('', userId, 20);
-  const title = await generateUniqueTitle({ genre, mood, theme, existingTitles });
-  return res.json({ ok: true, title });
+  const titles = [];
+  for (let index = 0; index < count; index += 1) {
+    const nextTitle = await generateUniqueTitle({
+      genre,
+      mood,
+      theme: index === 0 ? theme : `${theme || ''} variation ${index + 1}`,
+      existingTitles: [...existingTitles, ...titles],
+    });
+    titles.push(nextTitle);
+  }
+  return res.json({ ok: true, title: titles[0], titles });
 }
 
 export async function generateVariationsController(req, res) {
   const { userId, plan } = req.context;
   const policy = getPlanPolicy(plan);
   if (!policy.canRegenerateSections) {
-    return res.status(403).json({ ok: false, error: 'Variation generation is available on Pro/Studio plans only.' });
+    return res.status(403).json({ ok: false, error: 'Variation generation is available on paid plans only.' });
   }
 
   const projectId = req.body?.projectId;
@@ -278,7 +305,7 @@ export async function generateVariationsController(req, res) {
   if (policy.maxVersions != null && currentVersions.length >= policy.maxVersions) {
     return res.status(429).json({
       ok: false,
-      error: 'Free plan supports up to 2 versions. Upgrade to Pro for unlimited versions.',
+      error: 'Free plan supports up to 2 versions. Upgrade to a paid plan for more versions.',
     });
   }
 
@@ -296,7 +323,7 @@ export async function tuneChoreographyController(req, res) {
   const { userId, plan } = req.context;
   const policy = getPlanPolicy(plan);
   if (!policy.canUseMoodSliders) {
-    return res.status(403).json({ ok: false, error: 'Mood sliders are available on Pro/Studio plans only.' });
+    return res.status(403).json({ ok: false, error: 'Mood sliders are available on paid plans only.' });
   }
 
   const projectId = req.body?.projectId;

@@ -21,12 +21,12 @@ const i18n = {
         lma: "Movement Texture Analysis",
         intent: "Artistic Design DNA",
         coinTitle: "Download PPT",
-        coinBalance: "Balance: 5",
-        coinDesc: "Advanced blueprint and PPT download available using coins or in Pro plan.",
+        coinBalance: "Subscription status",
+        coinDesc: "Advanced blueprints and production exports are available on paid plans.",
         modernLayout: "Modern Layout",
         academicDeck: "Academic Deck",
-        chargeCoin: "Charge Coins",
-        exportPPT: "Export to PPT (10 Coins)",
+        chargeCoin: "View Plans",
+        exportPPT: "Export to PPT",
         exportPDF: "Export to PDF (Free)",
         regenerate: "Regenerate Project",
         intro: "Intro",
@@ -76,12 +76,12 @@ const i18n = {
         lma: "움직임 질감 분석 (Texture)",
         intent: "예술적 설계 DNA",
         coinTitle: "PPT 다운로드",
-        coinBalance: "보유 코인: 5",
-        coinDesc: "고급 설계 및 PPT 다운로드는 코인을 사용하거나 Pro 플랜에서 이용 가능합니다.",
+        coinBalance: "구독 상태",
+        coinDesc: "고급 설계와 프로덕션 내보내기는 유료 플랜에서 이용할 수 있습니다.",
         modernLayout: "모던 레이아웃",
         academicDeck: "학술용 덱",
-        chargeCoin: "코인 충전하기",
-        exportPPT: "PPT로 내보내기 (10 코인)",
+        chargeCoin: "플랜 보기",
+        exportPPT: "PPT로 내보내기",
         exportPDF: "PDF로 내보내기 (무료)",
         regenerate: "프로젝트 재 생성하기",
         intro: "도입 (Intro)",
@@ -168,6 +168,7 @@ const Ideation = () => {
     const [entryError, setEntryError] = useState('');
     const [isCoinModalOpen, setIsCoinModalOpen] = useState(false);
     const [upgradeReason, setUpgradeReason] = useState("");
+    const [runtimeNotice, setRuntimeNotice] = useState("");
     const {
         currentPlan,
         policy,
@@ -176,7 +177,7 @@ const Ideation = () => {
         consumeGeneration,
         setPlan,
     } = useSubscriptionStore();
-    const { initializeProject, projectId: studioProjectId, setProjectId, autosaveProject, fetchProject } = useChoreographyStudioStore();
+    const { initializeProject, projectId: studioProjectId, setProjectId, autosaveProject, fetchProject, generateTitle } = useChoreographyStudioStore();
 
     const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
     
@@ -192,6 +193,9 @@ const Ideation = () => {
     const [moodKeywords, setMoodKeywords] = useState(safeEntryState.moodKeywords || []);
     const [keywordInput, setKeywordInput] = useState("");
     const [titleTone, setTitleTone] = useState(safeEntryState.titleTone || "");
+    const [titleCandidates, setTitleCandidates] = useState([]);
+    const [isGeneratingTitles, setIsGeneratingTitles] = useState(false);
+    const [generationStepIndex, setGenerationStepIndex] = useState(0);
     const isCompetition = genre === 'Contemporary Dance Competition';
 
     const getDynamicStyles = () => {
@@ -229,6 +233,26 @@ const Ideation = () => {
         return { stage: baseStage, costume: baseCostume };
     };
     const dynamicConcept = getDynamicConcept();
+    const generationSteps = language === 'KR'
+        ? ['작품 정보 분석 중', '안무 구조 생성 중', '감정 곡선 정리 중', '무대/음악 제안 정리 중']
+        : ['Analyzing project info', 'Building choreography structure', 'Shaping emotion curve', 'Finalizing stage and music suggestions'];
+
+    const handleSuggestTitles = async () => {
+        setIsGeneratingTitles(true);
+        try {
+            const candidates = await generateTitle({
+                genre: genre || 'Contemporary Dance',
+                mood: moodKeywords.join(', '),
+                theme: projectName || 'Untitled Project',
+                count: 4,
+            });
+            setTitleCandidates(Array.isArray(candidates) ? candidates : [candidates].filter(Boolean));
+        } catch (error) {
+            setUpgradeReason(error.message || '');
+        } finally {
+            setIsGeneratingTitles(false);
+        }
+    };
 
     const loadProjectById = useCallback(async (projectIdToLoad) => {
         if (!projectIdToLoad) return false;
@@ -401,6 +425,10 @@ const Ideation = () => {
                     competitionMode: isCompetition,
                     projectName: projectName || "Untitled Creation",
                 },
+                pamphlet: {
+                    ...(result?.pamphlet || {}),
+                    coverTitle: projectName || result?.pamphlet?.coverTitle || 'Untitled Creation',
+                },
             });
             let created = null;
             try {
@@ -477,6 +505,19 @@ const Ideation = () => {
     }, [refreshCapabilities, language]);
 
     useEffect(() => {
+        if (!isGenerating) {
+            setGenerationStepIndex(0);
+            return undefined;
+        }
+
+        const timer = window.setInterval(() => {
+            setGenerationStepIndex((prev) => (prev + 1) % generationSteps.length);
+        }, 1400);
+
+        return () => window.clearInterval(timer);
+    }, [generationSteps.length, isGenerating]);
+
+    useEffect(() => {
         if (urlProjectId) {
             setShowRegenerateMode(false);
             return;
@@ -494,6 +535,7 @@ const Ideation = () => {
             setDuration(safeEntryState.duration || '');
             setMoodKeywords(safeEntryState.moodKeywords || []);
             setTitleTone(safeEntryState.titleTone || '');
+            setTitleCandidates([]);
         }
     }, [generatedData, safeEntryState, urlProjectId]);
 
@@ -689,8 +731,15 @@ const Ideation = () => {
                             dancersCount={peopleCount}
                             onDataUpdate={(next) => setGeneratedData(next)}
                             onOpenUpgrade={(reason) => {
-                                setUpgradeReason(reason || "");
-                                setIsCoinModalOpen(true);
+                                const message = reason || "";
+                                if (UPGRADE_HINT_RE.test(message)) {
+                                    setRuntimeNotice("");
+                                    setUpgradeReason(message);
+                                    setIsCoinModalOpen(true);
+                                    return;
+                                }
+                                setIsCoinModalOpen(false);
+                                setRuntimeNotice(message || (language === 'KR' ? '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.' : 'We could not complete that request. Please try again.'));
                             }}
                         />
                     </motion.div>
@@ -865,6 +914,32 @@ const Ideation = () => {
                                     ? '선택한 톤에 따라 제목 생성 구조가 달라집니다. 매번 다른 톤을 선택하면 더 다양한 제목이 나옵니다.'
                                     : 'Title structure varies by tone. Switching tones produces more diverse titles.'}
                             </p>
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <button
+                                    type="button"
+                                    onClick={handleSuggestTitles}
+                                    disabled={isGeneratingTitles}
+                                    className="rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-light transition-colors hover:bg-primary/20 disabled:opacity-50"
+                                >
+                                    {isGeneratingTitles
+                                        ? (language === 'KR' ? '제목 추천 생성 중...' : 'Generating title ideas...')
+                                        : (language === 'KR' ? '작품 제목 추천받기' : 'Suggest Titles')}
+                                </button>
+                                {titleCandidates.map((candidate) => (
+                                    <button
+                                        key={candidate}
+                                        type="button"
+                                        onClick={() => setProjectName(candidate)}
+                                        className={`rounded-full border px-3 py-1.5 text-[10px] font-medium transition-all ${
+                                            projectName === candidate
+                                                ? 'border-primary/50 bg-primary/20 text-white'
+                                                : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {candidate}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         <div className="mb-8">
@@ -997,6 +1072,28 @@ const Ideation = () => {
                 <div className="fixed inset-0 z-[100] bg-background-dark/80 backdrop-blur-sm flex flex-col items-center justify-center">
                     <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-6"></div>
                     <p className="text-xl font-display font-bold tracking-widest animate-pulse">{t.generating}</p>
+                    <div className="mt-5 w-[min(88vw,440px)] rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                        <div className="mb-3 flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                            <span>{language === 'KR' ? '진행 단계' : 'Progress Steps'}</span>
+                            <span>{generationStepIndex + 1} / {generationSteps.length}</span>
+                        </div>
+                        <div className="space-y-2">
+                            {generationSteps.map((step, index) => (
+                                <div
+                                    key={step}
+                                    className={`rounded-xl border px-3 py-3 text-sm transition-all ${
+                                        index === generationStepIndex
+                                            ? 'border-primary/40 bg-primary/15 text-white'
+                                            : index < generationStepIndex
+                                                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                                                : 'border-white/10 bg-black/20 text-slate-500'
+                                    }`}
+                                >
+                                    {index + 1}. {step}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1012,6 +1109,20 @@ const Ideation = () => {
             {isCoinModalOpen && upgradeReason ? (
                 <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[101] max-w-[90vw] rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs text-amber-200 backdrop-blur">
                     {upgradeReason}
+                </div>
+            ) : null}
+            {runtimeNotice ? (
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[101] max-w-[90vw] rounded-lg border border-white/20 bg-black/60 px-4 py-2 text-xs text-slate-100 backdrop-blur">
+                    <div className="flex items-center gap-3">
+                        <span>{runtimeNotice}</span>
+                        <button
+                            type="button"
+                            onClick={() => setRuntimeNotice('')}
+                            className="text-slate-300 transition-colors hover:text-white"
+                        >
+                            <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                    </div>
                 </div>
             ) : null}
             {generatedData && generatedData.quotaChecked === false ? (
