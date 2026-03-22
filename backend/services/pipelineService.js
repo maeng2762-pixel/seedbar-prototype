@@ -39,7 +39,7 @@ export async function generateStep2Expansion(input, context, options = {}) {
   const cached = cacheService.get(key);
   if (cached) return { ...cached, cacheHit: true };
 
-  const system = 'Create high-quality but bounded JSON choreography package. Include `lma.body` (body part usage), `emotionCurve.energyIntensities` (energy curve intensities), and `prompt` inside each timeline item (containing `keywords`, `connection`, `direction`). Keep section lengths compact. For the `pamphlet` object, MUST generate ALL text fields (`coverTitle`, `performanceDesc`, `artisticStatement`, `choreographerNote`, `musicCredits`, `cast`) as bilingual objects: { "en": "English text", "kr": "Korean text" }.';
+  const system = 'Create high-quality but bounded JSON choreography package. Include `lma.body` (body part usage), `emotionCurve.energyIntensities` (energy curve intensities), and `prompt` inside each timeline item (containing `keywords`, `connection`, `direction`). Keep section lengths compact. CRITICAL: Prevent uniform and repetitive movement styles (like generic contemporary or hip-hop). Generate sharp, culturally/conceptually diverse and genre-specific movement patterns that explicitly reflect the user\'s input genre, artistic philosophy, and theme. For the `pamphlet` object, MUST generate ALL text fields (`coverTitle`, `performanceDesc`, `artisticStatement`, `choreographerNote`, `musicCredits`, `cast`) as bilingual objects: { "en": "English text", "kr": "Korean text" }.';
   const fallback = async () => {
     const direction = await buildInternalMusicDirection(input, input.competitionMode);
     const external = await resolveExternalTracks(direction, options.allowExternalMusic);

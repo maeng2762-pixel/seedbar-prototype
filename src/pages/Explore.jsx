@@ -9,7 +9,7 @@ import { navigateToNewProject } from '../lib/projectNavigation';
 const i18n = {
   EN: {
     title: 'Practice & Learn',
-    subtitle: 'A focused dance learning space with curated references, workshops, and analysis notes.',
+    subtitle: 'Practical, modular guides you can apply immediately to your choreography project.',
     search: 'Search by keyword, source, or idea...',
     openSource: 'Open Source',
     apply: 'Use in Project',
@@ -18,7 +18,7 @@ const i18n = {
   },
   KR: {
     title: '연습 및 학습하기',
-    subtitle: '중구난방 피드 대신, 실제로 참고 가치 있는 무용 영상과 구조 자료만 큐레이션합니다.',
+    subtitle: '복잡한 이론 대신, 지금 당장 안무 창작과 프로덕션에 적용할 수 있는 실전 가이드를 제공합니다.',
     search: '키워드, 출처, 아이디어로 찾기...',
     openSource: '원문 보기',
     apply: '프로젝트에 적용',
@@ -28,12 +28,9 @@ const i18n = {
 };
 
 const sectionMeta = {
-  latestReferences: { en: 'Latest References', kr: '최신 레퍼런스' },
-  todayDanceVids: { en: 'Today’s Dance Videos', kr: '오늘의 무용 영상' },
-  highlights: { en: 'Performance Highlights', kr: '공연 하이라이트' },
-  structureNotes: { en: 'Choreography Structure Reference', kr: '안무 구조 참고' },
-  workshops: { en: 'Workshop / Follow Along', kr: '워크숍 / 따라하기' },
-  researchInsights: { en: 'Research Insight', kr: '논문 기반 안무 인사이트' },
+  workflowGuides: { en: 'Choreography Workflow', kr: '안무 창작 워크스토리' },
+  productionTips: { en: 'Practical Production Tips', kr: '실전 프로덕션 꿀팁' },
+  inspirationNotes: { en: 'Inspiration & Idea Notes', kr: '영감 & 아이디어 노트' },
 };
 
 function localized(label, language) {

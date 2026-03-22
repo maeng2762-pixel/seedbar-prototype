@@ -105,7 +105,7 @@ export default function StageFlowPlayer({
   const isFreeSimple = currentPlan === 'free';
   const interactiveScrubber = !isFreeSimple;
   const showSectionJump = !isFreeSimple;
-  const showTrail = currentPlan === 'studio';
+  const showTrail = currentPlan === 'studio' || currentPlan === 'team';
 
   const isKr = language === 'KR';
 

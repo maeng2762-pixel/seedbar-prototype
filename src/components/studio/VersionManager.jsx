@@ -20,7 +20,7 @@ export default function VersionManager({
   const [selectedForCompare, setSelectedForCompare] = useState([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   
-  const isPro = plan === 'pro' || plan === 'studio';
+  const isPro = plan === 'studio' || plan === 'team';
   const isFree = !isPro;
   const canAdd = isPro || versions.length < 2;
   const isBusy = Boolean(disabled || busyAction);

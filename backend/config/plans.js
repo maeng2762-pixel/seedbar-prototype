@@ -13,8 +13,8 @@ export const PLAN_POLICIES = {
     canRegenerateSections: false,
     canUseMoodSliders: false,
   },
-  pro: {
-    name: 'Pro',
+  studio: {
+    name: 'Studio',
     monthlyGenerationLimit: null,
     maxProjects: null,
     maxVersions: null,
@@ -27,8 +27,8 @@ export const PLAN_POLICIES = {
     canRegenerateSections: true,
     canUseMoodSliders: true,
   },
-  studio: {
-    name: 'Studio',
+  team: {
+    name: 'Team',
     monthlyGenerationLimit: null,
     maxProjects: null,
     maxVersions: null,
@@ -45,8 +45,8 @@ export const PLAN_POLICIES = {
 
 export function normalizePlan(plan) {
   const key = String(plan || 'free').toLowerCase();
-  if (key.includes('premium') || key.includes('studio') || key.includes('expert') || key.includes('team') || key.includes('school')) return 'studio';
-  if (key.includes('pro')) return 'pro';
+  if (key.includes('team') || key.includes('school') || key.includes('expert') || key.includes('enterprise')) return 'team';
+  if (key.includes('pro') || key.includes('studio') || key.includes('premium')) return 'studio';
   return 'free';
 }
 

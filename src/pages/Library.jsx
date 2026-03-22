@@ -58,7 +58,8 @@ const Library = () => {
         deleteProject,
         restoreProject,
         setProjectId,
-        projectId: activeProjectId
+        projectId: activeProjectId,
+        generatePPTForProject
     } = useChoreographyStudioStore();
     
     const [activeTab, setActiveTab] = useState(0);
@@ -88,14 +89,21 @@ const Library = () => {
     };
 
 
-    const handleGenerateDoc = (id) => {
+    const handleGenerateDoc = async (id) => {
         setGeneratingDocId(id);
-        setTimeout(() => {
-            setGeneratingDocId(null);
+        try {
+            await generatePPTForProject(id);
+            await listProjects();
             alert(language === 'KR' 
-                ? "🌟 발표 문서가 성공적으로 생성되었습니다!\n[포함된 내용]\n- 작품 개념\n- 안무 철학\n- 움직임 구조\n- 음악\n- 무대 연출"
-                : "🌟 Presentation Document generated successfully!\n[Included Contents]\n- Concept\n- Philosophy\n- Movement Structure\n- Music\n- Stage Direction");
-        }, 1500);
+                ? "🌟 발표 문서가 성공적으로 생성되었습니다!"
+                : "🌟 Presentation Document generated successfully!");
+            navigate(`/ppt/${id}`);
+        } catch (error) {
+            console.error('Document Gen Error:', error);
+            alert(language === 'KR' ? '생성에 실패했습니다.' : 'Failed to generate presentation.');
+        } finally {
+            setGeneratingDocId(null);
+        }
     };
 
     return (
@@ -183,16 +191,43 @@ const Library = () => {
                                 </div>
                                 
                                 <div className="flex gap-2 border-t border-white/5 pt-3">
-                                    <button 
-                                        onClick={() => handleGenerateDoc(project.id)}
-                                        className="flex-[1.5] flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 text-slate-100 py-2.5 rounded-xl text-[11px] font-semibold transition-all border border-white/5 relative overflow-hidden"
-                                    >
-                                        {generatingDocId === project.id && (
-                                            <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
-                                        )}
-                                        <span className="material-symbols-outlined text-[15px] text-purple-300">description</span>
-                                        {generatingDocId === project.id ? (language === 'KR' ? '생성 중...' : 'Generating...') : t.generateDoc}
-                                    </button>
+                                    {project.currentContent?.generatedPackage ? (
+                                        <div className="flex-[1.5] flex gap-1">
+                                            <button 
+                                                onClick={() => navigate(`/ppt/${project.id}`)}
+                                                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500/30 to-blue-500/30 hover:from-purple-500/40 hover:to-blue-500/40 text-slate-100 py-2.5 rounded-xl text-[11px] font-semibold transition-all border border-white/10"
+                                            >
+                                                <span className="material-symbols-outlined text-[15px] text-purple-300">open_in_new</span>
+                                                {language === 'KR' ? '문서 열기' : 'Open Doc'}
+                                            </button>
+                                            <button 
+                                                onClick={() => handleGenerateDoc(project.id)}
+                                                className="flex-shrink-0 px-3 flex items-center justify-center bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 py-2.5 rounded-xl transition-all border border-white/5 disabled:opacity-50"
+                                                title={language === 'KR' ? '다시 생성' : 'Regenerate'}
+                                                disabled={generatingDocId === project.id}
+                                            >
+                                                {generatingDocId === project.id ? (
+                                                    <span className="material-symbols-outlined text-[15px] animate-spin text-purple-300">sync</span>
+                                                ) : (
+                                                    <span className="material-symbols-outlined text-[15px]">refresh</span>
+                                                )}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button 
+                                            onClick={() => handleGenerateDoc(project.id)}
+                                            disabled={generatingDocId === project.id}
+                                            className="flex-[1.5] flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 text-slate-100 py-2.5 rounded-xl text-[11px] font-semibold transition-all border border-white/5 relative overflow-hidden disabled:opacity-50"
+                                        >
+                                            {generatingDocId === project.id && (
+                                                <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
+                                            )}
+                                            <span className="material-symbols-outlined text-[15px] text-purple-300">
+                                                {generatingDocId === project.id ? 'sync' : 'description'}
+                                            </span>
+                                            {generatingDocId === project.id ? (language === 'KR' ? '생성 중...' : 'Generating...') : t.generateDoc}
+                                        </button>
+                                    )}
                                     <button 
                                         onClick={() => setExpandedProjectId(expandedProjectId === project.id ? null : project.id)}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-semibold transition-all border border-white/5 ${expandedProjectId === project.id ? 'bg-slate-700/80 text-white' : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700/60'}`}

@@ -123,7 +123,15 @@ class ChoreographyProjectModel {
   softDeleteProject(projectId) {
     const found = this.getProject(projectId);
     if (!found) return false;
-    db.prepare('UPDATE projects SET deleted_at = ?, status = ?, updated_at = ? WHERE id = ?').run(nowIso(), 'trashed', nowIso(), projectId);
+
+    const tx = db.transaction(() => {
+      db.prepare('DELETE FROM project_versions WHERE project_id = ?').run(projectId);
+      db.prepare('DELETE FROM project_autosaves WHERE project_id = ?').run(projectId);
+      db.prepare('DELETE FROM project_snapshots WHERE project_id = ?').run(projectId);
+      db.prepare('UPDATE projects SET deleted_at = ?, status = ?, updated_at = ? WHERE id = ?').run(nowIso(), 'trashed', nowIso(), projectId);
+    });
+    tx();
+
     return true;
   }
 

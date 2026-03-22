@@ -18,8 +18,8 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
             return;
         }
 
-        if (!currentPlan || !['pro', 'studio'].includes(currentPlan.toLowerCase())) {
-            setError(isKr ? '이 기능은 Studio 또는 Pro 플랜에서 사용할 수 있습니다.' : 'This feature is available on Studio or Pro plans.');
+        if (!currentPlan || !['studio', 'team'].includes(currentPlan.toLowerCase())) {
+            setError(isKr ? '이 기능은 Studio 또는 Team/School 플랜에서 사용할 수 있습니다.' : 'This feature is available on Studio or Team/School plans.');
             setErrorType('plan');
             return;
         }

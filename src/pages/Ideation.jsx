@@ -234,8 +234,8 @@ const Ideation = () => {
     };
     const dynamicConcept = getDynamicConcept();
     const generationSteps = language === 'KR'
-        ? ['작품 정보 분석 중', '안무 구조 생성 중', '감정 곡선 정리 중', '무대/음악 제안 정리 중']
-        : ['Analyzing project info', 'Building choreography structure', 'Shaping emotion curve', 'Finalizing stage and music suggestions'];
+        ? ['곡 구조 분석 중...', '메인 테마 제안 중...', '타이밍 맵 구축 중...', '무대 연출 기획 중...']
+        : ['Analyzing music structure...', 'Proposing main theme...', 'Building timing map...', 'Planning stage direction...'];
 
     const handleSuggestTitles = async () => {
         setIsGeneratingTitles(true);
@@ -244,6 +244,7 @@ const Ideation = () => {
                 genre: genre || 'Contemporary Dance',
                 mood: moodKeywords.join(', '),
                 theme: projectName || 'Untitled Project',
+                tone: titleTone || '',
                 count: 4,
             });
             setTitleCandidates(Array.isArray(candidates) ? candidates : [candidates].filter(Boolean));
@@ -753,17 +754,46 @@ const Ideation = () => {
                     >
                         <div className="grid grid-cols-2 gap-3 mb-6">
                             <div className="col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-xl flex flex-col gap-2">
-                                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{t.projectName}</label>
-                                <div className="relative">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{t.projectName}</label>
+                                    <button
+                                        type="button"
+                                        onClick={handleSuggestTitles}
+                                        disabled={isGeneratingTitles}
+                                        className="flex items-center gap-1 bg-primary/20 hover:bg-primary/30 text-primary-light px-2 py-1.5 rounded-md text-[10px] font-bold transition-colors disabled:opacity-50"
+                                    >
+                                        <span className="material-symbols-outlined text-[12px]">auto_awesome</span>
+                                        {isGeneratingTitles ? (language === 'KR' ? '생성 중...' : 'Generating...') : (language === 'KR' ? 'AI 아이데이션' : 'AI Ideation')}
+                                    </button>
+                                </div>
+                                <div className="relative mt-1">
                                     <input
                                         type="text"
                                         placeholder={language === 'KR' ? "예: 폭풍 속의 고요" : "Ex: Silence in the Storm"}
                                         value={projectName}
                                         onChange={(e) => setProjectName(e.target.value)}
-                                        className="w-full bg-background-dark/50 border border-white/10 rounded-lg py-2 px-3 text-sm font-medium outline-none focus:border-primary/50"
+                                        className="w-full bg-background-dark/50 border border-white/10 rounded-lg py-2 pl-3 pr-10 text-sm font-medium outline-none focus:border-primary/50 text-white"
                                     />
                                     <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none">draw</span>
                                 </div>
+                                {titleCandidates.length > 0 && (
+                                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center gap-2 mt-2">
+                                        {titleCandidates.map((candidate) => (
+                                            <button
+                                                key={candidate}
+                                                type="button"
+                                                onClick={() => setProjectName(candidate)}
+                                                className={`rounded-full border px-3 py-1.5 text-[10px] font-medium transition-all ${
+                                                    projectName === candidate
+                                                        ? 'border-primary/50 bg-primary/20 text-white shadow-[0_0_8px_rgba(91,19,236,0.3)]'
+                                                        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                                                }`}
+                                            >
+                                                {candidate}
+                                            </button>
+                                        ))}
+                                    </motion.div>
+                                )}
                             </div>
                             <div className="col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-xl flex flex-col gap-2">
                                 <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{t.genre}</label>
@@ -914,32 +944,7 @@ const Ideation = () => {
                                     ? '선택한 톤에 따라 제목 생성 구조가 달라집니다. 매번 다른 톤을 선택하면 더 다양한 제목이 나옵니다.'
                                     : 'Title structure varies by tone. Switching tones produces more diverse titles.'}
                             </p>
-                            <div className="flex flex-wrap items-center gap-2 pt-1">
-                                <button
-                                    type="button"
-                                    onClick={handleSuggestTitles}
-                                    disabled={isGeneratingTitles}
-                                    className="rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-light transition-colors hover:bg-primary/20 disabled:opacity-50"
-                                >
-                                    {isGeneratingTitles
-                                        ? (language === 'KR' ? '제목 추천 생성 중...' : 'Generating title ideas...')
-                                        : (language === 'KR' ? '작품 제목 추천받기' : 'Suggest Titles')}
-                                </button>
-                                {titleCandidates.map((candidate) => (
-                                    <button
-                                        key={candidate}
-                                        type="button"
-                                        onClick={() => setProjectName(candidate)}
-                                        className={`rounded-full border px-3 py-1.5 text-[10px] font-medium transition-all ${
-                                            projectName === candidate
-                                                ? 'border-primary/50 bg-primary/20 text-white'
-                                                : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                                        }`}
-                                    >
-                                        {candidate}
-                                    </button>
-                                ))}
-                            </div>
+                            {/* AI title generation button moved up to projectName input */}
                         </div>
 
                         <div className="mb-8">

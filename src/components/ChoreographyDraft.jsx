@@ -102,6 +102,9 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
     const [isTuning, setIsTuning] = useState(false);
     const [showHelpModal, setShowHelpModal] = useState(false);
     const [studioNotice, setStudioNotice] = useState('');
+    const [isAccordionMode, setIsAccordionMode] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('studioAccordionMode')) || false; } catch { return false; }
+    });
 
     const [expandedSections, setExpandedSections] = useState(() => {
         try {
@@ -120,8 +123,22 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
 
     const toggleSection = (sectionKey) => {
         setExpandedSections(prev => {
-            const next = { ...prev, [sectionKey]: !prev[sectionKey] };
+            const next = { ...prev };
+            // Mobile Accordion mode check (apply if width < 768px and accordion mode is ON)
+            const isMobile = window.innerWidth < 768;
+            if (isAccordionMode && isMobile && !prev[sectionKey]) {
+                Object.keys(next).forEach(k => next[k] = false);
+            }
+            next[sectionKey] = !prev[sectionKey];
             localStorage.setItem('studioExpandedSections', JSON.stringify(next));
+            return next;
+        });
+    };
+
+    const toggleAccordionMode = () => {
+        setIsAccordionMode(prev => {
+            const next = !prev;
+            localStorage.setItem('studioAccordionMode', JSON.stringify(next));
             return next;
         });
     };
@@ -595,14 +612,18 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             )}
 
             {/* Global Collapse/Expand */}
-            <div className="flex justify-center gap-4 pt-6 px-4">
+            <div className="flex flex-wrap justify-center gap-3 pt-6 px-4">
                  <button onClick={expandAllSections} className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white rounded transition-colors uppercase tracking-widest flex items-center gap-2">
                      <span className="material-symbols-outlined text-[16px]">expand_content</span>
-                     {isKr ? '전체 펼치기' : 'Expand All'}
+                     <span className="hidden md:inline">{isKr ? '전체 펼치기' : 'Expand All'}</span>
                  </button>
                  <button onClick={collapseAllSections} className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white rounded transition-colors uppercase tracking-widest flex items-center gap-2">
                      <span className="material-symbols-outlined text-[16px]">collapse_content</span>
-                     {isKr ? '전체 접기' : 'Collapse All'}
+                     <span className="hidden md:inline">{isKr ? '전체 접기' : 'Collapse All'}</span>
+                 </button>
+                 <button onClick={toggleAccordionMode} className={`px-4 py-2 border text-xs rounded transition-colors uppercase tracking-widest flex items-center gap-2 md:hidden ${isAccordionMode ? 'bg-[#5B13EC]/20 border-[#5B13EC] text-[#5B13EC]' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}>
+                     <span className="material-symbols-outlined text-[16px]">{isAccordionMode ? 'view_agenda' : 'view_stream'}</span>
+                     <span>{isKr ? '아코디언 모드' : 'Accordion'} {isAccordionMode ? 'ON' : 'OFF'}</span>
                  </button>
             </div>
 

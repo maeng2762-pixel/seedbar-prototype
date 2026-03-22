@@ -274,7 +274,7 @@ export async function rewriteSectionController(req, res) {
 
 export async function generateTitleController(req, res) {
   const { userId } = req.context;
-  const { genre, mood, theme } = req.body || {};
+  const { genre, mood, theme, tone } = req.body || {};
   const count = Math.max(1, Math.min(6, Number(req.body?.count || 1)));
   const existingTitles = choreographyProjectModel.findSimilarTitles('', userId, 20);
   const titles = [];
@@ -283,6 +283,7 @@ export async function generateTitleController(req, res) {
       genre,
       mood,
       theme: index === 0 ? theme : `${theme || ''} variation ${index + 1}`,
+      tone,
       existingTitles: [...existingTitles, ...titles],
     });
     titles.push(nextTitle);

@@ -35,7 +35,7 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/moodboard" element={<ProtectedRoute><Moodboard /></ProtectedRoute>} />
         <Route path="/editor" element={<ProtectedRoute><Editor3D /></ProtectedRoute>} />
-        <Route path="/ppt" element={<ProtectedRoute><PPTGenerator /></ProtectedRoute>} />
+        <Route path="/ppt/:projectId" element={<ProtectedRoute><PPTGenerator /></ProtectedRoute>} />
         <Route path="*" element={<Login />} />
       </Routes>
     </Router>

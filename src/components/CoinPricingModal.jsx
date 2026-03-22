@@ -8,36 +8,36 @@ const i18n = {
     title1: 'Seedbar',
     title2: '요금제',
     subtitle: '품질은 그대로, 플랜으로 사용량을 관리합니다.',
-    subtitle2: 'Free 월 3회 / Pro 무제한 / Studio 고급 기능.',
+    subtitle2: 'Free 월 3회 / Studio 무제한 / Team 커스텀 기능.',
     bestChoice: '추천',
     checkout: '플랜 적용',
     disclaimer: '* 실제 결제 연동 전 단계에서는 데모 플랜 전환만 수행됩니다.',
     plans: [
-      { name: 'Free', desc: '월 3회 생성, 음악 추천, Export 제한' },
-      { name: 'Pro', desc: '무제한 생성, PDF Export, 재생성 가능' },
-      { name: 'Studio', desc: 'Competition Mode, PPT Export, 고급 분석' },
+      { name: 'Free', desc: '월 3회 생성, 음악 추천, 제한적 기능' },
+      { name: 'Studio', desc: '무제한 생성, 고급 PDF/PPT 패키지' },
+      { name: 'Team/School', desc: 'Competition Mode, 단체 라이선스' },
     ],
   },
   EN: {
     title1: 'Seedbar',
     title2: 'Plans',
     subtitle: 'Keep quality, control usage with subscriptions.',
-    subtitle2: 'Free 3/month / Pro unlimited / Studio advanced tools.',
+    subtitle2: 'Free 3/month / Studio unlimited / Team custom tools.',
     bestChoice: 'Best Choice',
     checkout: 'Apply Plan',
     disclaimer: '* Before payment integration, this acts as a demo plan switcher.',
     plans: [
-      { name: 'Free', desc: '3 generations/month, music recs, no export' },
-      { name: 'Pro', desc: 'Unlimited generation, PDF export, regeneration' },
-      { name: 'Studio', desc: 'Competition mode, PPT export, advanced analysis' },
+      { name: 'Free', desc: '3 generations/month, music recs' },
+      { name: 'Studio', desc: 'Unlimited generation, full export' },
+      { name: 'Team/School', desc: 'Competition mode, group license' },
     ],
   },
 };
 
 const PLAN_META = [
   { id: 'free', icon: '🧪', price: { KR: '무료', EN: 'Free' }, highlight: false },
-  { id: 'pro', icon: '🚀', price: { KR: '월 $12~15', EN: '$12~15 / month' }, highlight: true },
-  { id: 'studio', icon: '🏆', price: { KR: '월 $29+', EN: '$29+ / month' }, highlight: false },
+  { id: 'studio', icon: '🚀', price: { KR: '월 $15~20', EN: '$15~20 / month' }, highlight: true },
+  { id: 'team', icon: '🏆', price: { KR: '문의', EN: 'Contact Us' }, highlight: false },
 ];
 
 export default function CoinPricingModal({ isOpen, onClose, currentPlan = 'free', onSelectPlan }) {

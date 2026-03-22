@@ -47,6 +47,7 @@ const useChoreographyStudioStore = create((set, get) => ({
     const url = apiUrl('/api/choreography/projects');
     const res = await fetch(url, {
       headers: { ...getPlanHeaders() },
+      cache: 'no-store',
     });
     const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load projects');
@@ -58,6 +59,7 @@ const useChoreographyStudioStore = create((set, get) => ({
     const url = apiUrl('/api/choreography/projects-trash');
     const res = await fetch(url, {
       headers: { ...getPlanHeaders() },
+      cache: 'no-store',
     });
     const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load deleted projects');
@@ -69,6 +71,7 @@ const useChoreographyStudioStore = create((set, get) => ({
     const url = apiUrl(`/api/choreography/projects/${projectId}`);
     const res = await fetch(url, {
       headers: { ...getPlanHeaders() },
+      cache: 'no-store',
     });
     const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load project');
@@ -249,6 +252,39 @@ const useChoreographyStudioStore = create((set, get) => ({
     return data.package;
   },
 
+  generatePPTForProject: async (targetProjectId) => {
+    // 1. Fetch project data
+    const url = apiUrl(`/api/choreography/projects/${targetProjectId}`);
+    const res = await fetch(url, { headers: { ...getPlanHeaders() }, cache: 'no-store' });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load project');
+    const project = data.project;
+
+    // 2. Generate PPT via package endpoint
+    const packageUrl = apiUrl('/api/export/package');
+    const packageRes = await fetch(packageUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getPlanHeaders() },
+      body: JSON.stringify({ draftData: project.currentContent })
+    });
+    const packageData = await parseResponseJson(packageRes, packageUrl);
+    if (!packageRes.ok || !packageData.ok) throw new Error(packageData?.error || 'Failed to generate package');
+    
+    // 3. Save it to project's currentContent
+    const updatedContent = { ...project.currentContent, generatedPackage: packageData.packageContent };
+    const updateUrl = apiUrl(`/api/choreography/projects/${targetProjectId}`);
+    const updateRes = await fetch(updateUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getPlanHeaders() },
+      body: JSON.stringify({ currentContent: updatedContent })
+    });
+    const updateData = await parseResponseJson(updateRes, updateUrl);
+    if (!updateRes.ok || !updateData.ok) throw new Error(updateData?.error || 'Failed to save project package');
+    
+    return true;
+  },
+
+
   updateProject: async (updates) => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
@@ -276,7 +312,6 @@ const useChoreographyStudioStore = create((set, get) => ({
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to delete project');
     set((state) => ({
       projects: state.projects.filter((p) => p.id !== projectId),
-      deletedProjects: state.deletedProjects,
       projectId: state.projectId === projectId ? null : state.projectId,
     }));
     return true;
@@ -400,7 +435,7 @@ const useChoreographyStudioStore = create((set, get) => ({
     }
   },
 
-  generateTitle: async ({ genre, mood, theme, count = 1 } = {}) => {
+  generateTitle: async ({ genre, mood, theme, tone, count = 1 } = {}) => {
     const url = apiUrl('/api/choreography/generate-title');
     const res = await fetch(url, {
       method: 'POST',
@@ -408,7 +443,7 @@ const useChoreographyStudioStore = create((set, get) => ({
         'Content-Type': 'application/json',
         ...getPlanHeaders(),
       },
-      body: JSON.stringify({ genre, mood, theme, count }),
+      body: JSON.stringify({ genre, mood, theme, tone, count }),
     });
     const data = await parseResponseJson(res, url);
     if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to generate title');

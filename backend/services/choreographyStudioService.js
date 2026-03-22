@@ -505,13 +505,17 @@ function mutateTitle(title) {
   return pickRandom(mutations)(title);
 }
 
-export async function generateUniqueTitle({ genre, mood, theme, existingTitles = [] }) {
+export async function generateUniqueTitle({ genre, mood, theme, tone, existingTitles = [] }) {
+  const styles = ['poetic', 'abstract', 'direct', 'modern', 'experimental', 'emotional'];
+  const activeTone = tone || styles[Math.floor(Math.random() * styles.length)];
+
   // Step 1: Try AI first
   let title = null;
   try {
     const aiResult = await llmProvider.lowCostJson({
-      system: 'Generate a unique, artistic, and abstract choreography project title. Return JSON: { "title": "..." }. The title should be 2-4 words, poetic, and NOT include generic words like "dance", "choreography", "performance". Think abstract art exhibition names.',
-      user: { genre, mood, theme },
+      system: `Generate a unique, artistic choreography project title. Return JSON: { "title": "..." }. The title should be 2-4 words. Crucially, the style MUST closely reflect the vibe of "${activeTone}". NOT generic words like "dance" or "performance". Think abstract art gallery names or evocative phrases.`,
+      user: { genre, mood, theme, activeTone },
+      temperature: 0.9, // Higher temperature for more diverse titles
       fallback: () => ({ title: generateBaseTitle({ genre, mood, theme }) }),
     });
     title = aiResult?.title || aiResult?.content?.title || null;

@@ -17,7 +17,7 @@ export default function StudioToolbar({
   language = 'EN',
 }) {
   const isKr = language === 'KR';
-  const isPro = plan === 'pro' || plan === 'studio';
+  const isPro = plan === 'studio' || plan === 'team';
 
   const handlers = { rewrite: onRewrite, variation: onVariation, tune: onTune, addVersion: onAddVersion };
 
