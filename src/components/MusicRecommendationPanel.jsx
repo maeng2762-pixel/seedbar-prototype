@@ -62,6 +62,7 @@ const STRATEGY_CONFIG = {
 
 const STRATEGY_ORDER_GENERAL = ['trend', 'balanced', 'counterpoint', 'discovery'];
 const STRATEGY_ORDER_SOUNDTRACK = ['soundtrack_atmosphere', 'soundtrack_climax'];
+const MUSIC_COVER_FALLBACK = '/images/seedbar_music_cover.svg';
 
 // ─── Client-side filters (safety net after backend) ───
 const EXPLICIT_KEYWORDS = ['explicit', 'uncensored', '18+', 'adult', 'nsfw'];
@@ -145,7 +146,8 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
             alt="album"
             className="h-14 w-14 rounded-lg object-cover shadow-lg group-hover:shadow-xl transition-shadow"
             onError={(e) => {
-              e.target.src = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(track.track_title)}&backgroundColor=0d0a1c&shapeColor=6366f1`;
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = MUSIC_COVER_FALLBACK;
             }}
           />
           <span className={`absolute -bottom-1 -right-1 rounded-full px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider ${isSpotify ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
