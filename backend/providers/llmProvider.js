@@ -2,7 +2,9 @@ import { metricsService } from '../analytics/metricsService.js';
 
 async function callOpenAI(model, system, user, maxTokens = 800) {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    throw new Error('OpenAI API key is missing.');
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -37,7 +39,8 @@ export const llmProvider = {
   async lowCostJson({ system, user, fallback }) {
     const model = process.env.OPENAI_LOW_COST_MODEL || 'gpt-4.1-mini';
     try {
-      return await callOpenAI(model, system, user, 700);
+      const result = await callOpenAI(model, system, user, 700);
+      return result && typeof result === 'object' ? result : fallback();
     } catch {
       return fallback();
     }
@@ -46,7 +49,8 @@ export const llmProvider = {
   async highCostJson({ system, user, fallback }) {
     const model = process.env.OPENAI_HIGH_QUALITY_MODEL || 'gpt-4.1';
     try {
-      return await callOpenAI(model, system, user, 1800);
+      const result = await callOpenAI(model, system, user, 1800);
+      return result && typeof result === 'object' ? result : fallback();
     } catch {
       return fallback();
     }

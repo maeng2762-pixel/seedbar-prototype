@@ -8,6 +8,273 @@ function rid(prefix = 'id') {
   return `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function text(value, fallback = '') {
+  if (value == null) return fallback;
+  if (typeof value === 'string') return value.trim() || fallback;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    return text(value.en || value.kr || Object.values(value)[0], fallback);
+  }
+  return fallback;
+}
+
+function list(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function summarizeNarrative(summary) {
+  const sections = list(summary?.narrative_sections);
+  if (!sections.length) return 'Intro: Establish the world.\nDevelopment: Escalate the physical stakes.\nClimax: Reach maximum kinetic intensity.\nResolution: Release into measured stillness.';
+  return sections
+    .map((entry, index) => `${index + 1}. ${text(entry?.section, `Section ${index + 1}`)} - ${text(entry?.description, 'Refine the movement logic and transition.')}`)
+    .join('\n');
+}
+
+function buildPptFallback(summary) {
+  const title = text(summary?.title, 'Seedbar Production');
+  const subtitle = text(summary?.subtitle, 'Choreography Presentation');
+  const oneLine = text(summary?.one_line_summary, 'A choreographic work shaped through tension, rhythm, and spatial design.');
+  const dna = text(summary?.choreography_dna, 'Structured, contemporary, and visually disciplined.');
+  const emotion = text(summary?.emotion_curve_summary, 'The emotional line builds gradually toward a single high-intensity release.');
+  const energy = text(summary?.energy_curve_summary, 'Energy starts contained, expands through the middle, and resolves into focused calm.');
+  const stage = text(summary?.stage_map_summary, 'Stage use begins centrally and expands outward as the work progresses.');
+  const music = text(summary?.music_selection_reason, 'Music supports the choreographic architecture and clarifies the emotional arc.');
+  const lighting = text(summary?.lighting_plan, 'Lighting sharpens the emotional turning points and supports scene readability.');
+  const costume = text(summary?.costume_plan, 'Costume design prioritizes silhouette clarity and kinetic response.');
+  const narrativeSlides = list(summary?.narrative_sections);
+
+  const slides = [
+    {
+      slideNumber: 1,
+      title,
+      coreMessage: subtitle,
+      subDescription: [oneLine],
+      visualAid: 'Hero image / title card',
+      presentationPoint: 'Introduce the work title, artistic identity, and immediate premise.',
+    },
+    {
+      slideNumber: 2,
+      title: 'Core Concept',
+      coreMessage: text(summary?.artistic_statement, oneLine),
+      subDescription: [oneLine, dna],
+      visualAid: 'Concept board / key phrase',
+      presentationPoint: 'Frame the work in one concise artistic statement.',
+    },
+    {
+      slideNumber: 3,
+      title: 'Choreographic DNA',
+      coreMessage: dna,
+      subDescription: [
+        `Emotion Curve: ${emotion}`,
+        `Energy Curve: ${energy}`,
+      ],
+      visualAid: 'Movement texture keywords',
+      presentationPoint: 'Explain how physical logic and emotional architecture align.',
+    },
+    {
+      slideNumber: 4,
+      title: 'Narrative Flow',
+      coreMessage: 'The work progresses through distinct movement states rather than literal plot.',
+      subDescription: narrativeSlides.slice(0, 4).map((entry, index) => `${index + 1}. ${text(entry?.section, `Section ${index + 1}`)} - ${text(entry?.description, '')}`),
+      visualAid: 'Section timeline',
+      presentationPoint: 'Walk through the audience experience section by section.',
+    },
+    {
+      slideNumber: 5,
+      title: 'Emotion & Energy',
+      coreMessage: emotion,
+      subDescription: [energy],
+      visualAid: 'Curve graph / tension arc',
+      presentationPoint: 'Show where emotional and kinetic pressure peak.',
+    },
+    {
+      slideNumber: 6,
+      title: 'Stage Strategy',
+      coreMessage: stage,
+      subDescription: [text(summary?.stage_manager_notes, 'Technical transitions stay clean, readable, and achievable in rehearsal.')],
+      visualAid: 'Stage map / blocking summary',
+      presentationPoint: 'Describe the spatial rules that keep the work legible.',
+    },
+    {
+      slideNumber: 7,
+      title: 'Music Direction',
+      coreMessage: music,
+      subDescription: [text(summary?.music_selection_reason, 'Music choices reinforce atmosphere, pace, and audience focus.')],
+      visualAid: 'Music mood board',
+      presentationPoint: 'Connect the sonic logic to the choreographic intention.',
+    },
+    {
+      slideNumber: 8,
+      title: 'Lighting Plan',
+      coreMessage: lighting,
+      subDescription: list(summary?.lighting_cues).slice(0, 3).map((cue) => `${text(cue?.cue, 'Cue')} @ ${text(cue?.time, 'TBD')} - ${text(cue?.instruction, 'Transition to the next lighting state.')}`),
+      visualAid: 'Lighting cue strip',
+      presentationPoint: 'Clarify how light supports rhythm, contrast, and scene definition.',
+    },
+    {
+      slideNumber: 9,
+      title: 'Costume & Props',
+      coreMessage: costume,
+      subDescription: [
+        text(summary?.costume_plan, 'Costume emphasizes silhouette and movement response.'),
+        text(summary?.props_plan, 'Props are limited and purposeful, supporting clarity rather than clutter.'),
+      ],
+      visualAid: 'Costume silhouettes / prop references',
+      presentationPoint: 'Explain how materials and objects extend the choreography.',
+    },
+    {
+      slideNumber: 10,
+      title: 'Production Notes',
+      coreMessage: text(summary?.stage_manager_notes, 'Operational planning is built around reliable transitions and clear crew actions.'),
+      subDescription: [
+        `Stage Notes: ${text(summary?.stage_manager_notes, 'Cue transitions should remain precise and rehearsal-ready.')}`,
+        `Technical Summary: ${text(summary?.lighting_plan, lighting)}`,
+      ],
+      visualAid: 'Production checklist',
+      presentationPoint: 'Show that the work is artistically coherent and production-ready.',
+    },
+    {
+      slideNumber: 11,
+      title: 'Audience Impact',
+      coreMessage: oneLine,
+      subDescription: [text(summary?.artistic_statement, 'The work seeks clarity, intensity, and lingering resonance.')],
+      visualAid: 'Audience takeaway',
+      presentationPoint: 'Summarize the emotional impression and curatorial value.',
+    },
+    {
+      slideNumber: 12,
+      title: 'Closing',
+      coreMessage: title,
+      subDescription: ['Thank you.', 'Open to Q&A and production discussion.'],
+      visualAid: 'Closing title card',
+      presentationPoint: 'End with a clean recap and invitation to discussion.',
+    },
+  ];
+
+  return { pptSlides: slides };
+}
+
+function buildScriptFallback(summary) {
+  const title = text(summary?.title, 'Seedbar Production');
+  const sections = summarizeNarrative(summary);
+  return {
+    presentationScript: [
+      '[Slide 1]',
+      `${title}. ${text(summary?.one_line_summary, 'This project is built as a performance-ready choreography blueprint.')}`,
+      '',
+      '[Slide 2]',
+      text(summary?.artistic_statement, 'The work investigates tension, release, and spatial consequence through the body.'),
+      '',
+      '[Slide 3]',
+      `The choreographic DNA can be summarized as: ${text(summary?.choreography_dna, 'contemporary, structured, and emotionally precise')}.`,
+      `Emotionally, ${text(summary?.emotion_curve_summary, 'the work rises toward a high-pressure climax before resolving with restraint')}.`,
+      `Energetically, ${text(summary?.energy_curve_summary, 'the pacing opens in control, expands through the center, and settles with intention')}.`,
+      '',
+      '[Slide 4]',
+      sections,
+      '',
+      '[Slide 5]',
+      `The stage strategy is simple but clear: ${text(summary?.stage_map_summary, 'space is used to make emotional distance legible')}.`,
+      '',
+      '[Slide 6]',
+      `Musically, the selection supports the structure because ${text(summary?.music_selection_reason, 'it clarifies atmosphere, rhythm, and scene transition')}.`,
+      '',
+      '[Slide 7]',
+      `From a production perspective, lighting is shaped around ${text(summary?.lighting_plan, 'clean cue readability and emotional contrast')}.`,
+      `Costume design focuses on ${text(summary?.costume_plan, 'silhouette and movement response')}.`,
+      `Props remain purposeful: ${text(summary?.props_plan, 'kept minimal so the body remains central')}.`,
+      '',
+      '[Slide 8]',
+      `In closing, ${title} is designed not only as an idea, but as a workable production package. Thank you.`,
+    ].join('\n'),
+  };
+}
+
+function buildStageFallback(summary) {
+  const timingRows = list(summary?.choreography_timing_table)
+    .map((row) => `- ${text(row?.time, 'TBD')} | ${text(row?.action, 'Action refinement in rehearsal')}`)
+    .join('\n') || '- 0:00 | Opening image and first cue';
+
+  return {
+    stageDirectorDoc: [
+      `STAGE DIRECTOR DOCUMENT`,
+      `Title: ${text(summary?.title, 'Seedbar Production')}`,
+      '',
+      `Running Summary`,
+      text(summary?.one_line_summary, 'A structured contemporary work with a clear section-by-section progression.'),
+      '',
+      `Narrative Sections`,
+      summarizeNarrative(summary),
+      '',
+      `Timing Table`,
+      timingRows,
+      '',
+      `Stage Map Summary`,
+      text(summary?.stage_map_summary, 'Use the stage map to preserve visual clarity and directional contrast.'),
+      '',
+      `Stage Manager Notes`,
+      text(summary?.stage_manager_notes, 'Confirm spacing, floor condition, and preset before each run.'),
+    ].join('\n'),
+  };
+}
+
+function buildLightingFallback(summary) {
+  const cues = list(summary?.lighting_cues)
+    .map((cue) => `Cue ${text(cue?.cue, '#')} | ${text(cue?.time, 'TBD')} | ${text(cue?.instruction, 'Transition to the next state')}`)
+    .join('\n') || 'Cue 1 | 0:00 | Fade in to opening state';
+
+  return {
+    lightingDirectorDoc: [
+      'LIGHTING CUE SHEET',
+      `Title: ${text(summary?.title, 'Seedbar Production')}`,
+      '',
+      `Lighting Plan`,
+      text(summary?.lighting_plan, 'Lighting should define contrast, direction, and emotional threshold changes.'),
+      '',
+      `Cue Sheet`,
+      cues,
+    ].join('\n'),
+  };
+}
+
+function buildCostumePropFallback(summary) {
+  const costumeRows = list(summary?.costume_sheet)
+    .map((row) => `- ${text(row?.character, 'Performer')} | ${text(row?.costume, 'Primary costume')} | ${text(row?.notes, 'Check fit and movement range')}`)
+    .join('\n') || `- All Performers | ${text(summary?.costume_plan, 'Neutral silhouette')} | Confirm rehearsal and show presets`;
+  const propRows = list(summary?.props_sheet)
+    .map((row) => `- ${text(row?.prop, 'Prop')} | ${text(row?.scene, 'Scene')} | ${text(row?.notes, 'Preset and clear with crew')}`)
+    .join('\n') || `- None specified | All scenes | ${text(summary?.props_plan, 'Props remain minimal and functional.')}`;
+
+  return {
+    costumePropDoc: [
+      'COSTUME & PROPS SHEET',
+      `Title: ${text(summary?.title, 'Seedbar Production')}`,
+      '',
+      'Costumes',
+      costumeRows,
+      '',
+      'Props',
+      propRows,
+    ].join('\n'),
+  };
+}
+
+function buildPamphletFallback(summary) {
+  const copy = summary?.pamphlet_copy || {};
+  return {
+    pamphlet: [
+      text(copy.cover, text(summary?.title, 'Seedbar Production')),
+      '',
+      text(copy.overview, text(summary?.one_line_summary, 'A choreography work shaped through emotional tension and spatial clarity.')),
+      '',
+      text(summary?.artistic_statement, 'This work explores how the body negotiates distance, rupture, and release.'),
+      '',
+      `Credits`,
+      text(copy.credits, 'Choreography and creative development by Seedbar Studio workflow.'),
+    ].join('\n'),
+  };
+}
+
 export async function generateStep1Draft(input, context) {
   const key = cacheService.buildKey('step1', { userId: context.userId, ...input });
   const cached = cacheService.get(key);
@@ -268,7 +535,7 @@ Output Format: { "pptSlides": [ { "slideNumber": 1, "title": "...", "coreMessage
 10. Section 4 (Resolution)
 11. Production Elements (Lighting/Music/Costumes)
 12. Artistic Statement Summary (Q&A / Closing)`;
-      const fallback = () => ({ pptSlides: [{ slideNumber: 1, title: canonicalSummary.title, coreMessage: "PPT Fallback", subDescription: [], visualAid: "", presentationPoint: "" }] });
+      const fallback = () => buildPptFallback(canonicalSummary);
       renderPromises.push(
         metricsService.withTiming('export_render_ppt', () => llmProvider.lowCostJson({ system: pptSystem, user: JSON.stringify(canonicalSummary), fallback }))
           .then(data => {
@@ -288,7 +555,7 @@ Output Format: { "pptSlides": [ { "slideNumber": 1, "title": "...", "coreMessage
       const scriptSystem = `Render a presentation script in JSON: { "presentationScript": "full string matching slides..." }.
 ${langInstruction}
 Expand upon the slides naturally as spoken word. Include [Slide X] markers. It must be a complete script, ready to read. Do not just list bullet points, explain them.`;
-      const fallback = () => ({ presentationScript: "Script generation failed. Please retry." });
+      const fallback = () => buildScriptFallback(canonicalSummary);
       // Note: In real life, script depends on PPT, but since PPT is deterministic from Canonical Summary, we can feed it the summary directly.
       renderPromises.push(
         metricsService.withTiming('export_render_script', () => llmProvider.lowCostJson({ system: scriptSystem, user: JSON.stringify(canonicalSummary), fallback }))
@@ -309,7 +576,7 @@ Expand upon the slides naturally as spoken word. Include [Slide X] markers. It m
       const stageSystem = `Render a stage director document in JSON: { "stageDirectorDoc": "full string document..." }.
 ${langInstruction}
 Focus on clear tables, running times, cast, scene breakdowns, cues, and actionable instructions. No flowery artistic text, just hard facts for the stage crew.`;
-      const fallback = () => ({ stageDirectorDoc: "Stage Doc fallback." });
+      const fallback = () => buildStageFallback(canonicalSummary);
       renderPromises.push(
         metricsService.withTiming('export_render_stage', () => llmProvider.lowCostJson({ system: stageSystem, user: JSON.stringify(canonicalSummary), fallback }))
           .then(data => {
@@ -329,7 +596,7 @@ Focus on clear tables, running times, cast, scene breakdowns, cues, and actionab
       const lightingSystem = `Render a lighting cue sheet in JSON: { "lightingDirectorDoc": "full text cue sheet..." }.
 ${langInstruction}
 Format as a tabular cue sheet string. Cue #, trigger point, intention, brightness, color, transition style, special effects. Highly functional.`;
-      const fallback = () => ({ lightingDirectorDoc: "Lighting Doc fallback." });
+      const fallback = () => buildLightingFallback(canonicalSummary);
       renderPromises.push(
         metricsService.withTiming('export_render_lighting', () => llmProvider.lowCostJson({ system: lightingSystem, user: JSON.stringify(canonicalSummary), fallback }))
           .then(data => {
@@ -349,7 +616,7 @@ Format as a tabular cue sheet string. Cue #, trigger point, intention, brightnes
       const costumeSystem = `Render a costume and props sheet in JSON: { "costumePropDoc": "full text document..." }.
 ${langInstruction}
 Provide a detailed breakdown of costumes (silhouette, fabric, color, wearing order) and props (name, scene, timing, position, notes). Keep them distinctly separated in a tabulated text format.`;
-      const fallback = () => ({ costumePropDoc: "Costume/Prop Doc fallback." });
+      const fallback = () => buildCostumePropFallback(canonicalSummary);
       renderPromises.push(
         metricsService.withTiming('export_render_costume', () => llmProvider.lowCostJson({ system: costumeSystem, user: JSON.stringify(canonicalSummary), fallback }))
           .then(data => {
@@ -369,7 +636,7 @@ Provide a detailed breakdown of costumes (silhouette, fabric, color, wearing ord
       const pamphletSystem = `Render a Pamphlet in JSON: { "pamphlet": "full text pamphlet..." }.
 ${langInstruction}
 Write elegant, public-facing copy. Include: Title, 1-line summary, Artistic Intent, Choreographer Note, and Credits. Keep sentences refined and engaging. Suitable for a beautiful PDF program guide.`;
-      const fallback = () => ({ pamphlet: "Pamphlet fallback." });
+      const fallback = () => buildPamphletFallback(canonicalSummary);
       renderPromises.push(
         metricsService.withTiming('export_render_pamphlet', () => llmProvider.lowCostJson({ system: pamphletSystem, user: JSON.stringify(canonicalSummary), fallback }))
           .then(data => {
