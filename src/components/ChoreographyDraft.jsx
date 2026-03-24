@@ -67,20 +67,61 @@ const DEFAULT_DRAFT_DATA = {
 function normalizeDraftData(input) {
     if (!input) return null;
     const safeData = JSON.parse(JSON.stringify(input));
-
-    if (!safeData.titles) safeData.titles = {};
-    if (!safeData.titles._tone) safeData.titles._tone = 'neutral';
-
-    if (!safeData.concept) safeData.concept = {};
-    if (!safeData.concept._moodTone) safeData.concept._moodTone = 'balanced';
-
-    if (!safeData.stage) safeData.stage = {};
-    if (!safeData.stage._visualTone) safeData.stage._visualTone = 'minimal';
-
-    if (!safeData.music) safeData.music = {};
-    if (!safeData.music._musicTone) safeData.music._musicTone = 'default';
-
-    return safeData;
+    return {
+        ...DEFAULT_DRAFT_DATA,
+        ...safeData,
+        titles: {
+            ...DEFAULT_DRAFT_DATA.titles,
+            ...(safeData.titles || {}),
+        },
+        concept: {
+            ...DEFAULT_DRAFT_DATA.concept,
+            ...(safeData.concept || {}),
+        },
+        narrative: {
+            ...DEFAULT_DRAFT_DATA.narrative,
+            ...(safeData.narrative || {}),
+            emotionCurve: {
+                ...DEFAULT_DRAFT_DATA.narrative.emotionCurve,
+                ...(safeData.narrative?.emotionCurve || {}),
+            },
+            lma: {
+                ...DEFAULT_DRAFT_DATA.narrative.lma,
+                ...(safeData.narrative?.lma || {}),
+            },
+        },
+        music: {
+            ...DEFAULT_DRAFT_DATA.music,
+            ...(safeData.music || {}),
+        },
+        flow: {
+            ...DEFAULT_DRAFT_DATA.flow,
+            ...(safeData.flow || {}),
+        },
+        timing: {
+            ...DEFAULT_DRAFT_DATA.timing,
+            ...(safeData.timing || {}),
+            emotionStructure: {
+                ...DEFAULT_DRAFT_DATA.timing.emotionStructure,
+                ...(safeData.timing?.emotionStructure || {}),
+            },
+            timeline: Array.isArray(safeData.timing?.timeline)
+                ? safeData.timing.timeline
+                : DEFAULT_DRAFT_DATA.timing.timeline,
+        },
+        stage: {
+            ...DEFAULT_DRAFT_DATA.stage,
+            ...(safeData.stage || {}),
+        },
+        pamphlet: {
+            ...DEFAULT_DRAFT_DATA.pamphlet,
+            ...(safeData.pamphlet || {}),
+            artisticStatement: {
+                ...DEFAULT_DRAFT_DATA.pamphlet.artisticStatement,
+                ...(safeData.pamphlet?.artisticStatement || {}),
+            },
+        },
+    };
 }
 
 function areSimpleArraysEqual(left = [], right = []) {
