@@ -4,7 +4,7 @@ services:
     plan: free
     env: node
     buildCommand: npm install && npm run build
-    startCommand: npm run server
+    startCommand: node server.js
     envVars:
       - key: SUPABASE_URL
         value: placeholder-url-for-later
