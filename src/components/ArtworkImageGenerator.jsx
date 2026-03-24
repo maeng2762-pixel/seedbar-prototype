@@ -110,7 +110,20 @@ export default function ArtworkImageGenerator({ draftData, isKr, onSaveImage }) 
             });
             if (data.imageUrl) {
                 setGeneratedUrl(data.imageUrl);
-                setSourceLabel(isKr ? 'AI 생성 대표 이미지' : 'AI-generated representative image');
+                const usedFallback = data.source === 'fallback';
+                setFallbackMode(usedFallback);
+                setSourceLabel(
+                    usedFallback
+                        ? (isKr ? '기본 공연 커버' : 'Curated fallback cover')
+                        : (isKr ? 'AI 생성 대표 이미지' : 'AI-generated representative image')
+                );
+                setSaveNotice(
+                    usedFallback
+                        ? (isKr
+                            ? 'AI 이미지 서버가 불안정해 공연용 기본 커버를 먼저 보여드렸습니다. 저장하거나 다시 생성할 수 있습니다.'
+                            : 'The AI image service is unstable, so a curated performance cover is shown first. You can save it or try again.')
+                        : ''
+                );
             } else {
                 throw new Error('No image URL returned.');
             }

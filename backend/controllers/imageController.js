@@ -3,6 +3,42 @@ import { persistArtworkAsset } from '../services/artworkStorageService.js';
 
 const IMAGE_REQUEST_TIMEOUT_MS = Number(process.env.IMAGE_GENERATION_TIMEOUT_MS || 50000);
 
+function pickFallbackAsset({ genre = '', mood = '' } = {}) {
+  const signature = `${genre} ${mood}`.toLowerCase();
+  if (/(soft|lyrical|costume|silhouette|poetic|elegant|solo)/i.test(signature)) {
+    return {
+      path: '/images/contemporary_costume_concept.png',
+      label: 'costume_concept_fallback',
+    };
+  }
+  return {
+    path: '/images/stage_neon_lighting.png',
+    label: 'stage_lighting_fallback',
+  };
+}
+
+function resolvePublicOrigin(req) {
+  const configured = String(process.env.PUBLIC_APP_ORIGIN || '').trim();
+  if (configured) return configured.replace(/\/+$/, '');
+  const requestOrigin = String(req.headers.origin || '').trim();
+  if (requestOrigin) return requestOrigin.replace(/\/+$/, '');
+  return 'https://ai-choreography-designer.vercel.app';
+}
+
+function sendFallbackArtwork(res, req, payload = {}) {
+  const asset = pickFallbackAsset(payload);
+  const base = resolvePublicOrigin(req);
+  const imageUrl = new URL(asset.path, `${base}/`).toString();
+  return res.json({
+    ok: true,
+    imageUrl,
+    source: 'fallback',
+    fallbackLabel: asset.label,
+    warning: payload.reason || 'Using a curated fallback performance cover.',
+    promptUsed: payload.promptUsed || '',
+  });
+}
+
 function sanitizePromptFragment(value = '') {
   return String(value || '')
     .replace(/\b(sensual|erotic|revealing|revealed|seductive|provocative|lingerie|underwear|bikini|cleavage|nude|naked|fetish)\b/gi, '')
@@ -37,12 +73,11 @@ CRITICAL REQUIREMENTS:
     // We can call OpenAI DALL-E 3 directly using the stored OPENAI_API_KEY
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return res.status(503).json({
-        ok: false,
-        code: 'image_provider_unconfigured',
-        error: 'Image generation server is not configured.',
-        detail: 'OPENAI_API_KEY is missing.',
-        retryable: true,
+      return sendFallbackArtwork(res, req, {
+        genre: safeGenre,
+        mood: safeMood,
+        promptUsed: basePrompt,
+        reason: 'Image generation server is not configured, so a curated stage cover was used.',
       });
     }
 
@@ -68,11 +103,11 @@ CRITICAL REQUIREMENTS:
     } catch (error) {
       clearTimeout(timeout);
       if (error?.name === 'AbortError') {
-        return res.status(504).json({
-          ok: false,
-          code: 'image_generation_timeout',
-          error: 'Image generation timed out.',
-          retryable: true,
+        return sendFallbackArtwork(res, req, {
+          genre: safeGenre,
+          mood: safeMood,
+          promptUsed: basePrompt,
+          reason: 'Image generation timed out, so a curated stage cover was used instead.',
         });
       }
       throw error;
@@ -89,12 +124,11 @@ CRITICAL REQUIREMENTS:
       }
       console.error('DALL-E generation failed:', providerError);
       const providerMessage = providerError?.error?.message || providerError?.raw || response.statusText;
-      return res.status(response.status >= 500 ? 502 : response.status).json({
-        ok: false,
-        code: response.status === 401 ? 'image_provider_auth_failed' : 'image_provider_request_failed',
-        error: 'Image generation server could not create a visual.',
-        detail: providerMessage,
-        retryable: response.status >= 500 || response.status === 429,
+      return sendFallbackArtwork(res, req, {
+        genre: safeGenre,
+        mood: safeMood,
+        promptUsed: basePrompt,
+        reason: `Image generation provider is unavailable right now (${providerMessage}). Showing a curated fallback cover instead.`,
       });
     }
 
@@ -102,11 +136,11 @@ CRITICAL REQUIREMENTS:
     const imageUrl = data.data?.[0]?.url;
 
     if (!imageUrl) {
-      return res.status(502).json({
-        ok: false,
-        code: 'image_provider_empty',
-        error: 'Image generation did not return a valid image URL.',
-        retryable: true,
+      return sendFallbackArtwork(res, req, {
+        genre: safeGenre,
+        mood: safeMood,
+        promptUsed: basePrompt,
+        reason: 'Image generation returned no usable artwork, so a curated fallback cover was used.',
       });
     }
 
