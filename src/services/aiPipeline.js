@@ -108,7 +108,7 @@ export class ChoreographyAIPipeline {
             const step6Result = await this.step6_PresentationBuilder(step1Result, step2Result, step3Result, step4Result, step5Result);
 
             console.log('📰 [STEP 9] Designing Pamphlet Layout Text...');
-            const step7Result = await this.step7_PamphletDesigner(step1Result, step2Result, step3Result, step4Result, step5Result);
+            const step7Result = await this.step7_PamphletDesigner(step1Result, step2Result, step3Result, step4Result, step5Result, input);
 
             console.log(`\n✅ [PIPELINE v2.0 SUCCESS] ═══════════════════════════════`);
             console.log(`   🎲 Dice Roll ID: ${this.constraints.rollId}`);
@@ -770,44 +770,76 @@ export class ChoreographyAIPipeline {
         const toneMap = this._getToneMapping();
         const preferredStructures = tone && toneMap[tone] ? toneMap[tone] : null;
 
-        // Pick 2 diverse structural categories for bonus titles
+        // Pick 4 diverse structural categories for bonus titles (v5.0 — 8+ total candidates)
         const struct1Key = this._pickDiverseStructure(preferredStructures);
         const struct2Key = this._pickDiverseStructure(preferredStructures);
+        const struct3Key = this._pickDiverseStructure(preferredStructures);
+        const struct4Key = this._pickDiverseStructure(preferredStructures);
 
         const pool1 = this._filterUsed(extPool[struct1Key] || [], this.recentTitles);
         const pool2 = this._filterUsed(extPool[struct2Key] || [], this.recentTitles);
+        const pool3 = this._filterUsed(extPool[struct3Key] || [], this.recentTitles);
+        const pool4 = this._filterUsed(extPool[struct4Key] || [], this.recentTitles);
 
         const bonusTitle1 = this._pickRandom(pool1);
         const bonusTitle2 = this._pickRandom(pool2);
+        const bonusTitle3 = this._pickRandom(pool3);
+        const bonusTitle4 = this._pickRandom(pool4);
 
         // Validate bonus titles aren't too similar to domain titles
         const allDomainTitles = [scientific, radical, surreal, minimalist].filter(Boolean);
-        let finalBonus1 = bonusTitle1;
-        let finalBonus2 = bonusTitle2;
-        if (finalBonus1 && this._isTooSimilar(finalBonus1, allDomainTitles)) {
-            finalBonus1 = this._pickRandom(this._filterUsed(extPool[this._pickDiverseStructure()] || [], this.recentTitles));
-        }
-        if (finalBonus2 && this._isTooSimilar(finalBonus2, [...allDomainTitles, finalBonus1].filter(Boolean))) {
-            finalBonus2 = this._pickRandom(this._filterUsed(extPool[this._pickDiverseStructure()] || [], this.recentTitles));
-        }
+        const validateBonus = (candidate, existing) => {
+            if (candidate && this._isTooSimilar(candidate, existing)) {
+                return this._pickRandom(this._filterUsed(extPool[this._pickDiverseStructure()] || [], this.recentTitles));
+            }
+            return candidate;
+        };
+        let finalBonus1 = validateBonus(bonusTitle1, allDomainTitles);
+        let finalBonus2 = validateBonus(bonusTitle2, [...allDomainTitles, finalBonus1].filter(Boolean));
+        let finalBonus3 = validateBonus(bonusTitle3, [...allDomainTitles, finalBonus1, finalBonus2].filter(Boolean));
+        let finalBonus4 = validateBonus(bonusTitle4, [...allDomainTitles, finalBonus1, finalBonus2, finalBonus3].filter(Boolean));
 
-        console.log(`   🔨 HAMMER-HIT TITLES v4.0 (Diversity Engine):
+        console.log(`   🔨 HAMMER-HIT TITLES v5.0 (8+ Candidates Engine):
       Input: "${primaryKw}" → Domain: [${domainData.domain}] | Tone: ${tone || 'auto'}
       ⚗️ Scientific:  ${scientific?.en} (${scientific?.kr})
       🔪 Radical:     ${radical?.en} (${radical?.kr})
       🌀 Surreal:     ${surreal?.en} (${surreal?.kr})
       ▫️ Minimalist:  ${minimalist?.en} (${minimalist?.kr})
       ✦ Extended-1 [${struct1Key}]:  ${finalBonus1?.en || '-'} (${finalBonus1?.kr || '-'})
-      ✦ Extended-2 [${struct2Key}]:  ${finalBonus2?.en || '-'} (${finalBonus2?.kr || '-'})`);
+      ✦ Extended-2 [${struct2Key}]:  ${finalBonus2?.en || '-'} (${finalBonus2?.kr || '-'})
+      ✦ Extended-3 [${struct3Key}]:  ${finalBonus3?.en || '-'} (${finalBonus3?.kr || '-'})
+      ✦ Extended-4 [${struct4Key}]:  ${finalBonus4?.en || '-'} (${finalBonus4?.kr || '-'})`);
+
+        // v5.0 — 프로젝트명은 작업용 내부 이름일 뿐, 작품 제목으로 자동 채택하지 않음
+        // AI가 생성한 후보만으로 구성
+        let allCandidates = [scientific, radical, surreal, minimalist, finalBonus1, finalBonus2, finalBonus3, finalBonus4].filter(Boolean);
+        
+        // 중복 제거 (en 기준)
+        const seen = new Set();
+        allCandidates = allCandidates.filter(c => {
+            if (seen.has(c.en)) return false;
+            seen.add(c.en);
+            return true;
+        });
+
+        // If tone preference, promote matching candidates to the front
+        if (tone && preferredStructures) {
+            const toneStructSet = new Set(preferredStructures);
+            allCandidates.sort((a, b) => {
+                const aMatch = toneStructSet.has(a._struct) ? -1 : 0;
+                const bMatch = toneStructSet.has(b._struct) ? -1 : 0;
+                return aMatch - bMatch;
+            });
+        }
+
+        let mainTitle = allCandidates[0];
 
         return { 
-            scientific, radical, surreal, minimalist,
-            extended1: finalBonus1 || { en: 'Untitled Fragment', kr: '무제 파편' },
-            extended2: finalBonus2 || { en: 'Unnamed Tremor', kr: '이름 없는 떨림' },
+            mainTitle,
+            candidates: allCandidates,
             _domain: domainData.domain,
             _primaryEn: primaryEn,
             _secondaryEn: secondaryEn,
-            _structures: [struct1Key, struct2Key],
             _tone: tone,
         };
     }
@@ -1156,13 +1188,15 @@ export class ChoreographyAIPipeline {
                 const data = await response.json();
                 const recommendationBuckets = data?.recommendations;
                 if (data?.ok !== false && recommendationBuckets && typeof recommendationBuckets === 'object') {
-                    const orderedStrategies = ['trend', 'balanced', 'counterpoint'];
+                    const orderedStrategies = ['trend', 'balanced', 'counterpoint', 'discovery', 'soundtrack_atmosphere', 'soundtrack_climax'];
                     const flattenedTracks = orderedStrategies
                         .flatMap((strategyName) => (recommendationBuckets?.[strategyName] || []).slice(0, 1))
                         .filter(Boolean);
                     const trendRationale = data?.strategy?.trend?.rationale || '';
                     const balancedRationale = data?.strategy?.balanced?.rationale || '';
                     const counterpointRationale = data?.strategy?.counterpoint?.rationale || '';
+                    const atmosphereRationale = data?.strategy?.soundtrack_atmosphere?.rationale || '';
+                    const climaxRationale = data?.strategy?.soundtrack_climax?.rationale || '';
 
                     return {
                         music_recommendations: flattenedTracks,
@@ -1679,7 +1713,7 @@ export class ChoreographyAIPipeline {
         };
     }
 
-    // ─── Stage Concept (다양성 확보) ───
+    // ─── Stage Concept (다양성 확보 및 사용자 입력 강하게 반영) ───
     async step5_StageConcept(input, narrative) {
         await new Promise(r => setTimeout(r, 500));
 
@@ -1702,23 +1736,31 @@ export class ChoreographyAIPipeline {
             };
         }
         
+        // 사용자의 장르 명, 분위기 키워드 등 중심 주제 확인
+        // "망치로 치는 듯한 강력하고 창의적인 아이디어"로 교체
+        const key = (input.keywords && input.keywords.length > 0) ? input.keywords[0] : (input.theme || input.genre || "원초적 한계");
+        const theTitle = (input.projectName || key);
+
         const lightingPool = [
-            "도입부는 콜드 화이트 핀라이트, 절정부는 눈부신 스트로보 라이트 활용.",
-            "천장에서 떨어지는 수직 라이트 커튼 — 무용수가 통과할 때마다 그림자가 분열.",
-            "바닥 매립형 LED 그리드로 무용수의 경로를 실시간 트레이싱.",
-            "단일 광원(하수 사이드 바 라이트)만 사용, 명암 비율 90:10의 극단적 키아로스쿠로.",
+            `도입부는 콜드 화이트 핀라이트, 절정부는 눈부신 스트로보 라이트 활용. 주제인 [${theTitle}]를 빛의 점멸을 통한 공간 절단으로 은유.`,
+            `천장에서 떨어지는 수직 라이트 커튼 — 무용수가 통과할 때마다 빛의 파문이 발생하여 [${key}]의 질감을 관객의 눈앞에 물리화합니다.`,
+            `바닥 매립형 LED 그리드로 무용수의 경로를 실시간 트레이싱. 에너지 흐름에 따라 그리드 색상이 변화하며 심장박동을 그립니다.`,
+            `단일 광원(하수 사이드 바 라이트)만 사용, 명암 비율 90:10의 극단적 키아로스쿠로. 길어진 그림자 자체가 두 번째 무용수로 기능합니다.`,
+            `공연 내내 3도씩 천천히 낮아지는 거대한 조명 바텐. 무용수들에 점진적 공간적 압박감을 주어 [${key}]의 무게를 극적으로 시각화.`,
         ];
         const costumePool = [
-            "근육의 움직임이 극대화되어 보이는 다크 차콜 심리스 웨어 위 세미 슬릿 스커트.",
-            "반투명 오르간자 레이어 — 움직임에 따라 신체의 실루엣이 지연되어 나타남.",
-            "산업용 방진복을 해체한 비대칭 절개 의상, 한쪽 어깨만 노출.",
-            "피부색과 동일한 메쉬 위에 뼈 구조를 투영하는 프로젝션 매핑 의상.",
+            `근육의 기하학이 극대화되어 보이는 다크 차콜 심리스 웨어 위 세미 슬릿. [${theTitle}]의 양면성을 앞뒤의 완전히 다른 재질(거침 vs. 부드러움)로 표현.`,
+            `반투명 오르간자 레이어 — 움직임에 따라 신체의 실루엣이 0.5초 지연되어 나타남. 시간의 어긋남을 표현하는 동적 의상.`,
+            `산업용 소재를 해체한 비대칭 절개 의상. 역동적 움직임과 거친 소재가 마찰음을 내며 [${key}]를 소리로도 구현합니다.`,
+            `피부색과 동일한 메쉬 위에 근골격계 라인을 선명하게 투영하는 착시 스판덱스. 마치 해부도를 무대에 올린 듯한 충격적 가시성.`,
+            `시간이 지날수록 무대 바닥의 안료와 반응하여 점진적 화학 격변이 일어나는 특수 린넨 튜닉.`,
         ];
         const propsPool = [
-            "무대를 가로지르는 반투명 대형 실크 천막(Scrim).",
-            "무대 바닥에 깔린 3톤의 미세 입자(micro-bead) — 무용수의 궤적이 물리적으로 기록됨.",
-            "천장에서 내려오는 50개의 가느다란 고무줄 — 무용수가 잡으면 공간의 형태가 변형.",
-            "얼음 블록 — 공연 시간에 따라 녹으며 무대 표면의 마찰계수가 실시간으로 변화.",
+            `무대를 이등분하는 반투명 대형 실크 천막(Scrim). [${theTitle}]의 경계를 은유하며 빛을 투과/반사해 시각적 착란을 유도.`,
+            `무대 바닥에 깔린 3톤의 미세 입자(micro-bead) — 안무의 궤적이 바닥에 물리적으로 깊게 패이며 공연 시간 내내 영구적 기록을 남김.`,
+            `천장에서 내려오는 50개의 가느다란 텐션 고무줄 숲. 무용수의 진입에 따라 공간 구조가 거미줄처럼 비정형으로 변형.`,
+            `초대형 얼음 블록 — 파편화된 얼음 위에서의 위험한 슬라이딩으로 [${key}]를 메타포. 무대 위에서 서서히 붕괴하는 조형물.`,
+            `허공에 매달린 수백 개의 파편화된 흑요석 거울들. 무용수의 모습을 왜곡시키고 잘라내며 관객에게 시각적 불안 생성.`,
         ];
 
         return {
@@ -1728,58 +1770,68 @@ export class ChoreographyAIPipeline {
         };
     }
 
+    // ─── Presentation Builder (하드코딩 제거, 사용자가 입력한 내용에 따른 PPT 구조) ───
     async step6_PresentationBuilder(titles, concept, narrative, music, stage) {
         await new Promise(r => setTimeout(r, 500));
+        
+        const mainTitleTxt = titles.scientific?.en || titles.poetic?.kr || titles.main || 'Untitled Project';
+        const subDNA = concept.dna?.kr || '핵심 디자인 DNA';
+        
         return [
-            { slide_num: 1, title: "Title & Mood", script: `작품 [${titles.scientific?.en || '—'}] 기획안입니다.` },
-            { slide_num: 2, title: "Artistic Philosophy", script: concept.artisticPhilosophy },
-            { slide_num: 3, title: "Storyline", script: "4막 구조(기승전결)를 통한 감정의 레이어 빌드업 과정입니다." },
-            { slide_num: 4, title: "Emotion Flow", script: "시간에 따른 텐션 곡선으로, 클라이맥스에서의 폭발적 해소를 시각화했습니다." },
-            { slide_num: 5, title: "Movement Narrative", script: "플로어 워크에서 시작해 다이렉트한 공중 도약으로 이어집니다." },
-            { slide_num: 6, title: "Music & Sound", script: `BPM 변화와 질감: ${music.soundTexture}` },
-            { slide_num: 7, title: "Stage Design", script: `조명과 의상: ${stage.costume}` },
-            { slide_num: 8, title: "Conclusion", script: "이 시대에 필요한 실존적 질문을 무대 위에 던집니다." }
+            { slide_num: 1, title: "Title & DNA", script: `[${mainTitleTxt}] 프로젝트 기획안입니다.\n핵심 DNA: ${subDNA}` },
+            { slide_num: 2, title: "Artistic Philosophy", script: concept.artisticPhilosophy || concept.artisticStatement },
+            { slide_num: 3, title: "Narrative & Metaphor", script: narrative?.narrativeDescription?.kr || "작품을 관통하는 4막 구조의 핵심 움직임 메타포." },
+            { slide_num: 4, title: "Emotion Curve", script: "전체 시간 축을 지배하는 텐션-이완의 동역학적 굴곡. 절정에서의 한계 돌파." },
+            { slide_num: 5, title: "Movement Texture", script: narrative?.lma ? `라반 공간/무게 분석 레이어:\nSpace: ${narrative.lma.space}\nWeight: ${narrative.lma.weight}` : "무용수 신체의 역학적 텍스처와 중력의 해체 시퀀스." },
+            { slide_num: 6, title: "Acoustic Mapping", script: `도리스 험프리 대위법 기반 사운드 텍스처:\n${music.soundTexture?.kr || music.style}` },
+            { slide_num: 7, title: "Stage Mechanism", script: `공간 기하학 및 시각화 구도\n조명: ${stage.lighting}\n의상: ${stage.costume}` },
+            { slide_num: 8, title: "Director's Vision", script: "전달하려는 종착점은 단 하나, 객석의 호흡을 공간에 결속시키는 강력한 몸의 언어입니다." }
         ];
     }
 
-    async step7_PamphletDesigner(titles, concept, narrative, music, stage) {
+    // ─── Pamphlet Designer (뻔한 텍스트 제거, 장르 및 키워드 연계 홍보물 생성) ───
+    async step7_PamphletDesigner(titles, concept, narrative, music, stage, input) {
         await new Promise(r => setTimeout(r, 500));
 
         // ═══ 콩쿠르 모드: 심사위원 제출용 작품 계획서 포맷 ═══
         if (this.isCompetition) {
             const compNotes = [
-                "본 작품은 라반 움직임 분석(LMA)의 에포트 체계를 기반으로, 2~4분의 압축된 시간 안에서 신체적 기량과 예술적 깊이를 동시에 증명하고자 합니다.",
-                "도리스 험프리의 '비대칭은 생명력이다(Asymmetry is vitality)' 원칙에 따라, 모든 공간 구성에서 의도적 불균형을 추구했습니다.",
-                "이 안무는 '발표(Presentation)'가 아닌 '증명(Demonstration)'입니다. 기술적 정확성과 예술적 설득력의 교차점에서 심사위원과 대화하고자 합니다.",
+                "본 작품은 라반 움직임 분석(LMA)의 에포트 체계를 기반으로, 지정된 시간 안에서 신체적 기량과 예술적 밀도를 증명합니다.",
+                "모든 동선 구성에서 의도적 불균형을 추구하며, 기술적 수월성 위로 흐르는 예술적 비대칭성의 충돌을 구현합니다.",
+                "이 안무는 '발표(Presentation)'가 아닌 '증명(Demonstration)'입니다. 기량적 정확성과 감각적 설득력의 접점에 섭니다.",
             ];
 
             return {
-                coverTitle: `심사위원 제출용 작품 계획서 — ${titles.scientific?.en || '—'}`,
-                performanceDesc: `[콩쿠르 출전작] 본 작품은 ${narrative?.lma?.space || 'Direct'} 공간 설계와 ${narrative?.lma?.weight || 'Strong'} 무게 에포트의 극단적 대비를 통해, 무용수의 기술적 범위(technical range)와 예술적 해석력을 동시에 심사위원에게 전달하는 2~4분 압축형 안무입니다.`,
+                coverTitle: `심사위원 제출용 작품 계획서 — ${titles.scientific?.en || titles.main}`,
+                performanceDesc: `[콩쿠르 출전작] 본 작품은 ${narrative?.lma?.space || '폭발적 다이렉트'} 공간 설계와 ${narrative?.lma?.weight || '중력적 강함'} 타격 에포트의 대비를 통해 무용수의 기술적 레인지와 해석력을 동시에 증명하는 압축형 안무입니다.`,
                 artisticStatement: concept.artisticStatement,
                 choreographerNote: this._pickRandom(compNotes),
-                musicCredits: `Music Strategy: ${music.style} / Ref: ${music.referenceArtists} / 절정부 전략적 침묵 삽입`,
-                cast: "Solo Performer (Competition Entry)",
-                layoutInstructions: "Competition Formal: serif body text, jury-addressed tone, include LMA Effort analysis table. Header: [심사위원 제출용 작품 계획서].",
+                musicCredits: `Strategy: ${music.style} / Ref: ${music.referenceArtists} / [전략적 침묵구간 탑재]`,
+                cast: "Solo Performer / Technical Evaluation",
+                layoutInstructions: "Competition Formal: serif font body text, jury-addressed precision tone. Header: [심사위원 제출용 작품 계획서].",
                 isCompetition: true
             };
         }
         
+        const genre = input?.genre || "현대무용";
+        const key = (input?.keywords && input.keywords.length > 0) ? input.keywords[0] : (input?.theme || "인류 보편적");
+        const theTitle = titles.scientific?.en || titles.poetic?.kr || titles.main || 'Untitled';
+
         const choreographerNotes = [
-            "무대 위의 몸은 거짓말을 하지 않는다. 나는 고요함 속의 가장 거대한 소리를 표현하고 싶었다.",
-            "안무란 결국 시간에 상처를 내는 행위다. 이 공연은 그 흉터의 지도다.",
-            "관객이 이해하기를 원하지 않는다. 관객의 근육이 기억하기를 원한다.",
-            "나는 '완성된 동작'을 불신한다. 이 작품의 모든 움직임은 영원히 미완성이다.",
+            `무대 위 몸뚱이는 '${key}'에 대한 가장 정직하고 원초적인 반응입니다. 고요함 속 가장 거대한 폭발을 포착했습니다.`,
+            `안무란 결국 ${genre}의 문법을 통해 흐르는 시간에 물리적 흉터를 내는 행위입니다. 본 공연은 그 필연적 상처들의 맵핑입니다.`,
+            `단순히 머리로 이해되기를 거부합니다. 관객 분들의 내면 신경망과 수축-이완의 근육 감각이 공연 내내 자극되길 염원합니다.`,
+            `'완성된 자세'라는 환상을 부수고자 했습니다. 모든 움직임은 '${key}'라는 답 없는 질문을 향해 부단히 추락하는 아름다운 궤적입니다.`,
         ];
 
         return {
-            coverTitle: titles.scientific?.en || '—',
-            performanceDesc: "단절된 시공간 속에서 인간 내면의 원초적 감정이 상호작용하며 새로운 자아로 재구성되는 작품.",
+            coverTitle: theTitle,
+            performanceDesc: `[${titles.poetic?.kr || titles.main}] — 이 극단적 구조의 작품은 [${key}]를 기조로 조각나고 재조립되는 무용수들의 신체적 마찰을 기록합니다. 익숙한 서사를 거부하고 당신의 감각을 직격할 잔상을 무대 위에 강제 도출합니다.`,
             artisticStatement: concept.artisticStatement,
             choreographerNote: this._pickRandom(choreographerNotes),
-            musicCredits: `Music Style: ${music.style} / Ref: ${music.referenceArtists}`,
-            cast: "Dancers (Total Cast: TBA)",
-            layoutInstructions: "Minimalist black-and-white print, large Serif typography for titles, plenty of negative space."
+            musicCredits: `Acoustic Topology: ${music.style || 'Custom Texture'} / Core Aesthetic: ${music.referenceArtists || 'Field Recording Ambient'}`,
+            cast: `Cast: ${input?.dancersCount || 'Collective Ensemble'} Dancers`,
+            layoutInstructions: "Avant-garde Editorial Style: bold heavy typography for main Title, highly asymmetrical layout. Deep negative spaces to print Silence."
         };
     }
 }

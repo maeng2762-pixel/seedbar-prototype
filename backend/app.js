@@ -10,7 +10,9 @@ import musicRoutes from './routes/musicRoutes.js';
 import choreographyRoutes from './routes/choreographyRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import billingRoutes from './routes/billingRoutes.js';
+import imageRoutes from './routes/imageRoutes.js';
 import { requestContext, requireAuth } from './middleware/requestContext.js';
+import { ARTWORK_STORAGE_ROOT } from './services/artworkStorageService.js';
 
 export function createApp() {
   const app = express();
@@ -27,6 +29,7 @@ export function createApp() {
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/music', requireAuth, musicRoutes);
   app.use('/api/choreography', requireAuth, choreographyRoutes);
+  app.use('/api/image', requireAuth, imageRoutes);
 
   app.use('/api/download/:filename', (req, res) => {
     const filePath = path.join(process.cwd(), 'temp_exports', req.params.filename);
@@ -44,6 +47,13 @@ export function createApp() {
   app.use('/api', (_req, res) => {
     return res.status(404).json({ ok: false, error: 'API route not found.' });
   });
+
+  if (fs.existsSync(ARTWORK_STORAGE_ROOT)) {
+    app.use('/media', express.static(ARTWORK_STORAGE_ROOT, {
+      fallthrough: true,
+      maxAge: '30d',
+    }));
+  }
 
   // Serve frontend build and support refresh on nested routes.
   const distPath = path.join(process.cwd(), 'dist');

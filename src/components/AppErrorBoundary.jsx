@@ -1,4 +1,5 @@
 import React from 'react';
+import { reportRuntimeDiagnostic } from '../services/runtimeDiagnostics';
 
 export default class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -15,6 +16,16 @@ export default class AppErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error('[Seedbar] route render error:', error, info);
+    reportRuntimeDiagnostic({
+      category: 'react_render_error',
+      message: error?.message || 'Route render failed.',
+      stack: error?.stack || '',
+      meta: {
+        boundary: 'route',
+        componentStack: info?.componentStack || '',
+      },
+      severity: 'error',
+    });
   }
 
   handleRetry = () => {
@@ -56,4 +67,3 @@ export default class AppErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
-

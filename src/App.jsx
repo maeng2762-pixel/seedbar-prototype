@@ -11,8 +11,10 @@ import Explore from './pages/Explore';
 import Library from './pages/Library';
 import Profile from './pages/Profile';
 import PolicyCenter from './pages/PolicyCenter';
+import Opportunities from './pages/Opportunities';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import RuntimeDiagnosticsBridge from './components/RuntimeDiagnosticsBridge';
 import useAuthStore from './store/useAuthStore';
 
 function App() {
@@ -23,6 +25,7 @@ function App() {
 
   return (
     <Router>
+      <RuntimeDiagnosticsBridge />
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
@@ -33,6 +36,7 @@ function App() {
         <Route path="/planner" element={<ProtectedRoute><Planner /></ProtectedRoute>} />
         <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/opportunities" element={<ProtectedRoute><Opportunities /></ProtectedRoute>} />
         <Route path="/moodboard" element={<ProtectedRoute><Moodboard /></ProtectedRoute>} />
         <Route path="/editor" element={<ProtectedRoute><Editor3D /></ProtectedRoute>} />
         <Route path="/ppt/:projectId" element={<ProtectedRoute><PPTGenerator /></ProtectedRoute>} />

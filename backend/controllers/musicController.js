@@ -46,6 +46,9 @@ export async function postMusicRecommendController(req, res) {
         trend: result.recommendations.trend,
         balanced: result.recommendations.balanced,
         counterpoint: result.recommendations.counterpoint,
+        discovery: result.recommendations.discovery,
+        soundtrack_atmosphere: result.recommendations.soundtrack_atmosphere,
+        soundtrack_climax: result.recommendations.soundtrack_climax,
       },
       strategy: result.strategy,
     });

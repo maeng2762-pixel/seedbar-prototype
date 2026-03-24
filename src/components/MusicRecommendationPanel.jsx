@@ -2,11 +2,66 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useMusicRecommendationStore from '../store/useMusicRecommendationStore';
 import useStore from '../store/useStore';
 
-const STRATEGY_LABEL = {
-  trend: { ko: '트렌드 반영', en: '🔥 Trend', color: 'from-rose-500/20 to-orange-500/20 border-rose-500/30 text-rose-300' },
-  balanced: { ko: '균형형', en: '⚖️ Balanced', color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300' },
-  counterpoint: { ko: '차별화', en: '💎 Counterpoint', color: 'from-violet-500/20 to-indigo-500/20 border-violet-500/30 text-violet-300' },
+// ─── 6-Strategy Labels & Visual Config ───
+const STRATEGY_CONFIG = {
+  trend: {
+    ko: '트렌드 반영',
+    en: '🔥 Trend',
+    koDesc: '최신 트렌드에 맞는 에너지',
+    enDesc: 'Current trend energy',
+    color: 'from-rose-500/20 to-orange-500/20 border-rose-500/30 text-rose-300',
+    icon: '🔥',
+    purpose: 'general',
+  },
+  balanced: {
+    ko: '균형형',
+    en: '⚖️ Balanced',
+    koDesc: '리듬과 공간감의 균형',
+    enDesc: 'Rhythm & spatial balance',
+    color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300',
+    icon: '⚖️',
+    purpose: 'general',
+  },
+  counterpoint: {
+    ko: '차별화',
+    en: '💎 Counterpoint',
+    koDesc: '의도적 대비와 긴장',
+    enDesc: 'Deliberate contrast tension',
+    color: 'from-violet-500/20 to-indigo-500/20 border-violet-500/30 text-violet-300',
+    icon: '💎',
+    purpose: 'general',
+  },
+  discovery: {
+    ko: '새로운 발견',
+    en: '🌍 Discovery',
+    koDesc: '예상 밖 장르로 가능성 확장',
+    enDesc: 'Expand with unexpected genres',
+    color: 'from-amber-500/20 to-yellow-500/20 border-amber-500/30 text-amber-300',
+    icon: '🌍',
+    purpose: 'general',
+  },
+  soundtrack_atmosphere: {
+    ko: '분위기 구축용',
+    en: '🎬 Atmosphere',
+    koDesc: '도입부 공기감을 잡는 사운드트랙',
+    enDesc: 'Cinematic atmosphere for scene air-feel',
+    color: 'from-sky-500/20 to-cyan-500/20 border-sky-500/30 text-sky-300',
+    icon: '🎬',
+    purpose: 'soundtrack',
+  },
+  soundtrack_climax: {
+    ko: '절정 구간용',
+    en: '🎻 Climax Score',
+    koDesc: '절정 직전 긴장 축적에 적합',
+    enDesc: 'Tension builder for the pre-climax',
+    color: 'from-fuchsia-500/20 to-pink-500/20 border-fuchsia-500/30 text-fuchsia-300',
+    icon: '🎻',
+    purpose: 'soundtrack',
+  },
 };
+
+const STRATEGY_ORDER_GENERAL = ['trend', 'balanced', 'counterpoint', 'discovery'];
+const STRATEGY_ORDER_SOUNDTRACK = ['soundtrack_atmosphere', 'soundtrack_climax'];
 
 // ─── Client-side filters (safety net after backend) ───
 const EXPLICIT_KEYWORDS = ['explicit', 'uncensored', '18+', 'adult', 'nsfw'];
@@ -15,7 +70,6 @@ function normalizeStr(s = '') {
   return s.toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '');
 }
 
-/** Remove duplicates by title+artist AND cross-platform ID comparison */
 function clientDedupe(tracks = []) {
   const seenKeys = new Set();
   const seenIds = new Set();
@@ -33,7 +87,6 @@ function clientDedupe(tracks = []) {
   });
 }
 
-/** Filter explicit content from YouTube tracks by keyword matching */
 function clientFilterExplicit(tracks = []) {
   return tracks.filter((t) => {
     if (t.source === 'spotify' && t.explicit === true) return false;
@@ -52,33 +105,41 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
   const hasYouTubeId = isYouTube && track.youtube_video_id;
   const hasSpotifyUrl = isSpotify && track.source_url;
   const hasPreview = Boolean(track.actual_audio);
-  const strategyStyle = STRATEGY_LABEL[strategy] || {};
+  const config = STRATEGY_CONFIG[strategy] || {};
   const isKr = useStore((s) => s.language) === 'KR';
+  const isSoundtrack = config.purpose === 'soundtrack';
 
-  // Spotify embed URL: works by converting /track/xxx to /embed/track/xxx
   const spotifyEmbedUrl = hasSpotifyUrl
     ? track.source_url.replace('open.spotify.com/track/', 'open.spotify.com/embed/track/')
     : '';
 
-  // Can we embed something?
   const canEmbed = hasYouTubeId || hasSpotifyUrl;
 
+  // Dynamic label from backend or config fallback
+  const cardLabel = track.label || (isKr ? config.ko : config.en);
+  const cardRationale = track.rationale || (isKr ? config.koDesc : config.enDesc);
+
   return (
-    <div className="group rounded-xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm hover:border-white/20 hover:bg-white/[0.07] transition-all duration-300">
-      {/* Header: Strategy badge + duration */}
+    <div className={`group rounded-xl border bg-white/[0.04] p-4 backdrop-blur-sm hover:bg-white/[0.07] transition-all duration-300 ${isSoundtrack ? 'border-white/20 ring-1 ring-inset ring-white/5' : 'border-white/10 hover:border-white/20'}`}>
+      {/* Header: Strategy badge + label + duration */}
       <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {isSelected && <span className="text-green-400 text-sm">✅</span>}
-          <span className={`rounded-full bg-gradient-to-r ${strategyStyle.color || 'bg-primary/20 text-primary'} border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider`}>
-            {isKr && strategyStyle.ko ? strategyStyle.ko : (strategyStyle.en || strategy)}
+        <div className="flex items-center gap-2 min-w-0">
+          {isSelected && <span className="text-green-400 text-sm flex-shrink-0">✅</span>}
+          <span className={`flex-shrink-0 rounded-full bg-gradient-to-r ${config.color || 'bg-primary/20 text-primary'} border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider`}>
+            {cardLabel}
           </span>
+          {isSoundtrack && (
+            <span className="flex-shrink-0 rounded-full bg-gradient-to-r from-white/5 to-white/10 border border-white/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              {isKr ? '사운드트랙' : 'SOUNDTRACK'}
+            </span>
+          )}
         </div>
-        <span className="text-[10px] text-slate-500 font-mono">{track.duration || '3:00'}</span>
+        <span className="text-[10px] text-slate-500 font-mono flex-shrink-0">{track.duration || '3:00'}</span>
       </div>
 
       {/* Track info */}
       <div className="flex items-center gap-3">
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <img
             src={track.album_art}
             alt="album"
@@ -87,7 +148,6 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
               e.target.src = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(track.track_title)}&backgroundColor=0d0a1c&shapeColor=6366f1`;
             }}
           />
-          {/* Source badge */}
           <span className={`absolute -bottom-1 -right-1 rounded-full px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wider ${isSpotify ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
             {isSpotify ? 'SP' : 'YT'}
           </span>
@@ -98,9 +158,9 @@ function TrackCard({ track, strategy, isSelected, onSelect }) {
         </div>
       </div>
 
-      {/* Rationale */}
-      {track.rationale && (
-        <p className="mt-2 text-[11px] leading-relaxed text-slate-400 italic">{track.rationale}</p>
+      {/* Rationale — enhanced description */}
+      {cardRationale && (
+        <p className="mt-2.5 text-[11px] leading-relaxed text-slate-400 italic border-l-2 border-white/10 pl-2">{cardRationale}</p>
       )}
 
       {/* Action buttons */}
@@ -212,14 +272,22 @@ export default function MusicRecommendationPanel({
     return Object.values(recommendations || {}).some((arr) => Array.isArray(arr) && arr.length > 0);
   }, [recommendations]);
 
+  const [synced, setSynced] = useState(false);
+  const [changeSummary, setChangeSummary] = useState(null);
+
   const onRecommend = async () => {
     await fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, language });
+    const summaryStr = isKr 
+      ? `✓ 음악 엔진이 재실행되었습니다:\n[장르] ${genre || '-'}\n[무드] ${mood || '-'}\n[키워드] ${(keywords || []).join(', ') || '-'}`
+      : `✓ Music Engine applied:\n[Genre] ${genre || '-'}\n[Mood] ${mood || '-'}\n[Keywords] ${(keywords || []).join(', ') || '-'}`;
+    setChangeSummary(summaryStr);
   };
 
   const autoKeyRef = useRef('');
   useEffect(() => {
-    if (initialRecommendations) {
+    if (initialRecommendations && !synced) {
       setRecommendations(initialRecommendations);
+      setSynced(true);
       return;
     }
 
@@ -237,21 +305,21 @@ export default function MusicRecommendationPanel({
     if (autoKeyRef.current === key || loading || hasResult) return;
     autoKeyRef.current = key;
     fetchRecommendations({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, language });
-  }, [autoRecommend, genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, language, loading, fetchRecommendations, initialRecommendations, setRecommendations, hasResult]);
+  }, [autoRecommend, genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, language, loading, fetchRecommendations, initialRecommendations, setRecommendations, hasResult, synced]);
 
   useEffect(() => {
-    if (onRecommendationsFetched && hasResult && recommendations !== initialRecommendations) {
+    // Only call onRecommendationsFetched if it changed and is valid
+    if (onRecommendationsFetched && hasResult) {
       onRecommendationsFetched(recommendations);
     }
   }, [recommendations, hasResult, onRecommendationsFetched, initialRecommendations]);
 
-  // Flatten all tracks from all strategies, filter only real provider results
-  // Apply client-side dedupe + explicit filter as safety net
+  // Build track list per strategy, apply client-side safety filters
   const allTracks = useMemo(() => {
     if (!recommendations) return [];
-    const strategies = ['trend', 'balanced', 'counterpoint'];
+    const allStrategies = [...STRATEGY_ORDER_GENERAL, ...STRATEGY_ORDER_SOUNDTRACK];
     const tracks = [];
-    for (const st of strategies) {
+    for (const st of allStrategies) {
       const list = recommendations[st] || [];
       for (const track of list) {
         if (track?.source === 'spotify' || track?.source === 'youtube') {
@@ -259,20 +327,29 @@ export default function MusicRecommendationPanel({
         }
       }
     }
-    // Remove duplicates (title+artist & cross-platform ID) and explicit content
     return clientFilterExplicit(clientDedupe(tracks));
   }, [recommendations]);
 
-  // Group by strategy for display, show up to 2 per strategy for variety
-  const grouped = useMemo(() => {
-    const strategies = ['trend', 'balanced', 'counterpoint'];
-    return strategies
+  // Group: General (4 slots) then Soundtrack (2 slots)
+  const generalTracks = useMemo(() => {
+    return STRATEGY_ORDER_GENERAL
       .map((st) => ({
         strategy: st,
-        tracks: allTracks.filter((t) => t._strategy === st).slice(0, 2),
+        tracks: allTracks.filter((t) => t._strategy === st).slice(0, 1),
       }))
       .filter((g) => g.tracks.length > 0);
   }, [allTracks]);
+
+  const soundtrackTracks = useMemo(() => {
+    return STRATEGY_ORDER_SOUNDTRACK
+      .map((st) => ({
+        strategy: st,
+        tracks: allTracks.filter((t) => t._strategy === st).slice(0, 1),
+      }))
+      .filter((g) => g.tracks.length > 0);
+  }, [allTracks]);
+
+  const totalCount = generalTracks.reduce((s, g) => s + g.tracks.length, 0) + soundtrackTracks.reduce((s, g) => s + g.tracks.length, 0);
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-5">
@@ -284,6 +361,11 @@ export default function MusicRecommendationPanel({
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-base font-bold tracking-wide text-white flex items-center gap-2">
             <span className="text-lg">🎧</span> Spotify + YouTube Music Engine
+            {totalCount > 0 && (
+              <span className="ml-2 text-[10px] font-mono text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">
+                {totalCount} {isKr ? '곡' : 'tracks'}
+              </span>
+            )}
           </h3>
           {!hideActionButton ? (
             <button
@@ -306,24 +388,77 @@ export default function MusicRecommendationPanel({
         </p>
       ) : null}
 
+      {/* Change Summary */}
+      {changeSummary && !loading && (
+        <div className="mb-4 rounded flex items-start gap-3 bg-white/5 border border-primary/20 p-3">
+          <span className="material-symbols-outlined text-primary text-sm mt-0.5">summarize</span>
+          <pre className="text-xs text-slate-300 font-sans whitespace-pre-wrap leading-relaxed">{changeSummary}</pre>
+        </div>
+      )}
+
       {/* Results */}
-      {grouped.length > 0 ? (
-        <div className="space-y-4">
-          {grouped.map(({ strategy, tracks }) => (
-            <div key={strategy}>
+      {(generalTracks.length > 0 || soundtrackTracks.length > 0) ? (
+        <div className="space-y-6">
+          {/* ─── General Music Section (4 tracks) ─── */}
+          {generalTracks.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                  {isKr ? '🎵 음악 추천' : '🎵 Music Picks'}
+                </span>
+                <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+                <span className="text-[9px] text-slate-600">
+                  {generalTracks.reduce((s, g) => s + g.tracks.length, 0)}/{STRATEGY_ORDER_GENERAL.length}
+                </span>
+              </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {tracks.map((track, idx) => (
-                  <TrackCard 
-                    key={`${strategy}-${idx}`} 
-                    track={track} 
-                    strategy={strategy} 
-                    isSelected={selectedTrackId === (track.spotify_track_id || track.youtube_video_id)}
-                    onSelect={onSelectTrack}
-                  />
-                ))}
+                {generalTracks.map(({ strategy, tracks }) =>
+                  tracks.map((track, idx) => (
+                    <TrackCard
+                      key={`${strategy}-${idx}`}
+                      track={track}
+                      strategy={strategy}
+                      isSelected={selectedTrackId === (track.spotify_track_id || track.youtube_video_id)}
+                      onSelect={onSelectTrack}
+                    />
+                  ))
+                )}
               </div>
             </div>
-          ))}
+          )}
+
+          {/* ─── Soundtrack / Score Section (2 tracks) ─── */}
+          {soundtrackTracks.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                  {isKr ? '🎬 사운드트랙 추천' : '🎬 Soundtrack Picks'}
+                </span>
+                <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent" />
+                <span className="text-[9px] text-slate-600">
+                  {soundtrackTracks.reduce((s, g) => s + g.tracks.length, 0)}/{STRATEGY_ORDER_SOUNDTRACK.length}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 mb-3 max-w-xl">
+                {isKr
+                  ? '사운드트랙은 장면 분위기, 공기감, 긴장감, 감정의 결을 만드는 용도로 제안합니다.'
+                  : 'Soundtrack picks are curated for scene atmosphere, air-feel, tension build, and emotional texture.'}
+              </p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {soundtrackTracks.map(({ strategy, tracks }) =>
+                  tracks.map((track, idx) => (
+                    <TrackCard
+                      key={`${strategy}-${idx}`}
+                      track={track}
+                      strategy={strategy}
+                      isSelected={selectedTrackId === (track.spotify_track_id || track.youtube_video_id)}
+                      onSelect={onSelectTrack}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
       ) : loading ? (
         <div className="flex items-center gap-3 py-8 justify-center">

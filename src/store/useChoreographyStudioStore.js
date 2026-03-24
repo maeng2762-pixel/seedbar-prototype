@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getPlanHeaders } from '../lib/subscriptionContext';
 import { apiUrl } from '../lib/apiClient';
+import { buildArtworkPatch } from '../lib/artworkMedia.js';
 
 const defaultSliders = {
   intensity: 50,
@@ -37,11 +38,13 @@ const useChoreographyStudioStore = create((set, get) => ({
     versionId: null,
   },
   error: null,
+  temporaryDraft: null,
 
   setProjectId: (projectId) => set({ projectId }),
   setActiveVersionId: (activeVersionId) => set({ activeVersionId }),
   setSlider: (key, value) => set((state) => ({ sliders: { ...state.sliders, [key]: value } })),
   clearError: () => set({ error: null }),
+  setTemporaryDraft: (draft) => set({ temporaryDraft: draft }),
 
   listProjects: async () => {
     const url = apiUrl('/api/choreography/projects');
@@ -118,6 +121,16 @@ const useChoreographyStudioStore = create((set, get) => ({
       versions: data.versions || [],
       activeVersionId: state.activeVersionId || data.versions?.[0]?.id || null,
     }));
+    return data.versions || [];
+  },
+
+  fetchProjectVersions: async (targetProjectId) => {
+    const url = apiUrl(`/api/choreography/projects/${targetProjectId}/versions`);
+    const res = await fetch(url, {
+      headers: { ...getPlanHeaders() },
+    });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load versions');
     return data.versions || [];
   },
 
@@ -280,8 +293,25 @@ const useChoreographyStudioStore = create((set, get) => ({
     });
     const updateData = await parseResponseJson(updateRes, updateUrl);
     if (!updateRes.ok || !updateData.ok) throw new Error(updateData?.error || 'Failed to save project package');
-    
-    return true;
+
+    set((state) => ({
+      projects: (state.projects || []).map((item) => (
+        item.id === targetProjectId
+          ? {
+              ...item,
+              ...updateData.project,
+              currentContent: updatedContent,
+            }
+          : item
+      )),
+      packageData: packageData.packageContent,
+    }));
+
+    return {
+      ok: true,
+      project: updateData.project,
+      packageContent: packageData.packageContent,
+    };
   },
 
 
@@ -356,6 +386,134 @@ const useChoreographyStudioStore = create((set, get) => ({
     }
     set({ autosaveState: 'saved', autosaveUpdatedAt: data.autosave?.updatedAt || new Date().toISOString() });
     return data.autosave;
+  },
+
+  saveProjectTitleSelection: async ({ selectedTitle, currentContent }) => {
+    const projectId = get().projectId;
+    if (!projectId) throw new Error('Project is not initialized');
+
+    const normalizedTitle = typeof selectedTitle === 'string'
+      ? { en: selectedTitle, kr: selectedTitle }
+      : {
+          en: selectedTitle?.en || selectedTitle?.kr || 'Untitled',
+          kr: selectedTitle?.kr || selectedTitle?.en || 'Untitled',
+        };
+    const nextTitle = normalizedTitle.en;
+    const updatedAt = new Date().toISOString();
+    const nextContent = {
+      ...(currentContent || {}),
+      selectedWorkTitle: nextTitle,
+      titles: {
+        ...(currentContent?.titles || {}),
+        mainTitle: normalizedTitle,
+      },
+      pamphlet: {
+        ...(currentContent?.pamphlet || {}),
+        coverTitle: nextTitle,
+      },
+      lastEdited: updatedAt,
+    };
+
+    set({ autosaveState: 'saving' });
+    const url = apiUrl(`/api/choreography/projects/${projectId}`);
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getPlanHeaders(),
+      },
+      body: JSON.stringify({
+        title: nextTitle,
+        currentContent: nextContent,
+      }),
+    });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) {
+      set({ autosaveState: 'failed' });
+      throw new Error(data?.error || 'Failed to save selected title');
+    }
+
+    set({
+      autosaveState: 'saved',
+      autosaveUpdatedAt: data?.project?.updatedAt || updatedAt,
+    });
+    return {
+      project: data.project,
+      currentContent: nextContent,
+    };
+  },
+
+  saveProjectArtworkImage: async ({ imageUrl, currentContent }) => {
+    const projectId = get().projectId;
+    if (!projectId) throw new Error('Project is not initialized');
+
+    const updatedAt = new Date().toISOString();
+    set({ autosaveState: 'saving' });
+
+    const persistUrl = apiUrl('/api/image/persist');
+    const persistRes = await fetch(persistUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getPlanHeaders(),
+      },
+      body: JSON.stringify({
+        imageUrl,
+        projectId,
+      }),
+    });
+    const persistData = await parseResponseJson(persistRes, persistUrl);
+    if (!persistRes.ok || !persistData.ok) {
+      set({ autosaveState: 'failed' });
+      throw new Error(persistData?.error || 'Failed to persist artwork image');
+    }
+
+    const artworkPatch = buildArtworkPatch({
+      ...persistData.asset,
+      persistedAt: updatedAt,
+    });
+    const nextContent = {
+      ...(currentContent || {}),
+      ...artworkPatch,
+      pamphlet: {
+        ...(currentContent?.pamphlet || {}),
+        ...(artworkPatch.pamphlet || {}),
+      },
+      projectStatus: currentContent?.projectStatus || 'in_progress',
+      lastEdited: updatedAt,
+    };
+
+    const url = apiUrl(`/api/choreography/projects/${projectId}`);
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getPlanHeaders(),
+      },
+      body: JSON.stringify({
+        title: nextContent?.selectedWorkTitle
+          || nextContent?.pamphlet?.coverTitle
+          || nextContent?.titles?.mainTitle?.en
+          || nextContent?.titles?.scientific?.en
+          || 'Untitled Project',
+        currentContent: nextContent,
+      }),
+    });
+    const data = await parseResponseJson(res, url);
+    if (!res.ok || !data.ok) {
+      set({ autosaveState: 'failed' });
+      throw new Error(data?.error || 'Failed to save artwork image');
+    }
+
+    set({
+      autosaveState: 'saved',
+      autosaveUpdatedAt: data?.project?.updatedAt || updatedAt,
+    });
+    return {
+      artwork: persistData.asset,
+      project: data.project,
+      currentContent: nextContent,
+    };
   },
 
   getAutosave: async () => {

@@ -37,6 +37,39 @@ function localized(label, language) {
   return language === 'KR' ? label.kr || label.en : label.en || label.kr;
 }
 
+// Global blacklist for broken image URLs to prevent repeated loading attempts
+const failedImageUrls = new Set();
+
+function ThumbnailImage({ src, alt, title, category }) {
+  const [hasError, setHasError] = useState(() => failedImageUrls.has(src) || !src);
+
+  const handleError = () => {
+    if (src) failedImageUrls.add(src);
+    setHasError(true);
+  };
+
+  if (hasError) {
+    return (
+      <div className="absolute inset-0 h-full w-full bg-gradient-to-br from-[#120f1d] to-[#1a1528] flex flex-col items-center justify-center p-6 text-center border-b border-white/5 opacity-80">
+        <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-white/5 border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+          <span className="material-symbols-outlined text-2xl text-primary/60">theater_comedy</span>
+        </div>
+        <p className="text-[10px] font-semibold tracking-[0.2em] text-primary-light/50 uppercase mb-1">{category}</p>
+        <h4 className="text-sm font-bold text-white/60 line-clamp-2 px-4 leading-relaxed">{title}</h4>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      alt={alt}
+      className="absolute inset-0 h-full w-full object-cover opacity-80 transition-opacity duration-300"
+      src={src}
+      onError={handleError}
+    />
+  );
+}
+
 function ExploreSection({ title, items, language, onApply }) {
   const t = i18n[language];
   if (!items?.length) return null;
@@ -52,8 +85,8 @@ function ExploreSection({ title, items, language, onApply }) {
           <article key={item.id} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-md">
             <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
               <div className="relative min-h-[220px]">
-                <img alt={item.title} className="absolute inset-0 h-full w-full object-cover opacity-80" src={item.image} />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                <ThumbnailImage src={item.image} alt={item.title} title={item.title} category={item.category} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
                 <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
                   <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/70">
                     {item.source}

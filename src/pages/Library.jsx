@@ -5,6 +5,8 @@ import LanguageToggle from '../components/LanguageToggle';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
 import { useNavigate } from 'react-router-dom';
 import { navigateToDraftProject, navigateToNewProject } from '../lib/projectNavigation';
+import StableArtworkPreview from '../components/StableArtworkPreview';
+import { resolveArtworkUrl } from '../lib/artworkMedia.js';
 
 const i18n = {
     EN: {
@@ -39,13 +41,6 @@ const i18n = {
     }
 };
 
-const mockMoodboardItems = [
-    { id: 1, type: 'image', src: 'https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&q=80', title: 'Spiral Collapse Inspiration' },
-    { id: 2, type: 'ai_card', title: 'Emotional Curve', description: '#Dark #Tension Contemporary Solo' },
-    { id: 3, type: 'prompt', title: 'Spinal Wave', text: '움직임이 척추에서 시작해 팔로 퍼져나간다.' },
-    { id: 4, type: 'image', src: 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?auto=format&fit=crop&q=80', title: 'Golden Arch Color Scheme' }
-];
-
 const Library = () => {
     const navigate = useNavigate();
     const { language } = useStore();
@@ -59,11 +54,14 @@ const Library = () => {
         restoreProject,
         setProjectId,
         projectId: activeProjectId,
-        generatePPTForProject
+        generatePPTForProject,
+        fetchProjectVersions
     } = useChoreographyStudioStore();
     
     const [activeTab, setActiveTab] = useState(0);
     const [expandedProjectId, setExpandedProjectId] = useState(null);
+    const [projectVersions, setProjectVersions] = useState({});
+    const [loadingVersions, setLoadingVersions] = useState({});
     const [generatingDocId, setGeneratingDocId] = useState(null);
     const [projectToDelete, setProjectToDelete] = useState(null);
     const [showToast, setShowToast] = useState(false);
@@ -72,6 +70,52 @@ const Library = () => {
         listProjects().catch(() => {});
         listDeletedProjects().catch(() => {});
     }, [listDeletedProjects, listProjects]);
+
+    const handleExpandVersions = async (projectId) => {
+        if (expandedProjectId === projectId) {
+            setExpandedProjectId(null);
+        } else {
+            setExpandedProjectId(projectId);
+            if (!projectVersions[projectId]) {
+                setLoadingVersions(prev => ({ ...prev, [projectId]: true }));
+                try {
+                    const fetched = await fetchProjectVersions(projectId);
+                    setProjectVersions(prev => ({ ...prev, [projectId]: fetched }));
+                } catch (err) {
+                    console.error('Failed to fetch versions', err);
+                } finally {
+                    setLoadingVersions(prev => ({ ...prev, [projectId]: false }));
+                }
+            }
+        }
+    };
+
+    const actualMoodboardItems = React.useMemo(() => {
+        if (!Array.isArray(projects)) return [];
+        return projects.reduce((acc, proj) => {
+            const content = proj.currentContent;
+            if (content?.concept?.artisticStatement) {
+                acc.push({
+                    id: `prompt_${proj.id}`,
+                    type: 'prompt',
+                    text: content.concept.artisticStatement.en || content.concept.artisticStatement.kr || "Inspirational Idea",
+                    title: proj.title,
+                    description: language === 'KR' ? '예술적 의도' : 'Artistic Intent',
+                    projectId: proj.id
+                });
+            }
+            if (content?.designDna?.colors?.length > 0) {
+                acc.push({
+                    id: `dna_${proj.id}`,
+                    type: 'ai_card',
+                    title: proj.title,
+                    description: language === 'KR' ? '디자인 DNA 색상' : 'Design DNA Colors',
+                    projectId: proj.id
+                });
+            }
+            return acc;
+        }, []);
+    }, [projects, language]);
 
     const handleConfirmDelete = async () => {
         if (!projectToDelete) return;
@@ -163,7 +207,14 @@ const Library = () => {
                             <div key={project.id} className="glass-panel border-white/10 p-4 rounded-2xl flex flex-col gap-4">
                                 
                                 <div className="flex items-center justify-between">
-                                    <div className="flex-1 min-w-0 pr-2">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                                        <div className="size-14 overflow-hidden rounded-2xl border border-white/10 bg-white/5 shrink-0">
+                                            <StableArtworkPreview
+                                                src={resolveArtworkUrl(project.currentContent || {}, { prefer: 'thumbnail' })}
+                                                alt={project.title}
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-1">
                                             <h3 className="text-[15px] font-bold text-white truncate">{project.title}</h3>
                                             <button 
@@ -178,6 +229,7 @@ const Library = () => {
                                             <span className="material-symbols-outlined text-[12px]">schedule</span>
                                             {t.edited} {new Date(project.updatedAt).toLocaleDateString()}
                                         </p>
+                                        </div>
                                     </div>
                                     <button
                                         onClick={() => {
@@ -229,7 +281,7 @@ const Library = () => {
                                         </button>
                                     )}
                                     <button 
-                                        onClick={() => setExpandedProjectId(expandedProjectId === project.id ? null : project.id)}
+                                        onClick={() => handleExpandVersions(project.id)}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-semibold transition-all border border-white/5 ${expandedProjectId === project.id ? 'bg-slate-700/80 text-white' : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700/60'}`}
                                     >
                                         <span className="material-symbols-outlined text-[15px]">history</span>
@@ -250,33 +302,38 @@ const Library = () => {
                                         </div>
                                         
                                         <div className="flex flex-col gap-2 pl-2 mt-1">
-                                            {[
-                                                { id: 'v2', name: 'v2.0 (최신 작업본)', date: '방금 전', latest: true },
-                                                { id: 'v1', name: 'v1.0 (초안 구조)', date: '2일 전', latest: false },
-                                            ].map(v => (
-                                                <div key={v.id} className="flex flex-col gap-2 bg-white/5 rounded-lg p-2.5 hover:bg-white/10 transition-colors group">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`text-xs font-semibold ${v.latest ? 'text-primary-light' : 'text-slate-300'}`}>{v.name}</span>
-                                                            {v.latest && <span className="text-[8px] bg-primary/20 text-primary px-1.5 rounded-sm">Current</span>}
-                                                        </div>
-                                                        <span className="text-[9px] text-slate-500">{v.date}</span>
-                                                    </div>
-                                                    <div className="flex gap-3 justify-end items-center opacity-60 group-hover:opacity-100 transition-opacity">
-                                                        {!v.latest && (
-                                                            <button className="text-[10px] text-slate-300 hover:text-white flex items-center gap-1">
-                                                                <span className="material-symbols-outlined text-[11px]">restore</span>{t.restore}
-                                                            </button>
-                                                        )}
-                                                        <button className="text-[10px] text-slate-300 hover:text-white flex items-center gap-1">
-                                                            <span className="material-symbols-outlined text-[11px]">edit</span>{t.rename}
-                                                        </button>
-                                                        <button className="text-[10px] text-rose-400 hover:text-rose-300 flex items-center gap-1">
-                                                            <span className="material-symbols-outlined text-[11px]">delete</span>{t.delete}
-                                                        </button>
-                                                    </div>
+                                            {loadingVersions[project.id] ? (
+                                                <div className="py-4 flex justify-center text-primary-light">
+                                                    <span className="material-symbols-outlined animate-spin">sync</span>
                                                 </div>
-                                            ))}
+                                            ) : (projectVersions[project.id] && projectVersions[project.id].length > 0) ? (
+                                                projectVersions[project.id].map((v, index) => (
+                                                    <div key={v.id} className="flex flex-col gap-2 bg-white/5 rounded-lg p-2.5 hover:bg-white/10 transition-colors group">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`text-xs font-semibold ${index === 0 ? 'text-primary-light' : 'text-slate-300'}`}>v{v.versionNumber}.0 {v.label ? `(${v.label})` : (index === 0 ? '(최신 작업본)' : '')}</span>
+                                                                {index === 0 && <span className="text-[8px] bg-primary/20 text-primary px-1.5 rounded-sm">Current</span>}
+                                                            </div>
+                                                            <span className="text-[9px] text-slate-500">{new Date(v.createdAt).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <div className="flex gap-3 justify-end items-center opacity-60 group-hover:opacity-100 transition-opacity">
+                                                            {index !== 0 && (
+                                                                <button className="text-[10px] text-slate-300 hover:text-white flex items-center gap-1">
+                                                                    <span className="material-symbols-outlined text-[11px]">restore</span>{t.restore}
+                                                                </button>
+                                                            )}
+                                                            <button className="text-[10px] text-slate-300 hover:text-white flex items-center gap-1">
+                                                                <span className="material-symbols-outlined text-[11px]">edit</span>{t.rename}
+                                                            </button>
+                                                            <button className="text-[10px] text-rose-400 hover:text-rose-300 flex items-center gap-1">
+                                                                <span className="material-symbols-outlined text-[11px]">delete</span>{t.delete}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="py-2 text-center text-xs text-slate-500">버전 기록이 없습니다.</div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -325,7 +382,7 @@ const Library = () => {
 
                 {activeTab === 1 && (
                     <div className="grid grid-cols-2 gap-3">
-                        {mockMoodboardItems.map(item => (
+                        {actualMoodboardItems.map(item => (
                             <div key={item.id} className="glass-panel border-white/10 overflow-hidden rounded-2xl flex flex-col group cursor-pointer hover:border-primary/50 transition-colors relative">
                                 <button className="absolute top-2 right-2 z-10 bg-black/50 backdrop-blur-md size-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                     <span className="material-symbols-outlined text-white text-[12px]">close</span>

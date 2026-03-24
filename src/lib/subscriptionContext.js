@@ -12,9 +12,10 @@ export function getClientPlan() {
 
   const w = safeWindow();
   const plan = (w?.localStorage.getItem(PLAN_KEY) || 'free').toLowerCase();
-  if (plan === 'studio' || plan === 'pro' || plan === 'free' || plan === 'team' || plan === 'school') {
-    return plan === 'team' || plan === 'school' ? 'studio' : plan;
-  }
+  
+  if (plan.includes('team') || plan.includes('starter') || plan.includes('enterprise')) return 'team';
+  if (plan.includes('pro') || plan.includes('studio') || plan.includes('premium')) return 'studio';
+
   return 'free';
 }
 

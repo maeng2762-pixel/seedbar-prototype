@@ -2,9 +2,7 @@ import '../db/database.js';
 import { ensureUser } from '../models/userModel.js';
 
 const accounts = [
-  { email: 'free@seedbar.dev', password: 'seedbar1234', plan: 'free' },
-  { email: 'pro@seedbar.dev', password: 'seedbar1234', plan: 'pro' },
-  { email: 'expert@seedbar.dev', password: 'seedbar1234', plan: 'studio' },
+  { email: 'studio@seedbar.dev', password: 'seedbar1234', plan: 'studio' },
 ];
 
 for (const acc of accounts) {

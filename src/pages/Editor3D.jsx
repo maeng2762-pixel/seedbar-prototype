@@ -3,10 +3,13 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import useStore from '../store/useStore';
 import LanguageToggle from '../components/LanguageToggle';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
+import { ARTWORK_FALLBACK_URL } from '../lib/artworkMedia.js';
+import { reportRuntimeDiagnostic } from '../services/runtimeDiagnostics.js';
 import {
     buildStageVisualization,
     getSavedStageVisualization,
     getStageAssetMeta,
+    buildReferencePhotos,
 } from '../services/stageVisual3d';
 
 const legacyI18n = {
@@ -49,6 +52,119 @@ const assetAccent = {
         chip: 'text-pink-300 border-pink-400/30 bg-pink-400/10',
     },
 };
+
+const REFERENCE_FAILURE_STORAGE_KEY = 'seedbar:reference-image-failures:v1';
+const REFERENCE_FAILURE_LIMIT = 2;
+
+function canUseStorage() {
+    return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
+function readFailureMap() {
+    if (!canUseStorage()) return {};
+    try {
+        const raw = window.localStorage.getItem(REFERENCE_FAILURE_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeFailureMap(map) {
+    if (!canUseStorage()) return;
+    try {
+        window.localStorage.setItem(REFERENCE_FAILURE_STORAGE_KEY, JSON.stringify(map));
+    } catch {
+        // ignore localStorage failures
+    }
+}
+
+function getFailureCount(url) {
+    if (!url) return 0;
+    const map = readFailureMap();
+    return Number(map[url]) || 0;
+}
+
+function clearFailureCounts(urls = []) {
+    if (!canUseStorage()) return;
+    const map = readFailureMap();
+    let touched = false;
+
+    urls.forEach((url) => {
+        if (url && map[url]) {
+            delete map[url];
+            touched = true;
+        }
+    });
+
+    if (touched) writeFailureMap(map);
+}
+
+function recordReferenceFailure(photo, url) {
+    if (!url) return;
+    const map = readFailureMap();
+    map[url] = (Number(map[url]) || 0) + 1;
+    writeFailureMap(map);
+
+    reportRuntimeDiagnostic({
+        category: 'visual_reference_image_error',
+        severity: 'warn',
+        message: `Visual reference image failed to load: ${url}`,
+        meta: {
+            photoId: photo?.id || '',
+            query: photo?.query || '',
+            assetType: photo?.assetType || '',
+            sourceUrl: photo?.sourceUrl || '',
+        },
+    }, { useBeacon: true });
+}
+
+function isRenderableImageUrl(url = '') {
+    const value = String(url || '').trim();
+    if (!value) return false;
+    if (value.startsWith('data:image/')) return true;
+    if (value.startsWith('/images/') || value.startsWith('/media/')) return true;
+
+    try {
+        const parsed = new URL(value, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+        const path = parsed.pathname.toLowerCase();
+        const host = parsed.hostname.toLowerCase();
+
+        if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.webp') || path.endsWith('.gif') || path.endsWith('.svg')) {
+            return true;
+        }
+
+        return [
+            'images.unsplash.com',
+            'images.pexels.com',
+            'i.ytimg.com',
+            'upload.wikimedia.org',
+            'localhost',
+            '127.0.0.1',
+        ].includes(host);
+    } catch {
+        return false;
+    }
+}
+
+function uniqueUrls(values = []) {
+    return [...new Set(values.filter(Boolean))];
+}
+
+function buildPhotoCandidates(photo, { includeFailed = false } = {}) {
+    const candidates = uniqueUrls([
+        photo?.thumbnailUrl,
+        photo?.imageUrl,
+        photo?.detailImageUrl,
+        ...(Array.isArray(photo?.fallbackImageUrls) ? photo.fallbackImageUrls : []),
+        photo?.fallbackCoverUrl,
+        ARTWORK_FALLBACK_URL,
+    ]).filter(isRenderableImageUrl);
+
+    return includeFailed
+        ? candidates
+        : candidates.filter((url) => url.startsWith('data:image/') || getFailureCount(url) < REFERENCE_FAILURE_LIMIT);
+}
 
 function localized(value, language) {
     if (value == null) return '';
@@ -177,17 +293,193 @@ function StageVisualPreview({ visualization, assetType, language = 'EN' }) {
     );
 }
 
+function ReferencePhotoGrid({ photos = [], language = 'EN' }) {
+    const isKr = language === 'KR';
+    if (!photos.length) {
+        return (
+            <div className="border border-dashed border-white/10 bg-black/20 px-4 py-6">
+                <div className="h-28 animate-pulse bg-white/[0.04]" />
+                <p className="mt-4 text-xs text-slate-400">
+                    {isKr ? '참고 사진을 정리하는 중입니다. 잠시 후 다시 불러오세요.' : 'Preparing reference photos. Please try again in a moment.'}
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">
+                    {localized(photos[0]?.categoryLabel, language) || (isKr ? '실제 참고 사진' : 'Reference Photos')}
+                </p>
+                <span className="text-[9px] text-white/30 uppercase tracking-widest">{localized(photos[0]?.sourceLabel || photos[0]?.source, language) || 'Visual Reference'}</span>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+                {photos.map((photo) => (
+                    <ReferencePhotoCard key={photo.id} photo={photo} language={language} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function ReferencePhotoCard({ photo, language = 'EN' }) {
+    const isKr = language === 'KR';
+    const [retryNonce, setRetryNonce] = React.useState(0);
+    const [candidateIndex, setCandidateIndex] = React.useState(0);
+    const [isLoading, setIsLoading] = React.useState(true);
+
+    const displayCandidates = React.useMemo(
+        () => buildPhotoCandidates(photo, { includeFailed: retryNonce > 0 }),
+        [photo, retryNonce],
+    );
+
+    const activeSrc = displayCandidates[candidateIndex] || photo?.fallbackCoverUrl || ARTWORK_FALLBACK_URL;
+    const isFallbackActive = activeSrc === photo?.fallbackCoverUrl || activeSrc === ARTWORK_FALLBACK_URL;
+    const detailHref = isRenderableImageUrl(photo?.detailImageUrl) ? photo.detailImageUrl : (photo?.sourceUrl || photo?.searchUrl || '#');
+    const retryTargets = React.useMemo(
+        () => uniqueUrls([
+            photo?.thumbnailUrl,
+            photo?.imageUrl,
+            photo?.detailImageUrl,
+            ...(Array.isArray(photo?.fallbackImageUrls) ? photo.fallbackImageUrls : []),
+        ]),
+        [photo],
+    );
+
+    React.useEffect(() => {
+        setCandidateIndex(0);
+        setIsLoading(true);
+    }, [photo?.id, retryNonce]);
+
+    const handleError = React.useCallback(() => {
+        recordReferenceFailure(photo, activeSrc);
+        if (candidateIndex < displayCandidates.length - 1) {
+            setCandidateIndex((current) => current + 1);
+            setIsLoading(true);
+            return;
+        }
+        setIsLoading(false);
+    }, [activeSrc, candidateIndex, displayCandidates.length, photo]);
+
+    const handleRetry = React.useCallback(() => {
+        clearFailureCounts(retryTargets);
+        setRetryNonce((current) => current + 1);
+    }, [retryTargets]);
+
+    return (
+        <div className="group overflow-hidden border border-white/10 bg-black/30 transition-all hover:border-white/25">
+            <div className="relative aspect-[4/3] overflow-hidden bg-black/50">
+                {isLoading && (
+                    <div className="absolute inset-0 z-10 animate-pulse bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent">
+                        <div className="absolute inset-x-4 top-4 h-3 rounded-full bg-white/[0.08]" />
+                        <div className="absolute inset-x-4 top-10 h-3 w-2/3 rounded-full bg-white/[0.06]" />
+                        <div className="absolute inset-x-4 bottom-4 h-16 rounded-2xl bg-black/20" />
+                    </div>
+                )}
+
+                <img
+                    key={`${photo.id}_${retryNonce}_${candidateIndex}`}
+                    src={activeSrc}
+                    alt={photo.query}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    style={{
+                        objectPosition: candidateIndex === 0
+                            ? (photo?.thumbnailObjectPosition || '50% 50%')
+                            : (photo?.detailObjectPosition || photo?.thumbnailObjectPosition || '50% 50%'),
+                    }}
+                    onLoad={() => setIsLoading(false)}
+                    onError={handleError}
+                />
+
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                <div className="absolute bottom-2 left-3 right-3 flex items-end justify-between gap-3">
+                    <div>
+                        <p className="text-[10px] uppercase tracking-widest text-white/60">{photo.query}</p>
+                        {photo?.headline && (
+                            <p className="mt-1 text-xs font-medium text-white">{localized(photo.headline, language)}</p>
+                        )}
+                    </div>
+                    {isFallbackActive && (
+                        <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[9px] uppercase tracking-[0.2em] text-amber-200">
+                            {isKr ? '대체 이미지' : 'Fallback'}
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <div className="space-y-3 px-3 py-3">
+                <p className="text-xs leading-relaxed text-slate-300">{localized(photo.description, language)}</p>
+                {photo?.note && (
+                    <p className="text-[11px] leading-relaxed text-slate-400">{localized(photo.note, language)}</p>
+                )}
+
+                {isFallbackActive && (
+                    <div className="border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-[11px] text-amber-100">
+                        <p>{isKr ? '외부 참고 사진이 지연되거나 실패해 기본 커버 이미지로 대체했습니다.' : 'The primary reference photo failed, so a stable fallback cover is shown instead.'}</p>
+                        <button
+                            type="button"
+                            onClick={handleRetry}
+                            className="mt-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] text-amber-200 transition-colors hover:text-white"
+                        >
+                            <span className="material-symbols-outlined text-[14px]">refresh</span>
+                            {isKr ? '다시 불러오기' : 'Reload'}
+                        </button>
+                    </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-widest">
+                    {photo?.sourceUrl && (
+                        <a
+                            href={photo.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-teal-400 transition-colors hover:text-teal-300"
+                        >
+                            <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                            {isKr ? '출처 보기' : 'Source'}
+                        </a>
+                    )}
+                    {detailHref && detailHref !== '#' && (
+                        <a
+                            href={detailHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-violet-400 transition-colors hover:text-violet-300"
+                        >
+                            <span className="material-symbols-outlined text-[14px]">image</span>
+                            {isKr ? '상세 보기' : 'Full View'}
+                        </a>
+                    )}
+                    {photo?.searchUrl && (
+                        <a
+                            href={photo.searchUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-white/50 transition-colors hover:text-white/80"
+                        >
+                            <span className="material-symbols-outlined text-[14px]">travel_explore</span>
+                            {isKr ? '더 찾기' : 'More'}
+                        </a>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function StageVisualizationEditor() {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const language = useStore((state) => state.language);
     const isKr = language === 'KR';
-    const { fetchProject, updateProject, setProjectId } = useChoreographyStudioStore();
+    const { fetchProject, updateProject, setProjectId, temporaryDraft } = useChoreographyStudioStore();
 
     const assetType = location.state?.assetType || searchParams.get('asset') || 'lighting';
     const projectId = location.state?.projectId || searchParams.get('projectId') || null;
-    const initialContent = location.state?.projectContent || null;
+    const initialContent = location.state?.hasTemporaryContext ? temporaryDraft : (location.state?.projectContent || null);
 
     const [projectContent, setProjectContent] = useState(initialContent);
     const [workingVisualization, setWorkingVisualization] = useState(() => {
@@ -204,6 +496,24 @@ function StageVisualizationEditor() {
     const accent = assetAccent[assetType] || assetAccent.lighting;
     const savedVisualization = getSavedStageVisualization(projectContent || {}, assetType);
     const projectTitle = localized(projectContent?.pamphlet?.coverTitle || projectContent?.titles?.scientific, language) || 'Seedbar Project';
+    const preparedVisualization = useMemo(() => {
+        if (!workingVisualization) return null;
+        return {
+            ...workingVisualization,
+            referencePhotos: projectContent
+                ? buildReferencePhotos({
+                    assetType,
+                    projectContent,
+                    revision: workingVisualization?.revision || 0,
+                })
+                : (workingVisualization?.referencePhotos || []),
+        };
+    }, [assetType, projectContent, workingVisualization]);
+
+    // Scroll to top on mount (prevents inheriting parent scroll position)
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     useEffect(() => {
         if (!projectId) return;
@@ -258,7 +568,7 @@ function StageVisualizationEditor() {
     };
 
     const handleSave = async () => {
-        if (!projectContent || !workingVisualization) {
+        if (!projectContent || !preparedVisualization) {
             setError(isKr ? '저장할 비주얼 컨셉 데이터가 아직 준비되지 않았습니다.' : 'The visual concept is not ready to save yet.');
             return;
         }
@@ -278,7 +588,7 @@ function StageVisualizationEditor() {
                 visualizations3d: {
                     ...(projectContent.visualizations3d || {}),
                     [assetType]: {
-                        ...workingVisualization,
+                        ...preparedVisualization,
                         savedAt,
                     },
                 },
@@ -370,7 +680,7 @@ function StageVisualizationEditor() {
                         <button
                             type="button"
                             onClick={handleSave}
-                            disabled={isHydrating || isSaving || !workingVisualization}
+                            disabled={isHydrating || isSaving || !preparedVisualization}
                             className="bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-black transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             {isSaving
@@ -383,7 +693,7 @@ function StageVisualizationEditor() {
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">{localized(assetMeta.focus, language)}</p>
-                        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-300">{localized(workingVisualization?.realismNote, language)}</p>
+                        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-300">{localized(preparedVisualization?.realismNote, language)}</p>
                     </div>
                     {savedVisualization?.savedAt && (
                         <div className="border border-white/10 bg-white/5 px-4 py-3 text-right">
@@ -399,69 +709,48 @@ function StageVisualizationEditor() {
                     </div>
                 )}
 
-                <div className="grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
-                    <section className="border border-white/10 bg-white/5 p-4 md:p-5" style={{ boxShadow: `0 0 0 1px ${accent.ring}` }}>
-                        {isHydrating || !workingVisualization ? (
-                            <div className="flex min-h-[460px] flex-col items-center justify-center gap-4 border border-white/10 bg-black/20">
-                                <div className="h-12 w-12 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                                <div className="text-center">
-                                    <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">{isKr ? '2D 비주얼 컨셉 생성 중' : 'Generating visual concept'}</p>
-                                    <p className="mt-2 text-sm text-slate-300">{isKr ? '안무설계도 문맥을 읽어 현실적인 공연 참고 비주얼로 정리하고 있습니다.' : 'Reading the choreography blueprint and shaping it into a practical production visual reference.'}</p>
+                <div className="grid gap-8 md:grid-cols-[1fr_1fr] items-start">
+                    {/* Primary Photo (1 Image) */}
+                    <div className="space-y-6">
+                        <section className="border border-white/10 bg-white/5 p-4 md:p-5" style={{ boxShadow: `0 0 0 1px ${accent.ring}` }}>
+                            <div className="mb-4 flex items-center justify-between">
+                                <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">
+                                    {isKr ? '📸 실제 공연 참고 사진' : '📸 Real Performance Reference'}
+                                </p>
+                            </div>
+                            {preparedVisualization?.referencePhotos?.length > 0 ? (
+                                <ReferencePhotoGrid photos={preparedVisualization.referencePhotos.slice(0, 1)} language={language} />
+                            ) : (
+                                <div className="border border-dashed border-white/10 bg-black/20 px-4 py-6">
+                                    <div className="h-48 animate-pulse bg-white/[0.04]" />
+                                    <p className="mt-4 text-xs text-slate-400">
+                                        {isKr ? '참고 사진을 준비 중입니다.' : 'Preparing reference photo.'}
+                                    </p>
                                 </div>
-                            </div>
-                        ) : (
-                            <StageVisualPreview visualization={workingVisualization} assetType={assetType} language={language} />
-                        )}
+                            )}
+                        </section>
+                    </div>
 
-                        {workingVisualization && (
-                            <div className="mt-4 grid gap-3 md:grid-cols-3">
-                                {workingVisualization.sceneMoments.map((moment) => (
-                                    <div key={moment.id} className="border border-white/10 bg-black/20 p-4">
-                                        <p className="text-[10px] uppercase tracking-[0.2em] text-white/45">{localized(moment.label, language)}</p>
-                                        <p className="mt-2 text-sm leading-relaxed text-slate-300">{localized(moment.cue, language)}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    <aside className="space-y-5">
+                    {/* Metadata summary (Less is more) */}
+                    <aside className="space-y-6">
                         <section className="border border-white/10 bg-white/5 p-5">
                             <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">{isKr ? '비주얼 요약' : 'Visual Summary'}</p>
-                            <p className="mt-3 text-sm leading-relaxed text-slate-200">{localized(workingVisualization?.summary, language)}</p>
-                            <p className="mt-4 text-[10px] uppercase tracking-[0.22em] text-white/40">{isKr ? '생성 프롬프트' : 'Generation Prompt'}</p>
-                            <p className="mt-2 text-xs leading-relaxed text-slate-400">{localized(workingVisualization?.prompt, language)}</p>
+                            <p className="mt-3 text-sm leading-relaxed text-slate-200">{localized(preparedVisualization?.summary, language)}</p>
                         </section>
 
                         <section className="border border-white/10 bg-white/5 p-5">
-                            <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">{isKr ? '컬러와 재질' : 'Color & Material'}</p>
-                            <div className="mt-4">
-                                <PaletteSwatches palette={workingVisualization?.palette || []} />
-                            </div>
+                            <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">{isKr ? '제작자 가이드' : 'Production Notes'}</p>
                             <div className="mt-4 space-y-2">
-                                {(workingVisualization?.materialNotes || []).map((note, index) => (
+                                {(preparedVisualization?.materialNotes || []).map((note, index) => (
                                     <div key={`${localized(note, language)}_${index}`} className="border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-300">
                                         {localized(note, language)}
                                     </div>
                                 ))}
-                            </div>
-                        </section>
-
-                        <section className="border border-white/10 bg-white/5 p-5">
-                            <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">{isKr ? '실제 공연 기준 체크포인트' : 'Production Reality Check'}</p>
-                            <div className="mt-4 space-y-2">
-                                {(workingVisualization?.placementNotes || []).map((note, index) => (
+                                {(preparedVisualization?.placementNotes || []).map((note, index) => (
                                     <div key={`${localized(note, language)}_${index}`} className="border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-300">
                                         {localized(note, language)}
                                     </div>
                                 ))}
-                            </div>
-                        </section>
-
-                        <section className="border border-white/10 bg-white/5 p-5">
-                            <p className="text-[10px] uppercase tracking-[0.22em] text-white/40">{isKr ? '현재 프로젝트에서 읽어온 기준' : 'Project Anchors'}</p>
-                            <div className="mt-4">
-                                <ProjectAnchorList anchors={workingVisualization?.projectAnchors || []} language={language} />
                             </div>
                         </section>
                     </aside>
@@ -642,6 +931,10 @@ const Editor3D = () => {
     const [searchParams] = useSearchParams();
     const assetType = location.state?.assetType || searchParams.get('asset');
     const isVisualStudio = ['lighting', 'props', 'costume'].includes(assetType);
+
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [location.pathname]);
 
     if (isVisualStudio) {
         return <StageVisualizationEditor />;

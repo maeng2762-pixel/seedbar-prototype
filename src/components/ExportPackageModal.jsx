@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function ExportPackageModal({ isOpen, onClose, draftData, token, currentPlan, isKr }) {
+export default function ExportPackageModal({ isOpen, onClose, draftData, token, currentPlan, isKr, onSaveAndView }) {
     const [step, setStep] = useState(1); // 1: Select Type, 2: Generating, 3: Editor
     const [exportType, setExportType] = useState('full'); // 'ppt_only', 'ppt_script', 'full'
     const [language, setLanguage] = useState(isKr ? 'KR' : 'EN');
@@ -18,8 +18,8 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
             return;
         }
 
-        if (!currentPlan || !['studio', 'team'].includes(currentPlan.toLowerCase())) {
-            setError(isKr ? '이 기능은 Studio 또는 Team/School 플랜에서 사용할 수 있습니다.' : 'This feature is available on Studio or Team/School plans.');
+        if (!currentPlan || !['studio', 'team', 'team_starter', 'enterprise'].includes(currentPlan.toLowerCase())) {
+            setError(isKr ? '이 기능은 Studio 또는 Team 플랜에서 사용할 수 있습니다.' : 'This feature is available on Studio or Team plans.');
             setErrorType('plan');
             return;
         }
@@ -75,46 +75,37 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
         }
     };
 
-    const handleDownload = () => {
-        // Prepare content
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        
-        const downloadFile = (filename, content) => {
-            const element = document.createElement('a');
-            const file = new Blob([content], { type: 'text/plain' });
-            element.href = URL.createObjectURL(file);
-            element.download = filename;
-            document.body.appendChild(element); // Required for this to work in FireFox
-            element.click();
-            document.body.removeChild(element);
-        };
-
-        if (generatedPackage.pptSlides) {
-            const pptContent = generatedPackage.pptSlides.map(s => 
-                `## [Slide ${s.slideNumber}] ${s.title}\n\n**${s.coreMessage || ''}**\n\n${(s.subDescription || []).map(b => `- ${b}`).join('\n')}\n\n> Visual Aid: ${s.visualAid || ''}\n> Presenter Note: ${s.presentationPoint || ''}\n`
-            ).join('\n---\n');
-            downloadFile(`PPT_Content_${timestamp}.md`, pptContent);
+    const handleSaveAndView = async () => {
+        // Save to backend directly here, or just let parent handle it? 
+        // We will do both. Calling the API ensures the document is saved permanently.
+        try {
+            const apiUrl = (path) => `${import.meta.env.VITE_API_BASE_URL || ''}${path}`;
+            const targetId = draftData?._id || draftData?.id;
+            
+            if (targetId) {
+                // Background save to MongoDB
+                const updatedContent = { ...draftData, generatedPackage };
+                await fetch(apiUrl(`/api/choreography/projects/${targetId}`), {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        title: draftData.title || 'Untitled',
+                        content: updatedContent
+                    })
+                });
+            }
+        } catch (e) {
+            console.error('Failed to auto-save generated package:', e);
         }
 
-        if (exportType === 'ppt_script' || exportType === 'full') {
-            if (generatedPackage.presentationScript) {
-                downloadFile(`Presentation_Script_${timestamp}.txt`, generatedPackage.presentationScript);
-            }
+        if (onSaveAndView) {
+            onSaveAndView(generatedPackage);
+        } else {
+            onClose();
         }
-
-        if (exportType === 'full') {
-            if (generatedPackage.stageDirectorDoc) {
-                downloadFile(`Stage_Director_Doc_${timestamp}.txt`, generatedPackage.stageDirectorDoc);
-            }
-            if (generatedPackage.lightingDirectorDoc) {
-                downloadFile(`Lighting_Director_Doc_${timestamp}.txt`, generatedPackage.lightingDirectorDoc);
-            }
-            if (generatedPackage.costumePropDoc) {
-                downloadFile(`Costume_Prop_Table_${timestamp}.txt`, generatedPackage.costumePropDoc);
-            }
-        }
-
-        onClose();
     };
 
     return (
@@ -364,9 +355,9 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
                             <button onClick={() => setStep(1)} className="px-6 py-2 border border-white/20 text-white hover:bg-white/10 text-sm uppercase tracking-widest">
                                 {isKr ? '다시 생성' : 'Regenerate'}
                             </button>
-                            <button onClick={handleDownload} className="px-6 py-2 bg-teal-500 text-black font-bold hover:bg-teal-400 transition-colors flex items-center gap-2 text-sm uppercase tracking-widest">
-                                <span className="material-symbols-outlined text-[18px]">download</span>
-                                {isKr ? '최종 다운로드 (.md, .txt)' : 'Final Download'}
+                            <button onClick={handleSaveAndView} className="px-6 py-2 bg-teal-500 text-black font-bold hover:bg-teal-400 transition-colors flex items-center gap-2 text-sm uppercase tracking-widest">
+                                <span className="material-symbols-outlined text-[18px]">visibility</span>
+                                {isKr ? '저장 및 뷰어 열기' : 'Save & Open Viewer'}
                             </button>
                         </div>
                     </div>

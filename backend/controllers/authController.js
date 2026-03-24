@@ -60,13 +60,11 @@ export function createSeedAccountsController(_req, res) {
     return res.status(403).json({ ok: false, error: 'DEV_AUTH_SEED must be true.' });
   }
 
-  const free = ensureUser('free@seedbar.dev', 'free', 'seedbar1234');
-  const pro = ensureUser('pro@seedbar.dev', 'pro', 'seedbar1234');
-  const studio = ensureUser('expert@seedbar.dev', 'studio', 'seedbar1234');
+  const studio = ensureUser('studio@seedbar.dev', 'studio', 'seedbar1234');
 
   return res.json({
     ok: true,
-    accounts: [responseUser(free), responseUser(pro), responseUser(studio)],
+    accounts: [responseUser(studio)],
   });
 }
 

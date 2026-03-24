@@ -27,3 +27,13 @@ dist-ssr
 .env.*
 !.env.example
 temp_exports/
+accounts.json
+server.log
+backend/db/*.sqlite
+backend/db/*.sqlite-shm
+backend/db/*.sqlite-wal
+backend/db/database.sqlite
+persistent_media/
+test_download.zip
+test_stream/
+test_zip/

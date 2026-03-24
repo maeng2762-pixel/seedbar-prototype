@@ -16,6 +16,369 @@ const ASSET_META = {
   },
 };
 
+const REFERENCE_PHOTO_KEYWORDS = {
+  lighting: {
+    base: ['stage lighting', 'theater spotlight', 'dance performance lighting', 'concert stage light'],
+    mood: {
+      dark: ['dramatic stage shadow', 'moody theater light'],
+      warm: ['warm stage glow', 'amber theater lighting'],
+      cold: ['blue stage wash', 'cool tone spotlight'],
+      minimal: ['minimal stage lighting', 'single spotlight dance'],
+      intense: ['strobe light performance', 'dynamic stage lighting'],
+    },
+    genre: {
+      contemporary: ['contemporary dance lighting', 'modern dance stage'],
+      ballet: ['ballet stage lighting', 'classical ballet spotlight'],
+      hiphop: ['hip hop concert lighting', 'urban dance stage light'],
+      kpop: ['kpop stage lighting', 'idol concert light show'],
+    },
+  },
+  costume: {
+    base: ['dance costume', 'performance outfit', 'stage costume design', 'dance wear fashion'],
+    mood: {
+      dark: ['dark dance costume', 'black stage outfit'],
+      warm: ['flowing dance dress', 'warm tone costume'],
+      cold: ['white dance costume', 'minimal dance outfit'],
+      minimal: ['minimalist dance wear', 'simple stage outfit'],
+      intense: ['dramatic dance costume', 'bold stage wear'],
+    },
+    genre: {
+      contemporary: ['contemporary dance costume', 'modern dance outfit'],
+      ballet: ['ballet tutu', 'ballet leotard costume'],
+      hiphop: ['hip hop dance outfit', 'streetwear dance'],
+      kpop: ['kpop stage outfit', 'idol performance costume'],
+    },
+  },
+  props: {
+    base: ['stage props', 'theater set design', 'dance stage setup', 'performance set piece'],
+    mood: {
+      dark: ['dark stage set', 'moody theater props'],
+      warm: ['warm stage decor', 'rustic theater set'],
+      cold: ['minimalist stage set', 'geometric stage props'],
+      minimal: ['empty stage design', 'minimal theater set'],
+      intense: ['dramatic stage set', 'elaborate theater props'],
+    },
+    genre: {
+      contemporary: ['contemporary dance stage set', 'modern performance props'],
+      ballet: ['ballet stage set', 'classical theater decor'],
+      hiphop: ['urban dance set', 'street dance stage'],
+      kpop: ['kpop concert stage', 'pop performance set'],
+    },
+  },
+};
+
+const STABLE_REFERENCE_SOURCE = bilingual('Seedbar Curated Performance Reference', 'Seedbar 큐레이션 공연 레퍼런스');
+
+const CURATED_REFERENCE_LIBRARY = {
+  lighting: [
+    {
+      id: 'lighting_stage_wash',
+      imageUrl: '/images/stage_neon_lighting.png',
+      thumbnailUrl: '/images/stage_neon_lighting.png',
+      thumbnailPosition: '50% 48%',
+      detailPosition: '50% 50%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=contemporary+dance+stage+lighting',
+      tags: ['contemporary', 'stage', 'lighting', 'cool', 'intense', 'wide', 'dramatic'],
+      headline: bilingual('Wide wash and haze balance', '와이드 워시와 헤이즈 밸런스'),
+      note: bilingual('A real proscenium-scale lighting frame with readable audience focus and layered beams.', '객석 시점에서 집중도가 읽히는 실제 프로시니엄 규모의 조명 프레임입니다.'),
+    },
+    {
+      id: 'lighting_overhead_rig',
+      imageUrl: '/images/stage_neon_lighting.png',
+      thumbnailUrl: '/images/stage_neon_lighting.png',
+      thumbnailPosition: '50% 12%',
+      detailPosition: '50% 18%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=theater+overhead+lighting+dance',
+      tags: ['lighting', 'rig', 'cool', 'precision', 'minimal', 'technical'],
+      headline: bilingual('Overhead rig and beam geometry', '오버헤드 리그와 빔 구조'),
+      note: bilingual('Useful for reading how color temperature and angle define the vertical body line.', '색온도와 조사각이 신체의 수직 라인을 어떻게 조각하는지 읽기 좋습니다.'),
+    },
+    {
+      id: 'lighting_silhouette_read',
+      imageUrl: '/images/stage_neon_lighting.png',
+      thumbnailUrl: '/images/stage_neon_lighting.png',
+      thumbnailPosition: '50% 68%',
+      detailPosition: '50% 58%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=dance+performance+silhouette+lighting',
+      tags: ['lighting', 'silhouette', 'dark', 'dramatic', 'contemporary', 'contrast'],
+      headline: bilingual('Silhouette and backlight read', '실루엣과 백라이트 판독'),
+      note: bilingual('Good reference for seeing how haze and backlight keep the body visible without flattening the stage.', '헤이즈와 백라이트가 무대를 납작하게 만들지 않으면서 신체를 드러내는 방식을 참고하기 좋습니다.'),
+    },
+    {
+      id: 'lighting_stage_depth',
+      imageUrl: '/images/stage_neon_lighting.png',
+      thumbnailUrl: '/images/stage_neon_lighting.png',
+      thumbnailPosition: '16% 54%',
+      detailPosition: '20% 50%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=theater+stage+depth+lighting',
+      tags: ['lighting', 'depth', 'space', 'ensemble', 'cold', 'wide'],
+      headline: bilingual('Stage depth and edge spill', '무대 깊이와 엣지 스필'),
+      note: bilingual('Helps judge how side spill and depth cues separate dancers from the back wall.', '사이드 스필과 원근 단서가 무용수와 후면 벽을 어떻게 분리하는지 보여줍니다.'),
+    },
+  ],
+  costume: [
+    {
+      id: 'costume_flowing_layers',
+      imageUrl: '/images/contemporary_costume_concept.png',
+      thumbnailUrl: '/images/contemporary_costume_concept.png',
+      thumbnailPosition: '50% 36%',
+      detailPosition: '50% 42%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=contemporary+dance+costume+rehearsal',
+      tags: ['costume', 'contemporary', 'flow', 'minimal', 'elegant', 'silhouette'],
+      headline: bilingual('Flowing fabric and silhouette line', '흐르는 소재와 실루엣 라인'),
+      note: bilingual('Useful for checking how translucent layers move without reading as costume excess.', '비침이 있는 레이어가 과장된 의상처럼 보이지 않으면서도 어떻게 움직이는지 참고하기 좋습니다.'),
+    },
+    {
+      id: 'costume_rehearsal_practical',
+      imageUrl: '/images/contemporary_costume_concept.png',
+      thumbnailUrl: '/images/contemporary_costume_concept.png',
+      thumbnailPosition: '52% 56%',
+      detailPosition: '50% 60%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=stage+rehearsal+costume+movement',
+      tags: ['costume', 'rehearsal', 'practical', 'movement', 'soft', 'neutral'],
+      headline: bilingual('Movement-ready rehearsal styling', '움직임 중심 리허설 스타일링'),
+      note: bilingual('A strong reference for balancing beauty with rehearsal durability and repeatable movement.', '미감과 리허설 내구성, 반복 가능한 움직임을 함께 잡는 데 좋은 기준입니다.'),
+    },
+    {
+      id: 'costume_ensemble_stage',
+      imageUrl: '/images/stage_neon_lighting.png',
+      thumbnailUrl: '/images/stage_neon_lighting.png',
+      thumbnailPosition: '50% 60%',
+      detailPosition: '50% 58%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=ensemble+stage+costume+contemporary+dance',
+      tags: ['costume', 'ensemble', 'stage', 'intense', 'contrast', 'performance'],
+      headline: bilingual('Stage-ready ensemble contrast', '무대형 앙상블 대비'),
+      note: bilingual('Useful for reading costume contrast at audience distance rather than only in close-up.', '클로즈업이 아니라 객석 거리에서 의상 대비가 어떻게 읽히는지 참고할 수 있습니다.'),
+    },
+    {
+      id: 'costume_texture_focus',
+      imageUrl: '/images/contemporary_costume_concept.png',
+      thumbnailUrl: '/images/contemporary_costume_concept.png',
+      thumbnailPosition: '62% 24%',
+      detailPosition: '58% 28%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=dance+costume+fabric+texture',
+      tags: ['costume', 'texture', 'fabric', 'elegant', 'soft', 'artistic'],
+      headline: bilingual('Fabric texture under stage light', '무대 조명 아래의 소재 질감'),
+      note: bilingual('Shows how fabric weight and sheen can stay refined under practical stage lighting.', '실제 조명 아래에서 소재의 무게와 광택이 어떻게 정돈되어 보이는지 확인할 수 있습니다.'),
+    },
+  ],
+  props: [
+    {
+      id: 'props_stage_architecture',
+      imageUrl: '/images/stage_neon_lighting.png',
+      thumbnailUrl: '/images/stage_neon_lighting.png',
+      thumbnailPosition: '50% 54%',
+      detailPosition: '50% 54%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=contemporary+dance+stage+set+design',
+      tags: ['props', 'stage', 'architecture', 'contemporary', 'wide', 'ensemble'],
+      headline: bilingual('Stage architecture and travel paths', '무대 구조와 이동 경로'),
+      note: bilingual('Good for understanding how scenic volume leaves diagonal and frontal pathways open.', '무대 구조가 대각선과 정면 동선을 어떻게 남겨두는지 읽기 좋습니다.'),
+    },
+    {
+      id: 'props_steps_and_levels',
+      imageUrl: '/images/stage_neon_lighting.png',
+      thumbnailUrl: '/images/stage_neon_lighting.png',
+      thumbnailPosition: '50% 78%',
+      detailPosition: '50% 74%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=theater+stage+levels+stairs+performance',
+      tags: ['props', 'levels', 'stairs', 'depth', 'intense', 'spatial'],
+      headline: bilingual('Levels, stairs, and object depth', '레벨, 계단, 오브젝트 깊이'),
+      note: bilingual('Useful for seeing how raised geometry affects entry, exit, and emphasis points.', '높낮이 구조가 등장, 퇴장, 강조 지점을 어떻게 바꾸는지 참고할 수 있습니다.'),
+    },
+    {
+      id: 'props_negative_space',
+      imageUrl: '/images/stage_neon_lighting.png',
+      thumbnailUrl: '/images/stage_neon_lighting.png',
+      thumbnailPosition: '20% 58%',
+      detailPosition: '24% 54%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=performance+stage+negative+space+design',
+      tags: ['props', 'negative-space', 'minimal', 'quiet', 'balance', 'composition'],
+      headline: bilingual('Negative space around objects', '오브젝트 주변의 네거티브 스페이스'),
+      note: bilingual('A helpful frame for judging whether objects support focus instead of cluttering the stage.', '오브젝트가 시선을 보조하는지, 무대를 복잡하게 만드는지 판단하기 좋은 프레임입니다.'),
+    },
+    {
+      id: 'props_rehearsal_scale',
+      imageUrl: '/images/contemporary_costume_concept.png',
+      thumbnailUrl: '/images/contemporary_costume_concept.png',
+      thumbnailPosition: '50% 72%',
+      detailPosition: '50% 76%',
+      sourceUrl: 'https://www.youtube.com/results?search_query=rehearsal+space+object+placement+dance',
+      tags: ['props', 'rehearsal', 'scale', 'practical', 'space', 'floor'],
+      headline: bilingual('Scale in rehearsal-space context', '리허설 공간에서의 스케일 감'),
+      note: bilingual('Useful when you need a more grounded reference for object scale and performer clearance.', '오브젝트 크기와 무용수 여유 공간을 더 현실적으로 판단할 때 도움이 됩니다.'),
+    },
+  ],
+};
+
+function detectMoodCategory(keywords = []) {
+  const joined = keywords.join(' ').toLowerCase();
+  if (/dark|shadow|noir|mystery|tension|eerie/.test(joined)) return 'dark';
+  if (/warm|passionate|fire|energy|vibrant/.test(joined)) return 'warm';
+  if (/cold|ice|frost|still|quiet|serene/.test(joined)) return 'cold';
+  if (/minimal|subtle|restraint|empty|void/.test(joined)) return 'minimal';
+  if (/intense|explosive|fierce|power|strong/.test(joined)) return 'intense';
+  return 'minimal';
+}
+
+function detectGenreCategory(genre = '') {
+  const g = genre.toLowerCase();
+  if (/ballet|클래식|발레/.test(g)) return 'ballet';
+  if (/hip.?hop|힙합|street|스트릿/.test(g)) return 'hiphop';
+  if (/k.?pop|kpop|아이돌/.test(g)) return 'kpop';
+  return 'contemporary';
+}
+
+function buildReferenceSearchQueries(assetType, genre, moodKeywords) {
+  const cfg = REFERENCE_PHOTO_KEYWORDS[assetType] || REFERENCE_PHOTO_KEYWORDS.lighting;
+  const moodCat = detectMoodCategory(moodKeywords);
+  const genreCat = detectGenreCategory(genre);
+  const moodTerms = cfg.mood[moodCat] || cfg.mood.minimal;
+  const genreTerms = cfg.genre[genreCat] || cfg.genre.contemporary;
+  return [...cfg.base.slice(0, 2), ...genreTerms.slice(0, 1), ...moodTerms.slice(0, 1)];
+}
+
+function buildReferenceSearchUrl(assetType, query) {
+  const prefix = assetType === 'lighting'
+    ? 'stage lighting dance performance'
+    : assetType === 'props'
+      ? 'stage props set design performance'
+      : 'dance costume performance';
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${prefix} ${query}`)}`;
+}
+
+function buildReferenceFallbackUrl(assetType, index, title, query) {
+  const accent = assetType === 'lighting'
+    ? ['#5EEAD4', '#312E81']
+    : assetType === 'props'
+      ? ['#A78BFA', '#312E81']
+      : ['#F472B6', '#3F1D2E'];
+  const label = escapeSvgText(ASSET_META[assetType]?.label?.en || 'Visual');
+  const safeTitle = escapeSvgText(cleanText(title).slice(0, 48) || 'Seedbar');
+  const safeQuery = escapeSvgText(cleanText(query).slice(0, 52) || 'Performance reference');
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${accent[0]}"/>
+          <stop offset="100%" stop-color="${accent[1]}"/>
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" fill="url(#bg)"/>
+      <rect x="90" y="90" width="1020" height="620" rx="28" fill="rgba(7,10,19,0.45)" stroke="rgba(255,255,255,0.16)"/>
+      <text x="120" y="180" fill="#E2E8F0" font-family="Arial, sans-serif" font-size="30" letter-spacing="6">${label.toUpperCase()}</text>
+      <text x="120" y="280" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="68" font-weight="700">${safeTitle}</text>
+      <text x="120" y="360" fill="#CBD5E1" font-family="Arial, sans-serif" font-size="34">${safeQuery}</text>
+      <text x="120" y="620" fill="#CBD5E1" font-family="Arial, sans-serif" font-size="24">Fallback visual ${index + 1}</text>
+      <text x="120" y="665" fill="#94A3B8" font-family="Arial, sans-serif" font-size="22">Seedbar will keep the reference panel visible even if the external image fails.</text>
+    </svg>
+  `)}`;
+}
+
+function escapeSvgText(value = '') {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function scoreReferenceEntry(entry, { genre, moodKeywords, narrative, stageText, queryTerms }) {
+  const bucket = `${genre} ${moodKeywords.join(' ')} ${narrative} ${stageText} ${queryTerms.join(' ')}`.toLowerCase();
+  return (entry.tags || []).reduce((score, tag) => (
+    bucket.includes(String(tag).toLowerCase()) ? score + 1 : score
+  ), 0);
+}
+
+export function buildReferencePhotos({ assetType, projectContent = {}, revision = 0 } = {}) {
+  const safeAssetType = ASSET_META[assetType] ? assetType : 'lighting';
+  const genre = getProjectGenre(projectContent);
+  const moodKeywords = getMoodKeywords(projectContent);
+  const queries = buildReferenceSearchQueries(safeAssetType, genre, moodKeywords);
+  const seed = hashString(queries.join('::') + revision);
+  const rand = mulberry32(seed);
+
+  const assetLabels = {
+    lighting: { en: 'Stage Lighting Reference', kr: '무대 조명 참고 사진' },
+    costume: { en: 'Costume & Silhouette Reference', kr: '의상 & 실루엣 참고 사진' },
+    props: { en: 'Stage Props & Set Reference', kr: '무대 소품 & 세트 참고 사진' },
+  };
+
+  const descriptions = {
+    lighting: [
+      bilingual('Color temperature and haze atmosphere reference', '색온도와 헤이즈 분위기 레퍼런스'),
+      bilingual('Spotlight angle and shadow depth reference', '스포트라이트 각도와 그림자 깊이 참고'),
+      bilingual('Overall stage wash and ambiance reference', '전체 무대 워시 및 분위기 참고'),
+      bilingual('Backlight silhouette and rim light reference', '역광 실루엣 및 림 라이트 참고'),
+    ],
+    costume: [
+      bilingual('Fabric texture and silhouette line reference', '소재 질감과 실루엣 라인 참고'),
+      bilingual('Movement-ready layering and flow reference', '움직임을 고려한 레이어링 참고'),
+      bilingual('Color palette and material contrast reference', '컬러 팔레트 및 소재 대비 참고'),
+      bilingual('Stage-ready costume construction reference', '무대 적용 가능한 의상 구조 참고'),
+    ],
+    props: [
+      bilingual('Stage object placement and spacing reference', '무대 오브젝트 배치와 간격 참고'),
+      bilingual('Set design composition and depth reference', '세트 디자인 구도와 깊이 참고'),
+      bilingual('Material finish and surface treatment reference', '소재 마감과 표면 처리 참고'),
+      bilingual('Performer pathway and negative space reference', '동선 및 네거티브 스페이스 참고'),
+    ],
+  };
+
+  const descs = descriptions[safeAssetType] || descriptions.lighting;
+  const title = getProjectTitle(projectContent);
+  const narrative = getNarrativeFocus(projectContent);
+  const stageText = getStageText(projectContent, safeAssetType);
+  const library = CURATED_REFERENCE_LIBRARY[safeAssetType] || CURATED_REFERENCE_LIBRARY.lighting;
+
+  const rankedLibrary = [...library]
+    .map((entry) => ({
+      ...entry,
+      score: scoreReferenceEntry(entry, {
+        genre,
+        moodKeywords,
+        narrative,
+        stageText,
+        queryTerms: queries,
+      }),
+      tieBreaker: rand(),
+    }))
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      return right.tieBreaker - left.tieBreaker;
+    });
+
+  const picked = rankedLibrary.slice(0, Math.max(3, Math.min(4, rankedLibrary.length)));
+
+  return picked.map((entry, index) => {
+    const query = queries[index % queries.length] || queries[0] || entry.headline?.en || 'stage reference';
+    const fallbackUrl = buildReferenceFallbackUrl(safeAssetType, index, title, query);
+
+    return {
+      id: `ref_${safeAssetType}_${entry.id}_${index}`,
+      assetType: safeAssetType,
+      query,
+      imageUrl: entry.detailImageUrl || entry.imageUrl,
+      thumbnailUrl: entry.thumbnailUrl || entry.imageUrl,
+      detailImageUrl: entry.detailImageUrl || entry.imageUrl,
+      fallbackImageUrls: [entry.imageUrl, entry.thumbnailUrl].filter(Boolean),
+      fallbackCoverUrl: fallbackUrl,
+      thumbnailObjectPosition: entry.thumbnailPosition || '50% 50%',
+      detailObjectPosition: entry.detailPosition || entry.thumbnailPosition || '50% 50%',
+      searchUrl: buildReferenceSearchUrl(safeAssetType, query),
+      sourceUrl: entry.sourceUrl || buildReferenceSearchUrl(safeAssetType, query),
+      collectionUrl: entry.collectionUrl || null,
+      categoryLabel: assetLabels[safeAssetType] || assetLabels.lighting,
+      description: descs[index % descs.length],
+      note: entry.note,
+      headline: entry.headline,
+      source: STABLE_REFERENCE_SOURCE,
+      sourceLabel: STABLE_REFERENCE_SOURCE,
+    };
+  });
+}
+
 const PALETTE_POOLS = {
   lighting: [
     { name: 'Frost Indigo', hex: '#7784FF' },
@@ -338,6 +701,6 @@ export function buildStageVisualization({ assetType, projectContent = {}, revisi
       bilingual(`Narrative Cue: ${narrative}`, `서사 단서: ${narrative}`),
       bilingual(`Stage Note: ${stageText || 'Derived from current choreography stage description.'}`, `무대 메모: ${stageText || '현재 안무설계도의 무대 설명을 기반으로 도출.'}`),
     ],
+    referencePhotos: buildReferencePhotos({ assetType: safeAssetType, projectContent, revision }),
   };
 }
-

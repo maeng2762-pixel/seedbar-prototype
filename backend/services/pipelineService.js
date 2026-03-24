@@ -158,64 +158,230 @@ export async function regenerateSection(input, context, section) {
 
 export async function generateExportPackage(draftData, options, context) {
   const language = options?.language || 'EN';
+  const exportType = options?.exportType || 'full';
   const isKr = language === 'KR';
 
   let langInstruction = "Ensure all outputs are highly professional and written in strictly elegant English.";
   if (isKr) {
-    langInstruction = "모든 결과물은 극도로 전문적이고 세련된 한국어로 작성되어야 합니다. 발표용으로 완벽한 문장과 실무진이 바로 이해할 수 있는 명확한 지시어를 사용하세요.";
+    langInstruction = "모든 텍스트는 대한민국 무용계에서 실제 사용되는 전문적이고 세련된 실무 한국어로 작성하세요. 문서의 실질적인 디테일을 추가하며, 명확하고 실행 가능한 지시어를 사용하세요.";
   }
 
-  const system = `You are an elite choreographer and art director creating a professional presentation and production package.
-Based on the provided choreography blueprint, generate a highly polished and detailed output.
+  // 1. Create a project hash to cache results and avoid duplicate billing
+  const projectHash = cacheService.buildKey('export:hash', { draftData, language });
+  
+  // 2. Canonical Project Summary (High Cost, High Reasoning)
+  const canonicalKey = `export:canonical:${projectHash}`;
+  let canonicalSummary = cacheService.get(canonicalKey);
+  
+  const docsToRender = {
+    ppt: true,
+    script: exportType === 'ppt_script' || exportType === 'full',
+    stage: exportType === 'full',
+    lighting: exportType === 'full',
+    costumeProp: exportType === 'full',
+    pamphlet: exportType === 'full',
+  };
+
+  const finalPackage = {};
+  
+  if (!canonicalSummary) {
+    const canonicalSystem = `You are an elite choreographer and art director.
+Create a "Canonical Project Summary" in JSON.
 ${langInstruction}
-Missing information should be proactively generated and filled in with professional standards.
+Do NOT use placeholder text like "Project Zero" or "Untitled". ALWAYS extract and logically infer from the blueprint.
+If blueprint information is sparse, creatively deduce a complete, highly professional summary.
 
-Output JSON Format Requirements:
-- pptSlides: Array of 12 objects. Each object MUST contain EXACTLY these keys:
-  {
-    "slideNumber": integer (1-12),
-    "title": "Slide Title",
-    "coreMessage": "One impactful sentence summarizing the slide's main takeaway.",
-    "subDescription": ["Bullet point 1", "Bullet point 2", "Optional bullet 3"],
-    "visualAid": "Description of the visual to display (e.g. 'Emotion curve chart peaking at 2:00', 'Stage map with center focus')",
-    "presentationPoint": "A distinct note for the presenter emphasizing the nuance or artistic intent of this slide."
+JSON Schema Requirements:
+{
+  "title": "",
+  "subtitle": "",
+  "one_line_summary": "",
+  "artistic_statement": "",
+  "choreography_dna": "",
+  "narrative_sections": [{"section": "", "description": ""}],
+  "emotion_curve_summary": "",
+  "energy_curve_summary": "",
+  "choreography_timing_table": [{"time": "", "action": ""}],
+  "stage_map_summary": "",
+  "music_selection_reason": "",
+  "lighting_plan": "",
+  "costume_plan": "",
+  "props_plan": "",
+  "stage_manager_notes": "",
+  "lighting_cues": [{"cue": "", "time": "", "instruction": ""}],
+  "costume_sheet": [{"character": "", "costume": "", "notes": ""}],
+  "props_sheet": [{"prop": "", "scene": "", "notes": ""}],
+  "pamphlet_copy": {"cover": "", "overview": "", "credits": ""}
+}`;
+
+    const canonicalFallback = () => ({
+      title: draftData?.titles?.scientific?.en || draftData?.titles?.scientific?.kr || "Auto-Generated Project",
+      subtitle: "A Choreographic Study",
+      one_line_summary: "Movement research and composition.",
+      artistic_statement: "Exploring spatial tension and release.",
+      choreography_dna: "Contemporary, structured.",
+      narrative_sections: [{section: "Intro", description: "Establishment"}],
+      emotion_curve_summary: "Rising to climax.",
+      energy_curve_summary: "Low to high.",
+      choreography_timing_table: [{time: "0:00", action: "Start"}],
+      stage_map_summary: "Center focus.",
+      music_selection_reason: "Matches mood.",
+      lighting_plan: "Dramatic.",
+      costume_plan: "Minimal.",
+      props_plan: "None.",
+      stage_manager_notes: "Check floor.",
+      lighting_cues: [{cue: "1", time: "0:00", instruction: "Blackout"}],
+      costume_sheet: [{character: "All", costume: "Black", notes: "Fitted"}],
+      props_sheet: [{prop: "None", scene: "All", notes: ""}],
+      pamphlet_copy: {cover: "Title", overview: "Overview", credits: "TBA"}
+    });
+
+    canonicalSummary = await metricsService.withTiming('export_canonical_gen', () => llmProvider.highCostJson({ 
+      system: canonicalSystem, 
+      user: JSON.stringify(draftData), 
+      fallback: canonicalFallback 
+    }));
+    cacheService.set(canonicalKey, canonicalSummary, 60 * 60 * 24); // Cache for 24 hours
   }
-  Please structure the storyline of the 12 slides exactly as follows:
-  1. Title Page (Project Name, Date, Choreographer)
-  2. Core Concept & Artistic Philosophy
-  3. Form & Structure (Movement Logic & Duality)
-  4. Overall Narrative Flow (Intro -> Development -> Climax -> Resolution)
-  5. Emotion & Energy Curve (Dynamics mapping)
-  6. Stage Utilization Strategy (Zones, paths)
-  7. Section 1 (Intro): Setting the Scene & Primary Action
-  8. Section 2 (Development): Conflict & Build-up
-  9. Section 3 (Climax): Peak Contrast & Rupture
-  10. Section 4 (Resolution): Ending & Breath
-  11. Production Elements: Lighting, Music Texture, Costumes
-  12. Artistic Statement Summary (Q&A / Closing)
 
-- presentationScript: String containing a full presentation script. Use markers like "[Slide 1]" ensuring tone is highly engaging, narrative-driven, and perfectly matched to the slides. Avoid simply reading the bullets; expand on the "presentationPoint" and "coreMessage".
-- stageDirectorDoc: String. Scene Breakdown, Cue Points, Setting changes, and specific instructions for the stage manager (e.g., floor type, entry/exit points, prop placement).
-- lightingDirectorDoc: String. Detailed lighting plot sequence, color palettes, intensity changes, and mood cues.
-- costumePropDoc: String. Detailed table format summarizing costumes (silhouettes, fabrics, colors, relation to movement) and props (type, timing, usage, stage location).
-`;
-  
-  const user = JSON.stringify({
-    options,
-    blueprint: draftData
-  });
-  
-  const fallback = () => ({
-    pptSlides: [
-      { slideNumber: 1, title: draftData?.titles?.scientific?.en || draftData?.titles?.scientific?.kr || "Project Title", content: "Auto-generated cover", designNotes: "Minimalistic logo" },
-      { slideNumber: 2, title: "Artistic Statement", content: draftData?.concept?.artisticStatement?.en || draftData?.concept?.artisticStatement?.kr || "Artistic statement...", designNotes: "Dark background" }
-    ],
-    presentationScript: "[Slide 1]\nHello, this is the project...\n\n[Slide 2]\nThe core concept is...",
-    stageDirectorDoc: "Stage Requirements\n1. Floor: Marley\n2. Cues: ...",
-    lightingDirectorDoc: "Lighting Cues\n1. Intro: Spotlight...",
-    costumePropDoc: "Costume & Props\n1. Costume: Minimal fits\n2. Props: 1 Chair..."
-  });
+  // 3. Render Documents Using Concurrent Low-Cost Models
+  const renderPromises = [];
 
-  const packageData = await metricsService.withTiming('export_package_gen', () => llmProvider.highCostJson({ system, user, fallback }));
-  return packageData;
+  if (docsToRender.ppt) {
+    const pptKey = `export:ppt:${projectHash}`;
+    let pptContent = cacheService.get(pptKey);
+    if (pptContent) {
+      finalPackage.pptSlides = pptContent.pptSlides;
+    } else {
+      const pptSystem = `Render a 12-slide Pitch/Presentation Deck in JSON based ONLY on the canonical summary.
+${langInstruction}
+Output Format: { "pptSlides": [ { "slideNumber": 1, "title": "...", "coreMessage": "...", "subDescription": ["...", "..."], "visualAid": "...", "presentationPoint": "..." } ] }
+1. Title Page (Project Name, Date, Choreographer)
+2. Core Concept & Artistic Philosophy
+3. Form & Structure (Movement Logic & DNA)
+4. Overall Narrative Flow
+5. Emotion & Energy Curve
+6. Stage Utilization Strategy
+7. Section 1 (Intro)
+8. Section 2 (Development)
+9. Section 3 (Climax)
+10. Section 4 (Resolution)
+11. Production Elements (Lighting/Music/Costumes)
+12. Artistic Statement Summary (Q&A / Closing)`;
+      const fallback = () => ({ pptSlides: [{ slideNumber: 1, title: canonicalSummary.title, coreMessage: "PPT Fallback", subDescription: [], visualAid: "", presentationPoint: "" }] });
+      renderPromises.push(
+        metricsService.withTiming('export_render_ppt', () => llmProvider.lowCostJson({ system: pptSystem, user: JSON.stringify(canonicalSummary), fallback }))
+          .then(data => {
+            cacheService.set(pptKey, data, 60 * 60 * 24);
+            finalPackage.pptSlides = data.pptSlides;
+          })
+      );
+    }
+  }
+
+  if (docsToRender.script) {
+    const scriptKey = `export:script:${projectHash}`;
+    let scriptContent = cacheService.get(scriptKey);
+    if (scriptContent) {
+      finalPackage.presentationScript = scriptContent.presentationScript;
+    } else {
+      const scriptSystem = `Render a presentation script in JSON: { "presentationScript": "full string matching slides..." }.
+${langInstruction}
+Expand upon the slides naturally as spoken word. Include [Slide X] markers. It must be a complete script, ready to read. Do not just list bullet points, explain them.`;
+      const fallback = () => ({ presentationScript: "Script generation failed. Please retry." });
+      // Note: In real life, script depends on PPT, but since PPT is deterministic from Canonical Summary, we can feed it the summary directly.
+      renderPromises.push(
+        metricsService.withTiming('export_render_script', () => llmProvider.lowCostJson({ system: scriptSystem, user: JSON.stringify(canonicalSummary), fallback }))
+          .then(data => {
+            cacheService.set(scriptKey, data, 60 * 60 * 24);
+            finalPackage.presentationScript = data.presentationScript;
+          })
+      );
+    }
+  }
+
+  if (docsToRender.stage) {
+    const stageKey = `export:stage:${projectHash}`;
+    let stageContent = cacheService.get(stageKey);
+    if (stageContent) {
+      finalPackage.stageDirectorDoc = stageContent.stageDirectorDoc;
+    } else {
+      const stageSystem = `Render a stage director document in JSON: { "stageDirectorDoc": "full string document..." }.
+${langInstruction}
+Focus on clear tables, running times, cast, scene breakdowns, cues, and actionable instructions. No flowery artistic text, just hard facts for the stage crew.`;
+      const fallback = () => ({ stageDirectorDoc: "Stage Doc fallback." });
+      renderPromises.push(
+        metricsService.withTiming('export_render_stage', () => llmProvider.lowCostJson({ system: stageSystem, user: JSON.stringify(canonicalSummary), fallback }))
+          .then(data => {
+            cacheService.set(stageKey, data, 60 * 60 * 24);
+            finalPackage.stageDirectorDoc = data.stageDirectorDoc;
+          })
+      );
+    }
+  }
+
+  if (docsToRender.lighting) {
+    const lightingKey = `export:lighting:${projectHash}`;
+    let lightingContent = cacheService.get(lightingKey);
+    if (lightingContent) {
+      finalPackage.lightingDirectorDoc = lightingContent.lightingDirectorDoc;
+    } else {
+      const lightingSystem = `Render a lighting cue sheet in JSON: { "lightingDirectorDoc": "full text cue sheet..." }.
+${langInstruction}
+Format as a tabular cue sheet string. Cue #, trigger point, intention, brightness, color, transition style, special effects. Highly functional.`;
+      const fallback = () => ({ lightingDirectorDoc: "Lighting Doc fallback." });
+      renderPromises.push(
+        metricsService.withTiming('export_render_lighting', () => llmProvider.lowCostJson({ system: lightingSystem, user: JSON.stringify(canonicalSummary), fallback }))
+          .then(data => {
+            cacheService.set(lightingKey, data, 60 * 60 * 24);
+            finalPackage.lightingDirectorDoc = data.lightingDirectorDoc;
+          })
+      );
+    }
+  }
+
+  if (docsToRender.costumeProp) {
+    const costumeKey = `export:costume:${projectHash}`;
+    let costumeContent = cacheService.get(costumeKey);
+    if (costumeContent) {
+      finalPackage.costumePropDoc = costumeContent.costumePropDoc;
+    } else {
+      const costumeSystem = `Render a costume and props sheet in JSON: { "costumePropDoc": "full text document..." }.
+${langInstruction}
+Provide a detailed breakdown of costumes (silhouette, fabric, color, wearing order) and props (name, scene, timing, position, notes). Keep them distinctly separated in a tabulated text format.`;
+      const fallback = () => ({ costumePropDoc: "Costume/Prop Doc fallback." });
+      renderPromises.push(
+        metricsService.withTiming('export_render_costume', () => llmProvider.lowCostJson({ system: costumeSystem, user: JSON.stringify(canonicalSummary), fallback }))
+          .then(data => {
+            cacheService.set(costumeKey, data, 60 * 60 * 24);
+            finalPackage.costumePropDoc = data.costumePropDoc;
+          })
+      );
+    }
+  }
+
+  if (docsToRender.pamphlet) {
+    const pamphletKey = `export:pamphlet:${projectHash}`;
+    let pamphletContent = cacheService.get(pamphletKey);
+    if (pamphletContent) {
+      finalPackage.pamphlet = pamphletContent.pamphlet;
+    } else {
+      const pamphletSystem = `Render a Pamphlet in JSON: { "pamphlet": "full text pamphlet..." }.
+${langInstruction}
+Write elegant, public-facing copy. Include: Title, 1-line summary, Artistic Intent, Choreographer Note, and Credits. Keep sentences refined and engaging. Suitable for a beautiful PDF program guide.`;
+      const fallback = () => ({ pamphlet: "Pamphlet fallback." });
+      renderPromises.push(
+        metricsService.withTiming('export_render_pamphlet', () => llmProvider.lowCostJson({ system: pamphletSystem, user: JSON.stringify(canonicalSummary), fallback }))
+          .then(data => {
+            cacheService.set(pamphletKey, data, 60 * 60 * 24);
+            finalPackage.pamphlet = data.pamphlet;
+          })
+      );
+    }
+  }
+
+  // Wait for all missing renders to finish
+  await Promise.all(renderPromises);
+
+  return finalPackage;
 }

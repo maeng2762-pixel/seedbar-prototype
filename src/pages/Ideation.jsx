@@ -10,6 +10,7 @@ import CoinPricingModal from '../components/CoinPricingModal';
 import useSubscriptionStore from '../store/useSubscriptionStore';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
 import { buildNewProjectRouteState } from '../lib/projectNavigation';
+import { buildArtworkPatch } from '../lib/artworkMedia.js';
 
 const i18n = {
     EN: {
@@ -50,7 +51,11 @@ const i18n = {
         kw1: "#Dreamy",
         kw2: "#HeavyBeat",
         kw3: "#Elegant",
-        projectName: "Project Name",
+        projectName: "Project Name (Internal)",
+        workTitle: "Work Title",
+        workTitleHint: "AI-generated work title — independent from the project name",
+        selectWorkTitle: "Select as final title",
+        noTitleYet: "Generate a draft first, then AI will suggest creative work titles.",
         choreographyTimeline: "Choreography Timeline",
         aiGenerated: "AI Generated",
         stageCostume: "Stage & Costume Concept",
@@ -105,7 +110,11 @@ const i18n = {
         kw1: "#몽환적인",
         kw2: "#강렬한비트",
         kw3: "#우아한",
-        projectName: "프로젝트명",
+        projectName: "프로젝트명 (내부 작업용)",
+        workTitle: "작품 제목",
+        workTitleHint: "AI가 창의적으로 제안한 작품 제목 — 프로젝트명과는 별개입니다",
+        selectWorkTitle: "최종 제목으로 선택",
+        noTitleYet: "초안을 먼저 생성하면 AI가 창의적인 작품 제목을 제안합니다.",
         choreographyTimeline: "안무 타임라인",
         aiGenerated: "AI 생성됨",
         stageCostume: "의상 및 무대 콘셉트",
@@ -132,6 +141,67 @@ const EMPTY_ENTRY_ERROR = {
     EN: 'We hit an issue while preparing the new project screen.',
 };
 
+function arraysEqual(left = [], right = []) {
+    if (left === right) return true;
+    if (!Array.isArray(left) || !Array.isArray(right)) return false;
+    if (left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+        if (left[index] !== right[index]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function normalizeSelectedTitleCandidate(candidate) {
+    if (typeof candidate === 'string') {
+        return { en: candidate, kr: candidate };
+    }
+    const fallback = candidate?.en || candidate?.kr || 'Untitled';
+    return {
+        en: candidate?.en || fallback,
+        kr: candidate?.kr || fallback,
+    };
+}
+
+function applySelectedTitleToDraft(draft, candidate) {
+    if (!draft) return draft;
+    const normalizedCandidate = normalizeSelectedTitleCandidate(candidate);
+    const nextCoverTitle = normalizedCandidate.en;
+    return sanitizeGeneratedPayload({
+        ...draft,
+        selectedWorkTitle: nextCoverTitle,
+        titles: {
+            ...(draft?.titles || {}),
+            mainTitle: normalizedCandidate,
+        },
+        pamphlet: {
+            ...(draft?.pamphlet || {}),
+            coverTitle: nextCoverTitle,
+        },
+        lastEdited: new Date().toISOString(),
+    });
+}
+
+function applyArtworkImageToDraft(draft, artworkAsset) {
+    if (!draft) return draft;
+    const artworkPatch = buildArtworkPatch(
+        typeof artworkAsset === 'string'
+            ? { originalUrl: artworkAsset, thumbnailUrl: artworkAsset }
+            : artworkAsset,
+    );
+    return sanitizeGeneratedPayload({
+        ...draft,
+        ...artworkPatch,
+        pamphlet: {
+            ...(draft?.pamphlet || {}),
+            ...(artworkPatch.pamphlet || {}),
+        },
+        projectStatus: draft?.projectStatus || 'in_progress',
+        lastEdited: new Date().toISOString(),
+    });
+}
+
 function sanitizeGeneratedPayload(payload) {
     const next = JSON.parse(JSON.stringify(payload || {}));
     if (next?.music && typeof next.music === 'object') {
@@ -147,6 +217,20 @@ function sanitizeGeneratedPayload(payload) {
     if (Array.isArray(next?.music_recommendations)) {
         next.music_recommendations = [];
     }
+
+    // 1. Data Normalization & Migration for old projects without Tone
+    if (!next.titles) next.titles = {};
+    if (!next.titles._tone) next.titles._tone = 'neutral';
+    
+    if (!next.concept) next.concept = {};
+    if (!next.concept._moodTone) next.concept._moodTone = 'balanced';
+    
+    if (!next.music) next.music = {};
+    if (!next.music._musicTone) next.music._musicTone = 'default';
+    
+    if (!next.stage) next.stage = {};
+    if (!next.stage._visualTone) next.stage._visualTone = 'minimal';
+
     return next;
 }
 
@@ -177,14 +261,45 @@ const Ideation = () => {
         consumeGeneration,
         setPlan,
     } = useSubscriptionStore();
-    const { initializeProject, projectId: studioProjectId, setProjectId, autosaveProject, fetchProject, generateTitle } = useChoreographyStudioStore();
+    const {
+        initializeProject,
+        projectId: studioProjectId,
+        setProjectId,
+        autosaveProject,
+        fetchProject,
+        generateTitle,
+        saveProjectTitleSelection,
+        saveProjectArtworkImage,
+    } = useChoreographyStudioStore();
 
     const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
     
     // We need to know if the dummy state was already pushed
     const trapStatePushed = useRef(false);
 
+    const [isRestoring, setIsRestoring] = useState(Boolean(location.state?.hasTemporaryContext));
+
+    useEffect(() => {
+        if (isRestoring) {
+            const timer = setTimeout(() => setIsRestoring(false), 200);
+            return () => clearTimeout(timer);
+        }
+    }, [isRestoring]);
+
+    useEffect(() => {
+        // 복귀 중 클릭 불가/블랙스크린 방지를 위한 전역 스타일 정리
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
+    }, []);
+
     const autosaveTimerRef = useRef(null);
+    const titleSelectionTimerRef = useRef(null);
+    const titleSelectionRequestRef = useRef(0);
+    const pendingTitleSelectionRef = useRef(null);
+    const generatedDataRef = useRef(null);
+    const activeProjectIdRef = useRef(urlProjectId || null);
+    const skipNextAutosaveRef = useRef(false);
+    const didSelfHealEntryRef = useRef(false);
 
     const [projectName, setProjectName] = useState(safeEntryState.projectName || "");
     const [genre, setGenre] = useState(safeEntryState.genre || "");
@@ -194,9 +309,26 @@ const Ideation = () => {
     const [keywordInput, setKeywordInput] = useState("");
     const [titleTone, setTitleTone] = useState(safeEntryState.titleTone || "");
     const [titleCandidates, setTitleCandidates] = useState([]);
+    const [selectedWorkTitle, setSelectedWorkTitle] = useState(safeEntryState.selectedWorkTitle || "");
     const [isGeneratingTitles, setIsGeneratingTitles] = useState(false);
     const [generationStepIndex, setGenerationStepIndex] = useState(0);
     const isCompetition = genre === 'Contemporary Dance Competition';
+    const safeEntryProjectName = safeEntryState.projectName || '';
+    const safeEntryGenre = safeEntryState.genre || '';
+    const safeEntryPeopleCount = safeEntryState.peopleCount || '';
+    const safeEntryDuration = safeEntryState.duration || '';
+    const safeEntryMoodKeywords = safeEntryState.moodKeywords || [];
+    const safeEntryMoodKeywordsKey = JSON.stringify(safeEntryMoodKeywords);
+    const safeEntryTitleTone = safeEntryState.titleTone || '';
+    const safeEntryMode = safeEntryState.mode || 'planning';
+
+    useEffect(() => {
+        generatedDataRef.current = generatedData;
+    }, [generatedData]);
+
+    useEffect(() => {
+        activeProjectIdRef.current = studioProjectId || generatedData?.projectId || urlProjectId || null;
+    }, [generatedData?.projectId, studioProjectId, urlProjectId]);
 
     const getDynamicStyles = () => {
         const seed = (projectName.length + genre.length + String(peopleCount).length) * 10;
@@ -245,9 +377,16 @@ const Ideation = () => {
                 mood: moodKeywords.join(', '),
                 theme: projectName || 'Untitled Project',
                 tone: titleTone || '',
-                count: 4,
+                count: 8,
+                peopleCount: parseInt(peopleCount) || 1,
+                duration: duration || '03:00',
             });
-            setTitleCandidates(Array.isArray(candidates) ? candidates : [candidates].filter(Boolean));
+            const arr = Array.isArray(candidates) ? candidates : [candidates].filter(Boolean);
+            setTitleCandidates(arr);
+            // 첫 번째 후보를 자동으로 선택 (사용자가 변경 가능)
+            if (arr.length > 0 && !selectedWorkTitle) {
+                setSelectedWorkTitle(arr[0]);
+            }
         } catch (error) {
             setUpgradeReason(error.message || '');
         } finally {
@@ -279,6 +418,8 @@ const Ideation = () => {
                 dancerRoles: payload?.dancerRoles || currentContent?.dancerRoles || [],
                 stageFlow: payload?.stageFlow || currentContent?.stageFlow,
             }));
+            setSelectedWorkTitle(currentContent?.selectedWorkTitle || currentContent?.titles?.mainTitle?.en || currentContent?.pamphlet?.coverTitle || '');
+            setTitleCandidates(Array.isArray(currentContent?.titles?.candidates) ? currentContent.titles.candidates : []);
             setShowRegenerateMode(false);
             setEntryStatus('ready');
             return true;
@@ -428,13 +569,14 @@ const Ideation = () => {
                 },
                 pamphlet: {
                     ...(result?.pamphlet || {}),
-                    coverTitle: projectName || result?.pamphlet?.coverTitle || 'Untitled Creation',
+                    coverTitle: selectedWorkTitle || result?.titles?.mainTitle?.kr || result?.pamphlet?.coverTitle || 'Untitled Creation',
                 },
+                selectedWorkTitle: selectedWorkTitle || null,
             });
             let created = null;
             try {
                 created = await initializeProject({
-                    title: projectName || result?.pamphlet?.coverTitle || 'Untitled Project',
+                    title: projectName || 'Untitled Project',
                     generatedContent: payload,
                 });
                 setProjectId(created?.project?.id || null);
@@ -484,22 +626,142 @@ const Ideation = () => {
         }
 
         autosaveTimerRef.current = setTimeout(() => {
+            if (skipNextAutosaveRef.current) {
+                skipNextAutosaveRef.current = false;
+                return;
+            }
             autosaveProject(generatedData).catch((err) => {
                 console.warn('[Seedbar] autosave failed:', err?.message || err);
             });
         }, 1200);
 
-        const handleBeforeUnload = () => {
-            autosaveProject(generatedData).catch(() => {});
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-
         return () => {
             if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-            autosaveProject(generatedData).catch(() => {});
         };
     }, [generatedData, studioProjectId, autosaveProject]);
+
+    useEffect(() => {
+        return () => {
+            const latestDraft = generatedDataRef.current;
+            const pid = activeProjectIdRef.current;
+            if (!pid || !latestDraft) return;
+            autosaveProject(latestDraft).catch(() => {});
+        };
+    }, [autosaveProject]);
+
+    useEffect(() => {
+        return () => {
+            if (titleSelectionTimerRef.current) {
+                clearTimeout(titleSelectionTimerRef.current);
+            }
+            pendingTitleSelectionRef.current?.resolve?.({ stale: true });
+        };
+    }, []);
+
+    const handleBlueprintTitleSelect = useCallback((candidate) => {
+        const normalizedCandidate = normalizeSelectedTitleCandidate(candidate);
+        const nextTitle = normalizedCandidate.en;
+        const targetProjectId = studioProjectId || generatedDataRef.current?.projectId;
+
+        if (!targetProjectId || !generatedDataRef.current) {
+            const nextDraft = applySelectedTitleToDraft(generatedDataRef.current, normalizedCandidate);
+            setSelectedWorkTitle(nextTitle);
+            setGeneratedData(nextDraft);
+            return Promise.resolve({ ok: true, nextDraft });
+        }
+
+        const requestId = titleSelectionRequestRef.current + 1;
+        titleSelectionRequestRef.current = requestId;
+
+        if (titleSelectionTimerRef.current) {
+            clearTimeout(titleSelectionTimerRef.current);
+        }
+        pendingTitleSelectionRef.current?.resolve?.({ stale: true });
+
+        return new Promise((resolve, reject) => {
+            pendingTitleSelectionRef.current = { resolve, reject };
+            titleSelectionTimerRef.current = window.setTimeout(async () => {
+                const latestDraft = generatedDataRef.current;
+                if (!latestDraft) {
+                    resolve({ ok: false, stale: true });
+                    return;
+                }
+
+                const nextDraft = applySelectedTitleToDraft(latestDraft, normalizedCandidate);
+
+                try {
+                    await saveProjectTitleSelection({
+                        selectedTitle: normalizedCandidate,
+                        currentContent: nextDraft,
+                    });
+
+                    if (requestId !== titleSelectionRequestRef.current) {
+                        resolve({ ok: false, stale: true });
+                        return;
+                    }
+
+                    skipNextAutosaveRef.current = true;
+                    window.requestAnimationFrame(() => {
+                        setSelectedWorkTitle(nextTitle);
+                        setGeneratedData(nextDraft);
+                    });
+                    resolve({ ok: true, nextDraft });
+                } catch (error) {
+                    if (requestId !== titleSelectionRequestRef.current) {
+                        resolve({ ok: false, stale: true });
+                        return;
+                    }
+                    console.warn('[Seedbar] title selection save failed:', error?.message || error);
+                    setRuntimeNotice(
+                        language === 'KR'
+                            ? '작품 제목 저장이 지연되고 있습니다. 잠시 후 다시 시도해주세요.'
+                            : 'Saving the selected title is taking longer than expected. Please try again.'
+                    );
+                    reject(error);
+                } finally {
+                    pendingTitleSelectionRef.current = null;
+                }
+            }, 320);
+        });
+    }, [language, saveProjectTitleSelection, studioProjectId]);
+
+    const handleBlueprintArtworkSave = useCallback(async (imageUrl) => {
+        const targetProjectId = studioProjectId || generatedDataRef.current?.projectId;
+        const latestDraft = generatedDataRef.current;
+
+        if (!latestDraft) {
+            return { ok: false, error: 'No draft data available.' };
+        }
+
+        if (!targetProjectId) {
+            const localDraft = applyArtworkImageToDraft(latestDraft, imageUrl);
+            window.requestAnimationFrame(() => {
+                setGeneratedData(localDraft);
+            });
+            return { ok: true, nextDraft: localDraft };
+        }
+
+        try {
+            const saved = await saveProjectArtworkImage({
+                imageUrl,
+                currentContent: latestDraft,
+            });
+            const persistedDraft = saved?.currentContent || applyArtworkImageToDraft(latestDraft, saved?.artwork || imageUrl);
+            skipNextAutosaveRef.current = true;
+            window.requestAnimationFrame(() => {
+                setGeneratedData(persistedDraft);
+            });
+            return { ok: true, nextDraft: persistedDraft, artwork: saved?.artwork || null };
+        } catch (error) {
+            console.warn('[Seedbar] artwork image save failed:', error?.message || error);
+            setRuntimeNotice(
+                language === 'KR'
+                    ? '대표 이미지 저장이 지연되고 있습니다. 잠시 후 다시 시도해주세요.'
+                    : 'Saving the representative image is taking longer than expected. Please try again.'
+            );
+            return { ok: false, error };
+        }
+    }, [language, saveProjectArtworkImage, studioProjectId]);
 
     useEffect(() => {
         refreshCapabilities();
@@ -520,25 +782,41 @@ const Ideation = () => {
 
     useEffect(() => {
         if (urlProjectId) {
-            setShowRegenerateMode(false);
+            setShowRegenerateMode((prev) => (prev ? false : prev));
             return;
         }
 
-        setProjectId(null);
-        setEntryError('');
-        setEntryStatus('ready');
-        setShowRegenerateMode(safeEntryState.mode !== 'draft');
+        if (studioProjectId !== null) {
+            setProjectId(null);
+        }
+        setEntryError((prev) => (prev ? '' : prev));
+        setEntryStatus((prev) => (prev !== 'ready' ? 'ready' : prev));
+        const nextShowRegenerateMode = safeEntryMode !== 'draft';
+        setShowRegenerateMode((prev) => (prev !== nextShowRegenerateMode ? nextShowRegenerateMode : prev));
 
         if (!generatedData) {
-            setProjectName(safeEntryState.projectName || '');
-            setGenre(safeEntryState.genre || '');
-            setPeopleCount(safeEntryState.peopleCount || '');
-            setDuration(safeEntryState.duration || '');
-            setMoodKeywords(safeEntryState.moodKeywords || []);
-            setTitleTone(safeEntryState.titleTone || '');
-            setTitleCandidates([]);
+            setProjectName((prev) => (prev !== safeEntryProjectName ? safeEntryProjectName : prev));
+            setGenre((prev) => (prev !== safeEntryGenre ? safeEntryGenre : prev));
+            setPeopleCount((prev) => (prev !== safeEntryPeopleCount ? safeEntryPeopleCount : prev));
+            setDuration((prev) => (prev !== safeEntryDuration ? safeEntryDuration : prev));
+            setMoodKeywords((prev) => (arraysEqual(prev, safeEntryMoodKeywords) ? prev : safeEntryMoodKeywords));
+            setTitleTone((prev) => (prev !== safeEntryTitleTone ? safeEntryTitleTone : prev));
+            setTitleCandidates((prev) => (prev.length ? [] : prev));
         }
-    }, [generatedData, safeEntryState, urlProjectId]);
+    }, [
+        generatedData,
+        safeEntryDuration,
+        safeEntryGenre,
+        safeEntryMode,
+        safeEntryMoodKeywords,
+        safeEntryMoodKeywordsKey,
+        safeEntryPeopleCount,
+        safeEntryProjectName,
+        safeEntryTitleTone,
+        setProjectId,
+        studioProjectId,
+        urlProjectId,
+    ]);
 
     useEffect(() => {
         if (genre === 'Contemporary Dance Competition') {
@@ -642,16 +920,24 @@ const Ideation = () => {
         if (urlProjectId) return;
         if (generatedData) return;
         if (showRegenerateMode) return;
+        if (didSelfHealEntryRef.current) return;
+        didSelfHealEntryRef.current = true;
 
         // Self-heal any stale route state so a new project always lands on the planning form.
-        setEntryError('');
-        setEntryStatus('ready');
+        if (entryError) setEntryError('');
+        if (entryStatus !== 'ready') setEntryStatus('ready');
         setShowRegenerateMode(true);
         navigate('/ideation', {
             replace: true,
             state: buildNewProjectRouteState(),
         });
-    }, [generatedData, navigate, showRegenerateMode, urlProjectId]);
+    }, [entryError, entryStatus, generatedData, navigate, showRegenerateMode, urlProjectId]);
+
+    useEffect(() => {
+        if (showRegenerateMode || generatedData || urlProjectId) {
+            didSelfHealEntryRef.current = false;
+        }
+    }, [generatedData, showRegenerateMode, urlProjectId]);
 
     const entryFallback = renderEntryFallback();
     const shouldShowBlueprint = !showRegenerateMode && Boolean(generatedData);
@@ -724,25 +1010,38 @@ const Ideation = () => {
                         exit={{ opacity: 0, x: -20 }}
                         className="relative z-20 px-6 flex flex-col pb-6"
                     >
-                        <ChoreographyDraft
-                            data={generatedData}
-                            projectId={studioProjectId || generatedData?.projectId}
-                            currentPlan={currentPlan}
-                            policy={policy}
-                            dancersCount={peopleCount}
-                            onDataUpdate={(next) => setGeneratedData(next)}
-                            onOpenUpgrade={(reason) => {
-                                const message = reason || "";
-                                if (UPGRADE_HINT_RE.test(message)) {
-                                    setRuntimeNotice("");
-                                    setUpgradeReason(message);
-                                    setIsCoinModalOpen(true);
-                                    return;
-                                }
-                                setIsCoinModalOpen(false);
-                                setRuntimeNotice(message || (language === 'KR' ? '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.' : 'We could not complete that request. Please try again.'));
-                            }}
-                        />
+                        {isRestoring ? (
+                            <div className="mx-auto mt-10 w-full max-w-4xl border border-white/10 bg-white/5 p-10 text-center backdrop-blur-md animate-pulse">
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-primary">{language === 'KR' ? '편집 상태를 불러오는 중...' : 'Restoring workspace...'}</p>
+                                <div className="mt-8 space-y-4">
+                                    <div className="h-6 w-1/3 bg-white/10 rounded mx-auto" />
+                                    <div className="h-4 w-1/2 bg-white/5 rounded mx-auto" />
+                                    <div className="h-4 w-1/4 bg-white/5 rounded mx-auto" />
+                                </div>
+                            </div>
+                        ) : (
+                            <ChoreographyDraft
+                                data={generatedData}
+                                projectId={studioProjectId || generatedData?.projectId}
+                                currentPlan={currentPlan}
+                                policy={policy}
+                                dancersCount={peopleCount}
+                                onDataUpdate={(next) => setGeneratedData(next)}
+                                onSelectWorkTitle={handleBlueprintTitleSelect}
+                                onSaveArtworkImage={handleBlueprintArtworkSave}
+                                onOpenUpgrade={(reason) => {
+                                    const message = reason || "";
+                                    if (UPGRADE_HINT_RE.test(message)) {
+                                        setRuntimeNotice("");
+                                        setUpgradeReason(message);
+                                        setIsCoinModalOpen(true);
+                                        return;
+                                    }
+                                    setIsCoinModalOpen(false);
+                                    setRuntimeNotice(message || (language === 'KR' ? '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.' : 'We could not complete that request. Please try again.'));
+                                }}
+                            />
+                        )}
                     </motion.div>
                 ) : (
                     <motion.div
@@ -753,47 +1052,97 @@ const Ideation = () => {
                         className="relative z-20 px-6 flex flex-col pb-48"
                     >
                         <div className="grid grid-cols-2 gap-3 mb-6">
+                            {/* ── 프로젝트명 (내부 작업용) ── */}
                             <div className="col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-xl flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{t.projectName}</label>
-                                    <button
-                                        type="button"
-                                        onClick={handleSuggestTitles}
-                                        disabled={isGeneratingTitles}
-                                        className="flex items-center gap-1 bg-primary/20 hover:bg-primary/30 text-primary-light px-2 py-1.5 rounded-md text-[10px] font-bold transition-colors disabled:opacity-50"
-                                    >
-                                        <span className="material-symbols-outlined text-[12px]">auto_awesome</span>
-                                        {isGeneratingTitles ? (language === 'KR' ? '생성 중...' : 'Generating...') : (language === 'KR' ? 'AI 아이데이션' : 'AI Ideation')}
-                                    </button>
-                                </div>
+                                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-xs text-slate-400">folder</span>
+                                    {t.projectName}
+                                </label>
                                 <div className="relative mt-1">
                                     <input
                                         type="text"
-                                        placeholder={language === 'KR' ? "예: 폭풍 속의 고요" : "Ex: Silence in the Storm"}
+                                        placeholder={language === 'KR' ? "예: 2026 봄공연 작업물" : "Ex: Spring 2026 Project"}
                                         value={projectName}
                                         onChange={(e) => setProjectName(e.target.value)}
                                         className="w-full bg-background-dark/50 border border-white/10 rounded-lg py-2 pl-3 pr-10 text-sm font-medium outline-none focus:border-primary/50 text-white"
                                     />
-                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none">draw</span>
+                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none text-[18px]">folder_open</span>
                                 </div>
+                                <p className="text-[9px] text-slate-500/70">
+                                    {language === 'KR' 
+                                        ? '내 작업을 관리하기 위한 내부 이름입니다. 작품 제목과는 별도로 관리됩니다.' 
+                                        : 'An internal name for organizing your work. This is NOT the work title.'}
+                                </p>
+                            </div>
+
+                            {/* ── 작품 제목 (AI가 생성하는 실제 작품명) ── */}
+                            <div className="col-span-2 bg-gradient-to-br from-primary/5 to-purple-500/5 backdrop-blur-xl border border-primary/20 p-4 rounded-xl flex flex-col gap-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] uppercase tracking-wider text-primary-light font-bold flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-xs text-primary">auto_awesome</span>
+                                        {t.workTitle}
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={handleSuggestTitles}
+                                        disabled={isGeneratingTitles}
+                                        className="flex items-center gap-1 bg-primary/20 hover:bg-primary/30 text-primary-light px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-colors disabled:opacity-50"
+                                    >
+                                        <span className="material-symbols-outlined text-[12px]">auto_awesome</span>
+                                        {isGeneratingTitles ? (language === 'KR' ? '생성 중...' : 'Generating...') : (language === 'KR' ? 'AI 제목 제안받기' : 'AI Suggest Titles')}
+                                    </button>
+                                </div>
+
+                                {/* 선택된 작품 제목 표시 */}
+                                {selectedWorkTitle ? (
+                                    <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-lg px-3 py-2.5 mt-1">
+                                        <span className="material-symbols-outlined text-primary text-[16px]">check_circle</span>
+                                        <span className="text-white font-bold text-sm flex-1">{selectedWorkTitle}</span>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setSelectedWorkTitle('')}
+                                            className="text-white/40 hover:text-white/80 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[12px]">info</span>
+                                        {t.noTitleYet}
+                                    </p>
+                                )}
+
+                                {/* 제목 후보 목록 (8개 이상) */}
                                 {titleCandidates.length > 0 && (
-                                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center gap-2 mt-2">
-                                        {titleCandidates.map((candidate) => (
-                                            <button
-                                                key={candidate}
-                                                type="button"
-                                                onClick={() => setProjectName(candidate)}
-                                                className={`rounded-full border px-3 py-1.5 text-[10px] font-medium transition-all ${
-                                                    projectName === candidate
-                                                        ? 'border-primary/50 bg-primary/20 text-white shadow-[0_0_8px_rgba(91,19,236,0.3)]'
-                                                        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                                                }`}
-                                            >
-                                                {candidate}
-                                            </button>
-                                        ))}
+                                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-1.5 mt-2">
+                                        <p className="text-[9px] text-slate-500 font-medium mb-1">
+                                            {language === 'KR' 
+                                                ? `✨ AI가 제안한 작품 제목 후보 (${titleCandidates.length}개) — 탭하여 선택` 
+                                                : `✨ AI-suggested work titles (${titleCandidates.length}) — tap to select`}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {titleCandidates.map((candidate, idx) => (
+                                                <button
+                                                    key={`${candidate}-${idx}`}
+                                                    type="button"
+                                                    onClick={() => setSelectedWorkTitle(candidate)}
+                                                    className={`rounded-full border px-3 py-1.5 text-[10px] font-medium transition-all active:scale-95 ${
+                                                        selectedWorkTitle === candidate
+                                                            ? 'border-primary/60 bg-primary/25 text-white shadow-[0_0_12px_rgba(91,19,236,0.35)] ring-1 ring-primary/30'
+                                                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:border-white/20'
+                                                    }`}
+                                                >
+                                                    {candidate}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </motion.div>
                                 )}
+
+                                <p className="text-[8px] text-slate-500/60 mt-1">
+                                    {t.workTitleHint}
+                                </p>
                             </div>
                             <div className="col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-xl flex flex-col gap-2">
                                 <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{t.genre}</label>

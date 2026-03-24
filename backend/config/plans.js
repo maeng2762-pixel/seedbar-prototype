@@ -18,20 +18,6 @@ export const PLAN_POLICIES = {
     monthlyGenerationLimit: null,
     maxProjects: null,
     maxVersions: null,
-    canUseCompetitionMode: false,
-    canUseExternalMusic: true,
-    canExportPDF: true,
-    canExportPPT: false,
-    canAdvancedAnalysis: true,
-    canLongOutput: false,
-    canRegenerateSections: true,
-    canUseMoodSliders: true,
-  },
-  team: {
-    name: 'Team',
-    monthlyGenerationLimit: null,
-    maxProjects: null,
-    maxVersions: null,
     canUseCompetitionMode: true,
     canUseExternalMusic: true,
     canExportPDF: true,
@@ -41,11 +27,27 @@ export const PLAN_POLICIES = {
     canRegenerateSections: true,
     canUseMoodSliders: true,
   },
+  team: {
+    name: 'Team Starter',
+    monthlyGenerationLimit: null,
+    maxProjects: null,
+    maxVersions: null,
+    canUseCompetitionMode: true,
+    canUseExternalMusic: true,
+    canExportPDF: true,
+    canExportPPT: false,
+    canAdvancedAnalysis: true,
+    canLongOutput: true,
+    canRegenerateSections: true,
+    canUseMoodSliders: true,
+    canInviteMembers: true,
+    canShareProjects: true,
+  },
 };
 
 export function normalizePlan(plan) {
   const key = String(plan || 'free').toLowerCase();
-  if (key.includes('team') || key.includes('school') || key.includes('expert') || key.includes('enterprise')) return 'team';
+  if (key.includes('team') || key.includes('starter') || key.includes('enterprise')) return 'team';
   if (key.includes('pro') || key.includes('studio') || key.includes('premium')) return 'studio';
   return 'free';
 }

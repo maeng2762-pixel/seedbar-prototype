@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
 import useAuthStore from '../store/useAuthStore';
+import usePortfolioStore from '../store/usePortfolioStore';
 import FlowPatternSimulator from './FlowPatternSimulator';
 import MusicRecommendationPanel from './MusicRecommendationPanel';
 import MovementReferenceLibrary from './MovementReferenceLibrary';
@@ -14,10 +15,15 @@ import ProjectHeader from './studio/ProjectHeader';
 import StudioToolbar from './studio/StudioToolbar';
 import VersionManager from './studio/VersionManager';
 import ExportPackageModal from './ExportPackageModal';
+import PamphletFlipbook from './PamphletFlipbook';
+import ArtworkImageGenerator from './ArtworkImageGenerator';
+import ErrorBoundary from './ErrorBoundary';
+import StableArtworkPreview from './StableArtworkPreview';
 import { generateFlowFromTimeline } from '../services/aiPipeline';
 import { getSavedStageVisualization } from '../services/stageVisual3d';
 import { getPlanHeaders } from '../lib/subscriptionContext';
 import { apiUrl } from '../lib/apiClient';
+import { resolveArtworkUrl } from '../lib/artworkMedia.js';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
 import {
     Chart as ChartJS,
@@ -47,6 +53,56 @@ ChartJS.register(
 // Note: The UI now follows "Contemporary Art Exhibition Catalog" standards.
 // Minimal typography, large white space, and high contrast.
 
+const DEFAULT_DRAFT_DATA = {
+    titles: { _tone: 'neutral', scientific: { en: '-', kr: '-' }, radical: { en: '-', kr: '-' }, surreal: { en: '-', kr: '-' }, minimalist: { en: '-', kr: '-' } },
+    concept: { _moodTone: 'balanced', artisticPhilosophy: { en: "-", kr: "-" }, artisticStatement: { en: "-", kr: "-" } },
+    narrative: { intro: "-", development: "-", climax: "-", resolution: "-", emotionCurve: { labels: [], intensities: [], energyIntensities: [] }, lma: { space: "-", weight: "-", time: "-", flow: "-", body: "-" } },
+    music: { _musicTone: 'default', style: "-", tempoBpm: "-", soundTexture: "-", referenceArtists: "-" },
+    flow: { flow_pattern: [] },
+    timing: { totalDuration: "3:00", emotionStructure: {}, timeline: [] },
+    stage: { _visualTone: 'minimal', lighting: "-", costume: "-", props: "-" },
+    pamphlet: { coverTitle: "-", performanceDesc: "-", artisticStatement: { en: "-", kr: "-" }, choreographerNote: "-", musicCredits: "-", cast: "-" },
+};
+
+function normalizeDraftData(input) {
+    if (!input) return null;
+    const safeData = JSON.parse(JSON.stringify(input));
+
+    if (!safeData.titles) safeData.titles = {};
+    if (!safeData.titles._tone) safeData.titles._tone = 'neutral';
+
+    if (!safeData.concept) safeData.concept = {};
+    if (!safeData.concept._moodTone) safeData.concept._moodTone = 'balanced';
+
+    if (!safeData.stage) safeData.stage = {};
+    if (!safeData.stage._visualTone) safeData.stage._visualTone = 'minimal';
+
+    if (!safeData.music) safeData.music = {};
+    if (!safeData.music._musicTone) safeData.music._musicTone = 'default';
+
+    return safeData;
+}
+
+function areSimpleArraysEqual(left = [], right = []) {
+    if (left === right) return true;
+    if (!Array.isArray(left) || !Array.isArray(right)) return false;
+    if (left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+        if (JSON.stringify(left[index]) !== JSON.stringify(right[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function safeJson(value) {
+    try {
+        return JSON.stringify(value ?? null);
+    } catch {
+        return '';
+    }
+}
+
 function formatRelativeTime(value) {
     if (!value) return '-';
     const diffSec = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
@@ -67,7 +123,11 @@ function deriveBeatMarkers(timeline = []) {
 
 function deriveDancerRoles(teamSize = 1) {
     const roleLabels = ['Leader', 'Counterpoint', 'Support', 'Accent', 'Anchor', 'Orbit'];
-    return Array.from({ length: Math.max(1, Number(teamSize || 1)) }, (_, index) => ({
+    let parsedSize = parseInt(String(teamSize).replace(/[^0-9]/g, ''), 10);
+    if (isNaN(parsedSize) || parsedSize < 1) parsedSize = 1;
+    let safeSize = Math.max(1, Math.min(100, parsedSize)); // Cap at 100 to prevent crash
+
+    return Array.from({ length: safeSize }, (_, index) => ({
         dancerId: `D${index + 1}`,
         role: roleLabels[index] || 'Ensemble',
         movementFocus: index % 2 === 0 ? ['explosive jumps', 'sharp direction change'] : ['slow suspension', 'grounded transitions'],
@@ -82,11 +142,202 @@ function parseTimelineTimeToSeconds(value) {
     return 0;
 }
 
-export default function ChoreographyDraft({ data, projectId = null, currentPlan = 'free', policy = null, dancersCount = 5, onDataUpdate, onOpenUpgrade }) {
+function normalizeWorkTitleCandidate(candidate) {
+    if (!candidate) return { en: 'Untitled', kr: 'Untitled' };
+    if (typeof candidate === 'string') return { en: candidate, kr: candidate };
+    const fallback = candidate.en || candidate.kr || 'Untitled';
+    return {
+        en: candidate.en || fallback,
+        kr: candidate.kr || fallback,
+    };
+}
+
+const WorkTitleSection = React.memo(function WorkTitleSection({
+    draftData,
+    expanded,
+    onToggle,
+    isKr,
+    onSelectWorkTitle,
+    onDataUpdate,
+}) {
+    const [selectedTitlePreview, setSelectedTitlePreview] = useState(() => {
+        const selected = draftData?.selectedWorkTitle;
+        if (selected) return normalizeWorkTitleCandidate(selected);
+        return normalizeWorkTitleCandidate(draftData?.titles?.mainTitle || draftData?.titles?.scientific || { en: 'Untitled', kr: '무제' });
+    });
+    const [titleSaveState, setTitleSaveState] = useState('idle');
+    const titleStateTimerRef = useRef(null);
+
+    React.useEffect(() => {
+        const selected = draftData?.selectedWorkTitle;
+        if (selected) {
+            setSelectedTitlePreview(normalizeWorkTitleCandidate(selected));
+            return;
+        }
+        setSelectedTitlePreview(normalizeWorkTitleCandidate(draftData?.titles?.mainTitle || draftData?.titles?.scientific || { en: 'Untitled', kr: '무제' }));
+    }, [
+        draftData?.selectedWorkTitle,
+        draftData?.titles?.mainTitle?.en,
+        draftData?.titles?.mainTitle?.kr,
+        draftData?.titles?.scientific?.en,
+        draftData?.titles?.scientific?.kr,
+    ]);
+
+    React.useEffect(() => {
+        return () => {
+            if (titleStateTimerRef.current) {
+                window.clearTimeout(titleStateTimerRef.current);
+            }
+        };
+    }, []);
+
+    const titlesObj = draftData?.titles || {};
+    let candidates = Array.isArray(titlesObj.candidates) ? titlesObj.candidates : [];
+    if (candidates.length === 0) {
+        candidates = Object.entries(titlesObj)
+            .filter(([key]) => !key.startsWith('_') && key !== 'mainTitle' && key !== 'candidates')
+            .map(([, value]) => value)
+            .filter(Boolean);
+    }
+
+    const mainObj = selectedTitlePreview || normalizeWorkTitleCandidate(titlesObj.mainTitle || titlesObj.scientific || { en: 'Untitled', kr: '무제' });
+
+    const handleSelectClick = React.useCallback((candidate) => {
+        const normalizedCandidate = normalizeWorkTitleCandidate(candidate);
+        const nextCoverTitle = normalizedCandidate.en;
+
+        setSelectedTitlePreview(normalizedCandidate);
+        setTitleSaveState('saving');
+        if (titleStateTimerRef.current) {
+            window.clearTimeout(titleStateTimerRef.current);
+        }
+
+        if (typeof onSelectWorkTitle === 'function') {
+            window.requestAnimationFrame(() => {
+                Promise.resolve(onSelectWorkTitle(normalizedCandidate))
+                    .then((result) => {
+                        if (result?.stale) return;
+                        setTitleSaveState('saved');
+                        titleStateTimerRef.current = window.setTimeout(() => setTitleSaveState('idle'), 1500);
+                    })
+                    .catch(() => {
+                        setTitleSaveState('failed');
+                    });
+            });
+            return;
+        }
+
+        onDataUpdate?.({
+            ...draftData,
+            selectedWorkTitle: nextCoverTitle,
+            titles: { ...titlesObj, mainTitle: normalizedCandidate },
+            pamphlet: { ...(draftData?.pamphlet || {}), coverTitle: nextCoverTitle },
+            lastEdited: new Date().toISOString(),
+        });
+        setTitleSaveState('saved');
+        titleStateTimerRef.current = window.setTimeout(() => setTitleSaveState('idle'), 1500);
+    }, [draftData, onDataUpdate, onSelectWorkTitle, titlesObj]);
+
+    const titleSaveLabel = titleSaveState === 'saving'
+        ? (isKr ? '제목 저장 중...' : 'Saving title...')
+        : titleSaveState === 'saved'
+            ? (isKr ? '제목 저장 완료' : 'Title saved')
+            : titleSaveState === 'failed'
+                ? (isKr ? '저장 재시도 필요' : 'Retry save')
+                : '';
+
+    const titleSaveClassName = titleSaveState === 'failed'
+        ? 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+        : titleSaveState === 'saved'
+            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+            : 'border-primary/30 bg-primary/10 text-primary-light';
+
+    return (
+        <div className={`bg-black/20 backdrop-blur-md border border-white/5 rounded-none p-10 transition-all ${expanded ? '' : 'h-[60px] overflow-hidden'}`}>
+            <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 mb-2 flex items-center justify-between cursor-pointer" onClick={onToggle}>
+                <div className="flex items-center gap-3">
+                    <span className="w-6 h-[1px] bg-slate-500"></span>
+                    {isKr ? "작품 제목 (Work Title)" : "Work Title"}
+                    <span className="material-symbols-outlined text-[16px] leading-none text-white">{expanded ? 'expand_less' : 'expand_more'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    {titleSaveLabel ? (
+                        <span className={`text-[9px] px-3 py-1 rounded tracking-widest uppercase border ${titleSaveClassName}`}>
+                            {titleSaveLabel}
+                        </span>
+                    ) : null}
+                    {draftData?.titles?._tone ? (
+                        <span className="text-[9px] bg-white/5 border border-white/10 text-white/40 px-3 py-1 rounded tracking-widest uppercase">
+                            🎨 Tone: {draftData.titles._tone}
+                        </span>
+                    ) : null}
+                </div>
+            </h2>
+
+            <div className="flex flex-col gap-8 mt-5 md:ml-9">
+                <div className="flex flex-col gap-2 relative">
+                    <span className="text-[9px] uppercase tracking-widest text-[#5B13EC] font-bold font-sans flex items-center gap-1.5 mb-1">
+                        <span className="material-symbols-outlined text-[14px]">stars</span>
+                        {isKr ? '최종 선택된 제목' : 'Final Selected Title'}
+                    </span>
+                    <h3 className="text-3xl md:text-5xl font-light italic text-white leading-tight drop-shadow-lg break-keep">
+                        {mainObj.en}
+                    </h3>
+                    {mainObj.kr && mainObj.kr !== mainObj.en ? (
+                        <p className="text-base md:text-lg font-light text-white/50">{mainObj.kr}</p>
+                    ) : null}
+                </div>
+
+                {candidates.length > 0 ? (
+                    <div className="flex flex-col gap-4 pt-6 border-t border-white/10">
+                        <span className="text-[9px] uppercase tracking-widest text-slate-500 font-sans">
+                            {isKr ? '다른 제목 후보 선택' : 'Select Alternative Candidate'}
+                        </span>
+                        <div className="flex flex-wrap gap-2 md:gap-3">
+                            {candidates.map((candidate, idx) => {
+                                const normalizedCandidate = normalizeWorkTitleCandidate(candidate);
+                                const isSelected = normalizedCandidate.en === mainObj.en;
+                                return (
+                                    <button
+                                        key={`${normalizedCandidate.en}-${idx}`}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            handleSelectClick(candidate);
+                                        }}
+                                        className={`px-4 py-2.5 border rounded-full text-left transition-all active:scale-95 flex flex-col items-start min-w-[120px] ${isSelected ? 'bg-primary/20 border-primary/50 shadow-[0_0_10px_rgba(91,19,236,0.2)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                                    >
+                                        <span className={`text-sm md:text-base font-semibold ${isSelected ? 'text-primary-light' : 'text-slate-200'} italic leading-snug`}>
+                                            {normalizedCandidate.en}
+                                        </span>
+                                        {normalizedCandidate.kr && normalizedCandidate.kr !== normalizedCandidate.en ? (
+                                            <span className={`text-[10px] md:text-xs ${isSelected ? 'text-primary/70' : 'text-slate-500'} mt-0.5`}>
+                                                {normalizedCandidate.kr}
+                                            </span>
+                                        ) : null}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+});
+
+export default function ChoreographyDraft({ data, projectId = null, currentPlan = 'free', policy = null, dancersCount = 5, onDataUpdate, onOpenUpgrade, onSelectWorkTitle, onSaveArtworkImage }) {
     const navigate = useNavigate();
     const language = useStore((s) => s.language);
     const token = useAuthStore((s) => s.token);
     const isKr = language === 'KR';
+    const { portfolioItems, addToPortfolio, removeFromPortfolio, updatePortfolioItem } = usePortfolioStore();
+
+    const [isMounting, setIsMounting] = useState(true);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setIsMounting(false), 50);
+        return () => clearTimeout(timer);
+    }, []);
 
     const chartRef = useRef(null);
     const [isExporting, setIsExporting] = useState(false);
@@ -170,6 +421,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
     }, []);
 
     const {
+        projectId: storeProjectId,
         setProjectId,
         versions,
         activeVersionId,
@@ -191,18 +443,17 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         versionAction,
         error: studioError,
         clearError,
+        setTemporaryDraft,
     } = useChoreographyStudioStore();
     
     React.useEffect(() => {
-        if (data?.timing?.timeline) {
-            setTimelineItems(data.timing.timeline);
-        }
+        const nextTimeline = Array.isArray(data?.timing?.timeline) ? data.timing.timeline : [];
+        setTimelineItems((prev) => (areSimpleArraysEqual(prev, nextTimeline) ? prev : nextTimeline));
     }, [data?.timing?.timeline]);
 
     React.useEffect(() => {
-        if (data?.flow?.flow_pattern) {
-            setFlowPatternData(data.flow.flow_pattern);
-        }
+        const nextFlowPattern = Array.isArray(data?.flow?.flow_pattern) ? data.flow.flow_pattern : [];
+        setFlowPatternData((prev) => (areSimpleArraysEqual(prev, nextFlowPattern) ? prev : nextFlowPattern));
     }, [data?.flow?.flow_pattern]);
 
     // Helper for bilingual content
@@ -219,41 +470,49 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         setFlowPatternData(result.flow_pattern);
     };
 
-    const draftData = data || {
-        titles: { scientific: { en: '-', kr: '-' }, radical: { en: '-', kr: '-' }, surreal: { en: '-', kr: '-' }, minimalist: { en: '-', kr: '-' } },
-        concept: { artisticPhilosophy: { en: "-", kr: "-" }, artisticStatement: { en: "-", kr: "-" } },
-        narrative: { intro: "-", development: "-", climax: "-", resolution: "-", emotionCurve: { labels: [], intensities: [], energyIntensities: [] }, lma: { space: "-", weight: "-", time: "-", flow: "-", body: "-" } },
-        music: { style: "-", tempoBpm: "-", soundTexture: "-", referenceArtists: "-" },
-        flow: { flow_pattern: [] },
-        timing: { totalDuration: "3:00", emotionStructure: {}, timeline: [] },
-        stage: { lighting: "-", costume: "-", props: "-" },
-        pamphlet: { coverTitle: "-", performanceDesc: "-", artisticStatement: { en: "-", kr: "-" }, choreographerNote: "-", musicCredits: "-", cast: "-" }
-    };
+    const draftData = React.useMemo(() => normalizeDraftData(data) || DEFAULT_DRAFT_DATA, [data]);
     const isCompetitionMode = Boolean(draftData?.isCompetition || draftData?.pamphlet?.isCompetition);
     const beatMarkers = draftData?.beatMarkers || deriveBeatMarkers(timelineItems);
     const dancerRoles = draftData?.dancerRoles || deriveDancerRoles(Number(dancersCount) || Number(draftData?.seedbarInput?.teamSize) || 1);
     const projectStatus = draftData?.projectStatus || 'draft';
     const lastEdited = draftData?.lastEdited || autosaveUpdatedAt || null;
-    const musicInput = {
+    const rawRepresentativeArtworkUrl = resolveArtworkUrl(draftData, { prefer: 'thumbnail', allowFallback: false });
+    const representativeArtworkUrl = rawRepresentativeArtworkUrl || resolveArtworkUrl(draftData, { prefer: 'thumbnail' });
+    const originalArtworkUrl = resolveArtworkUrl(draftData, { prefer: 'original', allowFallback: false }) || representativeArtworkUrl;
+    const musicInput = React.useMemo(() => ({
         genre: draftData?.seedbarInput?.genre || draftData?.genre || 'Contemporary Dance',
         mood: draftData?.seedbarInput?.mood || t(draftData?.concept?.artisticPhilosophy) || '',
         keywords: draftData?.seedbarInput?.keywords || [],
         duration: draftData?.seedbarInput?.duration || draftData?.timing?.totalDuration || '03:00',
         competitionMode: Boolean(draftData?.seedbarInput?.competitionMode || isCompetitionMode),
-    };
+    }), [draftData, isCompetitionMode]);
     const stageVisualizations = draftData?.visualizations3d || {};
-    const studioContext = {
+    const studioContext = React.useMemo(() => ({
         genre: musicInput.genre,
         mood: musicInput.mood,
         keywords: musicInput.keywords,
-    };
+        emotionTone: draftData?.concept?._tone || draftData?.seedbarInput?.emotionTone || '',
+        intention: t(draftData?.concept?.artisticPhilosophy) || draftData?.seedbarInput?.intention || '',
+        titleTone: draftData?.titles?._titleTone || '',
+        dancerCount: dancersCount || draftData?.seedbarInput?.teamSize || 1,
+        duration: musicInput.duration,
+        energyCurve: draftData?.flow?.energyCurve || draftData?.seedbarInput?.energyCurve || '',
+        designDNA: draftData?.designDNA || draftData?.seedbarInput?.designDNA || '',
+    }), [draftData, dancersCount, musicInput, isKr]);
+    const stageFlowDraft = React.useMemo(() => ({
+        ...(draftData?.flow || {}),
+        flow_pattern: flowPatternData,
+        stageFlow: draftData?.stageFlow || draftData?.flow?.stageFlow || null,
+    }), [draftData?.flow, draftData?.stageFlow, flowPatternData]);
     const PLAN_GUARD_RE = /(monthly limit|upgrade|paid plan|available on|regeneration is available|mood sliders are available|export is available|competition mode)/i;
 
     React.useEffect(() => {
         if (!projectId) return;
-        setProjectId(projectId);
+        if (storeProjectId !== projectId) {
+            setProjectId(projectId);
+        }
         refreshVersions().catch(() => {});
-    }, [projectId, setProjectId, refreshVersions]);
+    }, [projectId, refreshVersions, setProjectId, storeProjectId]);
 
     const handleStudioError = (error, fallbackMessage = null) => {
         const message = error?.message || fallbackMessage || (isKr ? '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.' : 'We could not complete that request. Please try again.');
@@ -547,6 +806,31 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         alert(isKr ? "데이터셋 저장이 완료되었습니다. AI 학습을 위한 데이터로 반영됩니다." : "Movement Dataset saved successfully for AI training.");
     };
 
+    const isProjectSaved = projectId && portfolioItems.some(i => i.id === projectId);
+    const handleTogglePortfolio = () => {
+        if (!projectId) {
+            alert(isKr ? "프로젝트를 먼저 저장해야 포트폴리오에 추가할 수 있습니다." : "Please save the project first before adding to portfolio.");
+            return;
+        }
+
+        if (isProjectSaved) {
+            removeFromPortfolio(projectId);
+        } else {
+            const mainTitleObj = draftData?.titles?.mainTitle || draftData?.titles?.scientific;
+            const titleValue = typeof mainTitleObj === 'string' ? mainTitleObj : (mainTitleObj?.en || 'Untitled Project');
+            addToPortfolio({
+                id: projectId,
+                title: titleValue,
+                docType: 'PROJECT',
+                thumbnailUrl: rawRepresentativeArtworkUrl || null,
+                coverImage: originalArtworkUrl || rawRepresentativeArtworkUrl || null,
+                date: new Date().toISOString(),
+                createdAt: new Date().toISOString()
+            });
+            alert(isKr ? "내 포트폴리오에 저장되었습니다." : "Saved to your portfolio.");
+        }
+    };
+
     const renderSectionAction = (section) => (
         <RewriteButton
             label={isKr ? 'Rewrite' : 'Rewrite'}
@@ -561,12 +845,15 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
         const query = new URLSearchParams();
         if (targetProjectId) query.set('projectId', targetProjectId);
         query.set('asset', assetType);
+        
+        setTemporaryDraft(draftData);
+
         navigate(`/editor?${query.toString()}`, {
             state: {
                 mode: 'stage-visual',
                 assetType,
                 projectId: targetProjectId,
-                projectContent: draftData,
+                hasTemporaryContext: true,
                 savedVisualization: getSavedStageVisualization(draftData, assetType),
             },
         });
@@ -586,6 +873,16 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </button>
         );
     };
+
+    if (isMounting) {
+        return (
+            <div className="flex h-64 w-full items-center justify-center">
+                <div className="flex flex-col items-center gap-4 animate-pulse">
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-white/50">{isKr ? '작업 공간을 불러오는 중...' : 'Restoring workspace...'}</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full flex flex-col gap-10 pb-8 relative font-serif text-slate-200">
@@ -623,13 +920,19 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                  </button>
                  <button onClick={toggleAccordionMode} className={`px-4 py-2 border text-xs rounded transition-colors uppercase tracking-widest flex items-center gap-2 md:hidden ${isAccordionMode ? 'bg-[#5B13EC]/20 border-[#5B13EC] text-[#5B13EC]' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}>
                      <span className="material-symbols-outlined text-[16px]">{isAccordionMode ? 'view_agenda' : 'view_stream'}</span>
-                     <span>{isKr ? '아코디언 모드' : 'Accordion'} {isAccordionMode ? 'ON' : 'OFF'}</span>
+                     <span>{isKr ? '섹션 하나만 보기' : 'View One by One'} {isAccordionMode ? 'ON' : 'OFF'}</span>
                  </button>
             </div>
 
             {/* Minimalist Header */}
-            <div className="text-center pt-8 pb-4 border-b border-white/10 space-y-4">
-                <p className="text-xs uppercase tracking-[0.3em] font-sans text-slate-400 mb-2">Seedbar Creative Engine</p>
+            {rawRepresentativeArtworkUrl && (
+                <div className="w-full aspect-[21/9] md:aspect-[3/1] max-w-5xl mx-auto overflow-hidden relative shadow-2xl mb-2 mt-4">
+                    <StableArtworkPreview src={representativeArtworkUrl} alt="Project Representative Artwork" className="opacity-90 object-center" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20"></div>
+                </div>
+            )}
+            <div className="text-center pb-4 border-b border-white/10 space-y-4">
+                <p className="text-xs uppercase tracking-[0.3em] font-sans text-slate-400 mb-2 mt-8">Seedbar Creative Engine</p>
                 <h1 className="text-3xl font-light italic text-white/90">Curated Exhibition Catalog</h1>
                 <div className="flex flex-wrap items-center justify-center gap-3">
                     <span className="px-3 py-1.5 text-[10px] uppercase tracking-widest border border-primary/30 bg-primary/10 text-primary">
@@ -642,6 +945,22 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     <button onClick={handleSaveToDataset} className="px-3 py-1.5 text-[10px] uppercase tracking-widest border border-teal-500/30 bg-teal-500/10 text-teal-400 font-bold hover:bg-teal-500/20 active:scale-95 transition-all">
                         {isKr ? '데이터셋 저장' : 'Save Dataset'}
                     </button>
+                    <button 
+                        onClick={handleTogglePortfolio}
+                        className={`px-3 py-1.5 text-[10px] uppercase tracking-widest border font-bold transition-all flex items-center gap-1 active:scale-95 ${
+                            isProjectSaved 
+                                ? 'bg-primary/20 border-primary text-primary-light hover:bg-primary/30' 
+                                : 'bg-white/5 border-white/20 text-white hover:bg-white/10'
+                        }`}
+                    >
+                        <span className="material-symbols-outlined text-[14px]">
+                            {isProjectSaved ? 'bookmark_added' : 'bookmark_add'}
+                        </span>
+                        {isKr 
+                            ? (isProjectSaved ? '포트폴리오에 저장됨' : '포트폴리오에 저장') 
+                            : (isProjectSaved ? 'Saved to Portfolio' : 'Save to Portfolio')
+                        }
+                    </button>
                 </div>
                 {currentPlan === 'free' ? (
                     <div className="text-[11px] text-amber-300/90 font-sans">
@@ -651,58 +970,14 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* STEP 1: Title Generator — Hammer-Hit v4.0 (Diversity Engine) */}
-            <div className={`bg-black/20 backdrop-blur-md border border-white/5 rounded-none p-10 transition-all ${expandedSections.titles ? '' : 'h-[60px] overflow-hidden'}`}>
-                <h2 className="text-[11px] uppercase tracking-[0.2em] font-sans text-slate-500 mb-2 flex items-center justify-between cursor-pointer" onClick={() => toggleSection('titles')}>
-                    <div className="flex items-center gap-3">
-                        <span className="w-6 h-[1px] bg-slate-500"></span>
-                        {isKr ? "추천 작품 제목 (Titles)" : "Recommended Titles"}
-                        <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.titles ? 'expand_less' : 'expand_more'}</span>
-                    </div>
-                    {draftData.titles._tone && (
-                        <span className="text-[9px] bg-white/5 border border-white/10 text-white/40 px-3 py-1 rounded tracking-widest uppercase">
-                            🎨 Tone: {draftData.titles._tone}
-                        </span>
-                    )}
-                </h2>
-                {draftData.titles._domain && (
-                    <p className="text-[9px] uppercase tracking-widest text-[#5B13EC]/60 font-mono mb-4 ml-9">
-                        Domain: {draftData.titles._domain}
-                        {draftData.titles._structures && (
-                            <span className="ml-3 text-teal-500/50">
-                                + Structures: {draftData.titles._structures.join(', ')}
-                            </span>
-                        )}
-                    </p>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {Object.entries(draftData.titles)
-                        .filter(([key]) => !key.startsWith('_'))
-                        .map(([style, titleObj]) => {
-                            const scaleLabels = {
-                                scientific: { icon: '⚗️', label: isKr ? '과학적 / 수학적' : 'Scientific' },
-                                radical: { icon: '🔪', label: isKr ? '파격적 직설' : 'Radical Directness' },
-                                surreal: { icon: '🌀', label: isKr ? '초현실적 / 추상' : 'Abstract / Surreal' },
-                                minimalist: { icon: '▫️', label: isKr ? '미니멀 / 타이포그래피' : 'Minimalist' },
-                                extended1: { icon: '✦', label: isKr ? '확장 구조 I' : 'Extended Structure I' },
-                                extended2: { icon: '✧', label: isKr ? '확장 구조 II' : 'Extended Structure II' },
-                            };
-                            const info = scaleLabels[style] || { icon: '◆', label: style };
-                            const en = (typeof titleObj === 'object' && titleObj !== null) ? (titleObj.en || titleObj.kr || '') : (titleObj || '');
-                            const kr = (typeof titleObj === 'object' && titleObj !== null) ? (titleObj.kr || '') : '';
-                            return (
-                                <div key={style} className={`flex flex-col gap-2 ${style.startsWith('extended') ? 'border-t border-white/5 pt-4' : ''}`}>
-                                    <span className="text-[9px] uppercase tracking-widest text-slate-400 font-sans">
-                                        {info.icon} {info.label}
-                                    </span>
-                                    <p className="text-2xl font-light italic text-white leading-tight">{en}</p>
-                                    {kr && kr !== en && (
-                                        <p className="text-sm font-light text-white/40">{kr}</p>
-                                    )}
-                                </div>
-                            );
-                        })}
-                </div>
-            </div>
+            <WorkTitleSection
+                draftData={draftData}
+                expanded={expandedSections.titles}
+                onToggle={() => toggleSection('titles')}
+                isKr={isKr}
+                onSelectWorkTitle={onSelectWorkTitle}
+                onDataUpdate={onDataUpdate}
+            />
 
             {/* 🎲 CHANCE OPERATION DNA (우연성 엔진 결과) */}
             {draftData.chanceOperation && (
@@ -746,6 +1021,44 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     </div>
                 </div>
             )}
+
+            {/* ARTWORK IMAGE GENERATOR */}
+            <ErrorBoundary>
+                <ArtworkImageGenerator 
+                    draftData={draftData} 
+                    isKr={isKr} 
+                    onSaveImage={async (url) => {
+                        if (typeof onSaveArtworkImage === 'function') {
+                            const result = await onSaveArtworkImage(url);
+                            if (result?.ok === false) {
+                                throw result.error || new Error('Failed to save artwork image');
+                            }
+                            if (updatePortfolioItem && projectId) {
+                                updatePortfolioItem(projectId, {
+                                    thumbnailUrl: result?.artwork?.thumbnailUrl || url,
+                                    coverImage: result?.artwork?.originalUrl || result?.artwork?.thumbnailUrl || url,
+                                });
+                            }
+                        } else {
+                            const next = {
+                                ...(draftData || {}),
+                                thumbnailUrl: url,
+                                pamphlet: {
+                                    ...(draftData?.pamphlet || {}),
+                                    coverImageUrl: url,
+                                },
+                                projectStatus: 'in_progress',
+                                lastEdited: new Date().toISOString(),
+                            };
+                            onDataUpdate?.(next);
+                        }
+
+                        if (updatePortfolioItem && projectId) {
+                            updatePortfolioItem(projectId, { thumbnailUrl: url, coverImage: url });
+                        }
+                    }} 
+                />
+            </ErrorBoundary>
 
             {/* STEP 2: Concept Generator */}
             <div id="section-story" className={`bg-white/5 backdrop-blur-md border border-white/10 rounded-none p-10 relative overflow-hidden transition-all duration-700 ${expandedSections.concept ? '' : 'h-[75px] leading-none'}`}>
@@ -1028,12 +1341,14 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 </div>
 
                 {/* Movement Reference Library */}
-                <MovementReferenceLibrary
-                    isKr={isKr}
-                    projectSeed={`${projectId || 'draft'}:${draftData?.pamphlet?.coverTitle || draftData?.titles?.scientific?.en || 'seedbar'}`}
-                    projectContext={studioContext}
-                    onAddReference={(ref) => setShowRefSelectModal(ref)}
-                />
+                <ErrorBoundary>
+                    <MovementReferenceLibrary
+                        isKr={isKr}
+                        projectSeed={`${projectId || 'draft'}:${draftData?.pamphlet?.coverTitle || draftData?.titles?.scientific?.en || 'seedbar'}`}
+                        projectContext={studioContext}
+                        onAddReference={(ref) => setShowRefSelectModal(ref)}
+                    />
+                </ErrorBoundary>
             </div>
 
             {/* AI STAGE MAP ENGINE (2D Flow Visualization) */}
@@ -1059,27 +1374,27 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                      </div>
                  </h2>
                 <div className="w-full relative overflow-hidden group-img border border-white/5">
-                    <FlowPatternSimulator
-                        dancersCount={Number(dancersCount) || Number(draftData?.seedbarInput?.teamSize) || 1}
-                        flowDataFromDraft={{
-                            ...draftData.flow,
-                            flow_pattern: flowPatternData,
-                            stageFlow: draftData?.stageFlow || draftData?.flow?.stageFlow || null,
-                        }}
-                        timeline={timelineItems}
-                        durationLabel={draftData?.timing?.totalDuration || '03:00'}
-                        currentPlan={currentPlan}
-                        policy={policy}
-                        dancerRoles={dancerRoles}
-                        selectedTime={selectedTimelineTime ? parseTimelineTimeToSeconds(selectedTimelineTime) : null}
-                        onTimeChange={(time) => {
-                            const activeItem = [...timelineItems]
-                                .reverse()
-                                .find((entry) => parseTimelineTimeToSeconds(entry?.time) <= time);
-                            if (activeItem?.time) setSelectedTimelineTime(activeItem.time);
-                        }}
-                        onSelectDancerRole={(role) => setSelectedDancerRole(role)}
-                    />
+                    <ErrorBoundary>
+                        <FlowPatternSimulator
+                            dancersCount={Number(dancersCount) || Number(draftData?.seedbarInput?.teamSize) || 1}
+                            flowDataFromDraft={stageFlowDraft}
+                            timeline={timelineItems}
+                            durationLabel={draftData?.timing?.totalDuration || '03:00'}
+                            currentPlan={currentPlan}
+                            policy={policy}
+                            dancerRoles={dancerRoles}
+                            selectedTime={selectedTimelineTime ? parseTimelineTimeToSeconds(selectedTimelineTime) : null}
+                            onTimeChange={(time) => {
+                                const activeItem = [...timelineItems]
+                                    .reverse()
+                                    .find((entry) => parseTimelineTimeToSeconds(entry?.time) <= time);
+                                if (activeItem?.time && activeItem.time !== selectedTimelineTime) {
+                                    setSelectedTimelineTime(activeItem.time);
+                                }
+                            }}
+                            onSelectDancerRole={(role) => setSelectedDancerRole(role)}
+                        />
+                    </ErrorBoundary>
                     <div className="absolute inset-0 pointer-events-none flex items-center justify-center bg-black/10 z-10 mix-blend-overlay">
                         <div className="transform -rotate-12 opacity-40">
                             <span className="text-white font-black text-6xl tracking-[0.5em] uppercase drop-shadow-2xl">
@@ -1100,34 +1415,39 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     <span className="material-symbols-outlined text-[16px] leading-none text-white">{expandedSections.music ? 'expand_less' : 'expand_more'}</span>
                 </h2>
                 <div className={expandedSections.music ? '' : 'hidden'}>
-                <MusicRecommendationPanel
-                    genre={musicInput.genre}
-                    mood={musicInput.mood}
-                    keywords={musicInput.keywords}
-                    duration={musicInput.duration}
-                    competitionMode={musicInput.competitionMode}
-                    tempo={data?.music?.tempo}
-                    emotionCurve={data?.narrative?.emotionCurve || []}
-                    autoRecommend={true}
-                    hideActionButton={true}
-                    initialRecommendations={data?.musicRecommendations}
-                    onRecommendationsFetched={(recs) => {
-                        const next = { ...draftData, musicRecommendations: recs, lastEdited: new Date().toISOString() };
-                        onDataUpdate?.(next);
-                    }}
-                    selectedTrackId={data?.selectedMusicTrack?.id}
-                    onSelectTrack={(track) => {
-                        const next = { 
-                            ...draftData, 
-                            selectedMusicTrack: {
-                                id: track.spotify_track_id || track.youtube_video_id,
-                                ...track
-                            }, 
-                            lastEdited: new Date().toISOString() 
-                        };
-                        onDataUpdate?.(next);
-                    }}
-                />
+                <ErrorBoundary>
+                    <MusicRecommendationPanel
+                        genre={musicInput.genre}
+                        mood={musicInput.mood}
+                        keywords={musicInput.keywords}
+                        duration={musicInput.duration}
+                        competitionMode={musicInput.competitionMode}
+                        tempo={data?.music?.tempo}
+                        emotionCurve={data?.narrative?.emotionCurve || []}
+                        autoRecommend={false}
+                        hideActionButton={false}
+                        initialRecommendations={data?.musicRecommendations}
+                        onRecommendationsFetched={(recs) => {
+                            if (safeJson(data?.musicRecommendations) === safeJson(recs)) {
+                                return;
+                            }
+                            const next = { ...draftData, musicRecommendations: recs, lastEdited: new Date().toISOString() };
+                            onDataUpdate?.(next);
+                        }}
+                        selectedTrackId={data?.selectedMusicTrack?.id}
+                        onSelectTrack={(track) => {
+                            const next = { 
+                                ...draftData, 
+                                selectedMusicTrack: {
+                                    id: track.spotify_track_id || track.youtube_video_id,
+                                    ...track
+                                }, 
+                                lastEdited: new Date().toISOString() 
+                            };
+                            onDataUpdate?.(next);
+                        }}
+                    />
+                </ErrorBoundary>
                 </div>
             </div>
 
@@ -1219,7 +1539,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 )}
 
                 <ProjectHeader
-                    title={data?.pamphlet?.coverTitle || data?.titles?.scientific?.en || '작품 제목'}
+                    title={t(data?.pamphlet?.coverTitle || data?.titles?.scientific) || '작품 제목'}
                     activeVersion={(versions || []).find((v) => v.id === activeVersionId)}
                     lastEdited={data?.lastEdited || data?.projectStatus?.updatedAt}
                 />
@@ -1435,32 +1755,27 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
             </div>
 
             {/* STEP 7: Pamphlet Designer (Exhibition Print Format) */}
-            <div id="section-artist_note" className={`bg-slate-200 text-slate-900 p-12 mt-4 relative transition-all duration-700 ${expandedSections.artist_note ? '' : 'h-[75px] overflow-hidden'}`}>
-                <div className="absolute top-4 right-6 text-[10px] uppercase tracking-[0.3em] font-sans text-slate-400 cursor-pointer flex items-center gap-2" onClick={() => toggleSection('artist_note')}>
-                    {isKr ? 'Step 7: 최종 인쇄용 팜플렛 (Print Ready Pamphlet)' : 'Step 7: Print Ready Pamphlet'}
+            <div id="section-artist_note" className={`bg-slate-900 text-slate-100 p-8 md:p-12 mt-4 relative transition-all duration-700 rounded-2xl border border-white/10 ${expandedSections.artist_note ? '' : 'h-[75px] overflow-hidden'}`}>
+                <div className="absolute top-4 right-6 text-[10px] uppercase tracking-[0.3em] font-sans text-slate-400 cursor-pointer flex items-center gap-2 z-30" onClick={() => toggleSection('artist_note')}>
+                    {isKr ? 'Step 7: 최종 팜플렛 미리보기 (Pamphlet Preview)' : 'Step 7: Pamphlet Preview'}
                     <span className="material-symbols-outlined text-[16px]">{expandedSections.artist_note ? 'expand_less' : 'expand_more'}</span>
                 </div>
-                <div className="absolute top-4 left-6">
+                <div className="absolute top-4 left-6 z-30">
                     {renderSectionAction('artist_note')}
                 </div>
                 
-                <h1 className="text-4xl md:text-5xl font-light italic mb-8 mt-4 text-center">{t(draftData.pamphlet.coverTitle)}</h1>
-                <p className="text-center text-sm tracking-widest uppercase font-sans mb-12 border-b border-slate-300 pb-8 mx-auto max-w-lg">{t(draftData.pamphlet.performanceDesc)}</p>
-                
-                <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 font-sans">
-                    <div>
-                        <h4 className="text-xs uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-300 pb-2">{isKr ? '예술 철학 (Artistic Statement)' : 'Artistic Statement'}</h4>
-                        <p className="text-sm font-serif leading-relaxed text-justify">{t(draftData.pamphlet.artisticStatement)}</p>
-                    </div>
-                    <div>
-                        <h4 className="text-xs uppercase tracking-widest text-slate-500 mb-4 border-b border-slate-300 pb-2">{isKr ? '안무가 노트 (Choreographer Note)' : 'Choreographer Note'}</h4>
-                        <p className="text-sm font-serif leading-relaxed text-justify">{t(draftData.pamphlet.choreographerNote)}</p>
-                    </div>
-                    <div className="md:col-span-2 flex flex-col items-center mt-8 border-t border-slate-300 pt-8 gap-2">
-                        <span className="text-xs uppercase tracking-widest text-slate-500">{isKr ? '크레딧 (Credits)' : 'Credits'}</span>
-                        <p className="text-sm text-center">{t(draftData.pamphlet.musicCredits)}</p>
-                        <p className="text-sm text-center">{t(draftData.pamphlet.cast)}</p>
-                    </div>
+                <div className="mt-12">
+                     <ErrorBoundary>
+                         <PamphletFlipbook 
+                            pamphlet={draftData.pamphlet} 
+                            isKr={isKr} 
+                            onSave={(newPamphlet) => {
+                                if (onDataUpdate) {
+                                    onDataUpdate({ ...data, pamphlet: newPamphlet });
+                                }
+                            }}
+                         />
+                     </ErrorBoundary>
                 </div>
             </div>
 
@@ -1492,14 +1807,23 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                 </div>
             </div>
 
-            <ExportPackageModal 
-                isOpen={isExportModalOpen} 
-                onClose={() => setIsExportModalOpen(false)} 
-                draftData={draftData} 
-                token={token} 
-                currentPlan={currentPlan} 
-                isKr={isKr} 
-            />
+            <ErrorBoundary>
+                <ExportPackageModal 
+                    isOpen={isExportModalOpen} 
+                    onClose={() => setIsExportModalOpen(false)} 
+                    draftData={draftData} 
+                    token={token} 
+                    currentPlan={currentPlan} 
+                    isKr={isKr} 
+                    onSaveAndView={(pkg) => {
+                        const next = { ...draftData, generatedPackage: pkg };
+                        onDataUpdate?.(next);
+                        setIsExportModalOpen(false);
+                        const targetId = projectId || draftData?.id || draftData?.projectId;
+                        if (targetId) navigate(`/project/${targetId}/ppt`);
+                    }}
+                />
+            </ErrorBoundary>
 
             {/* Modal for Selecting Timeline Section to add Reference */}
             {showRefSelectModal && (
@@ -1559,6 +1883,9 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                     </div>
                 </div>
             )}
+            
+            {/* Safe Bottom Padding */}
+            <div className="h-40 w-full pointer-events-none" aria-hidden="true" />
         </div>
     );
 }

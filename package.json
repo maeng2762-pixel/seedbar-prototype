@@ -10,7 +10,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:smoke": "node --test tests/smoke/backend.smoke.test.mjs",
+    "check:preflight": "node scripts/checks/preflight.mjs",
+    "verify:release": "npm run build && npm run check:preflight && npm run test:smoke"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -23,6 +26,7 @@
     "chart.js": "^4.5.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "file-saver": "^2.0.5",
     "framer-motion": "^12.34.5",
     "glob": "^13.0.6",
     "html2pdf.js": "^0.14.0",
@@ -30,6 +34,7 @@
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.576.0",
     "pdfkit": "^0.17.2",
     "pptxgenjs": "^4.0.1",

@@ -6,6 +6,9 @@ const initialRecommendations = {
   trend: [],
   balanced: [],
   counterpoint: [],
+  discovery: [],
+  soundtrack_atmosphere: [],
+  soundtrack_climax: [],
 };
 
 const useMusicRecommendationStore = create((set) => ({
@@ -19,6 +22,9 @@ const useMusicRecommendationStore = create((set) => ({
     trend: null,
     balanced: null,
     counterpoint: null,
+    discovery: null,
+    soundtrack_atmosphere: null,
+    soundtrack_climax: null,
   },
 
   setRecommendations: (recommendations) => set({
@@ -34,7 +40,7 @@ const useMusicRecommendationStore = create((set) => ({
     fingerprint: null,
     competitionMode: false,
     recommendations: initialRecommendations,
-    strategy: { trend: null, balanced: null, counterpoint: null },
+    strategy: { trend: null, balanced: null, counterpoint: null, discovery: null, soundtrack_atmosphere: null, soundtrack_climax: null },
   }),
 
   fetchRecommendations: async ({ genre, mood, keywords, duration, competitionMode, tempo, emotionCurve, language }) => {
@@ -86,7 +92,7 @@ const useMusicRecommendationStore = create((set) => ({
         fingerprint: data.fingerprint,
         competitionMode: Boolean(data.competitionMode),
         recommendations: data.recommendations || initialRecommendations,
-        strategy: data.strategy || { trend: null, balanced: null, counterpoint: null },
+        strategy: data.strategy || { trend: null, balanced: null, counterpoint: null, discovery: null, soundtrack_atmosphere: null, soundtrack_climax: null },
       });
     } catch (error) {
       set({ loading: false, error: error.message || 'Music recommendation failed' });

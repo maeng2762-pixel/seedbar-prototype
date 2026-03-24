@@ -3,14 +3,14 @@ import path from 'path';
 import PDFDocument from 'pdfkit';
 import pptxgen from 'pptxgenjs';
 import AdmZip from 'adm-zip';
+import { getLocalizedText } from '../../shared/localizedText.js';
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 export async function renderExportBundle({ draftData, language = 'EN' }) {
-  const isKr = language === 'KR';
-  const t = (v) => (typeof v === 'object' && v ? (isKr ? v.kr || v.en : v.en || v.kr) : v || '');
+  const t = (value, fallback = '') => getLocalizedText(value, language, fallback);
 
   const tmpDir = path.join(process.cwd(), 'temp_exports');
   ensureDir(tmpDir);
@@ -37,8 +37,8 @@ export async function renderExportBundle({ draftData, language = 'EN' }) {
   doc.moveDown();
   doc.fontSize(11).text(t(draftData?.concept?.artisticStatement));
   doc.moveDown();
-  doc.text(`Music: ${draftData?.music?.style || '-'}`);
-  doc.text(`Credits: ${draftData?.pamphlet?.musicCredits || '-'}`);
+  doc.text(`Music: ${t(draftData?.music?.style, '-')}`);
+  doc.text(`Credits: ${t(draftData?.pamphlet?.musicCredits, '-')}`);
   doc.end();
   await new Promise((resolve) => stream.on('finish', resolve));
 

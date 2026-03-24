@@ -6,7 +6,10 @@ import LanguageToggle from '../components/LanguageToggle';
 import useAuthStore from '../store/useAuthStore';
 import useBillingStore from '../store/useBillingStore';
 import useChoreographyStudioStore from '../store/useChoreographyStudioStore';
+import usePortfolioStore from '../store/usePortfolioStore';
 import { navigateToDraftProject } from '../lib/projectNavigation';
+import StableArtworkPreview from '../components/StableArtworkPreview';
+import { resolveArtworkUrl } from '../lib/artworkMedia.js';
 
 const i18n = {
   EN: {
@@ -118,11 +121,13 @@ export default function Profile() {
   const nativeStatus = useBillingStore((state) => state.nativeStatus);
   const billingLoading = useBillingStore((state) => state.loading);
   
-  const { projects, listProjects } = useChoreographyStudioStore();
+  const { projects, listProjects, generatePPTForProject } = useChoreographyStudioStore();
+  const { portfolioItems, heroItemId, removeFromPortfolio, setHeroItem, renameItem } = usePortfolioStore();
 
   const [notice, setNotice] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState(null);
 
   useEffect(() => {
     refreshNativeStatus().catch(() => {});
@@ -132,8 +137,9 @@ export default function Profile() {
   const planLabel = useMemo(() => {
     const plan = String(user?.plan || 'free').toLowerCase();
     if (plan === 'studio') return 'Studio';
-    if (plan === 'team' || plan === 'school') return 'Team / School';
-    if (plan === 'pro') return 'Pro';
+    if (plan === 'enterprise') return 'Enterprise';
+    if (plan === 'team_starter' || plan === 'team') return 'Team Starter';
+    if (plan === 'pro' || plan === 'premium') return 'Studio';
     return 'Free';
   }, [user?.plan]);
 
@@ -163,14 +169,33 @@ export default function Profile() {
     }
   };
 
-  const handleExportPortfolio = () => {
+  const heroItem = useMemo(() => {
+    return portfolioItems.find(i => i.id === heroItemId) || portfolioItems[0];
+  }, [portfolioItems, heroItemId]);
+  const heroItemCover = resolveArtworkUrl({
+    thumbnailUrl: heroItem?.thumbnailUrl || heroItem?.coverImage,
+    coverImageUrl: heroItem?.coverImage,
+  }, { prefer: 'original' });
+
+  const handleExportPortfolio = async () => {
+      const exportTargetId = heroItem?.projectId || projects[0]?.id;
+      if (!exportTargetId) {
+          alert(language === 'KR' ? '새 안무 프로젝트를 시작하거나 포트폴리오를 추가하세요.' : 'Please add projects to your portfolio first.');
+          navigate('/ideation');
+          return;
+      }
+
       setIsExporting(true);
-      setTimeout(() => {
+      try {
+          await generatePPTForProject(exportTargetId);
+          alert(language === 'KR' ? '패키지 준비가 완료되었습니다. 내보내기 화면을 엽니다.' : 'Portfolio package ready. Opening export screen.');
+          navigate(`/ppt/${exportTargetId}`);
+      } catch (e) {
+          console.error('Failed to export', e);
+          alert(language === 'KR' ? '포트폴리오 내보내기에 실패했습니다.' : 'Failed to export portfolio package.');
+      } finally {
           setIsExporting(false);
-          alert(language === 'KR' 
-                ? "🌟 포트폴리오 패키지가 성공적으로 내보내졌습니다!\n저장된 PDF 문서를 확인해주세요."
-                : "🌟 Portfolio package exported successfully!\nPlease check the saved PDF document.");
-      }, 1500);
+      }
   };
 
   const recentProjects = (projects || []).slice(0, 3);
@@ -231,49 +256,116 @@ export default function Profile() {
             </div>
         </section>
 
-        {/* Hero / Featured Project */}
-        {recentProjects.length > 0 && (
-            <section className="mb-2">
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-white flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[18px]">star</span>
-                    {t.heroProject}
-                </h3>
-                <div 
-                    onClick={() => navigateToDraftProject(navigate, recentProjects[0].id)}
-                    className="relative w-full aspect-[2/1] rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-white/10"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 to-blue-500/20 mix-blend-overlay group-hover:scale-105 transition-transform duration-500"></div>
-                    <img src="https://images.unsplash.com/photo-1518834107812-67b0b7c58434?q=80&w=600&auto=format&fit=crop" className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-luminosity group-hover:scale-105 transition-transform duration-700" alt="Hero" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
-                    <div className="absolute bottom-0 left-0 p-5 flex flex-col">
-                        <span className="text-[10px] font-bold text-primary-light uppercase tracking-widest mb-1 shadow-black drop-shadow-md">LATEST WORK</span>
-                        <h4 className="text-xl font-bold text-white shadow-black drop-shadow-lg leading-tight group-hover:text-primary-light transition-colors">
-                            {recentProjects[0].name || recentProjects[0].title || 'Untitled Project'}
-                        </h4>
-                        <p className="text-xs text-slate-300 mt-2 flex items-center gap-1 shadow-black drop-shadow-md">
-                            <span className="material-symbols-outlined text-[12px]">schedule</span>
-                            {new Date(recentProjects[0].updatedAt || recentProjects[0].createdAt).toLocaleDateString()}
-                        </p>
-                    </div>
-                </div>
-            </section>
-        )}
+        {/* Portfolio Section */}
+        <section className="mb-4">
+            <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[18px]">star</span>
+                {t.portfolioTitle || (language === 'KR' ? '내 포트폴리오' : 'My Portfolio')}
+            </h3>
 
-        {/* Portfolio Export */}
-        <section className="mt-4 mb-2">
-             <button
-                type="button"
-                onClick={handleExportPortfolio}
-                disabled={isExporting}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-[linear-gradient(180deg,rgba(91,19,236,0.3)_0%,rgba(91,19,236,0.1)_100%)] px-6 py-4 text-[13px] font-semibold tracking-wide text-white shadow-[0_0_20px_rgba(91,19,236,0.15)] transition-all hover:bg-[linear-gradient(180deg,rgba(91,19,236,0.4)_0%,rgba(91,19,236,0.15)_100%)] disabled:opacity-50"
-            >
-                {isExporting ? (
-                    <div className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                ) : (
-                    <span className="material-symbols-outlined text-[18px]">ios_share</span>
-                )}
-                {t.exportPortfolioBtn}
-            </button>
+            {portfolioItems.length === 0 ? (
+                <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-8 text-center text-sm text-slate-500">
+                    <p className="mb-1 text-slate-300">{language === 'KR' ? '아직 포트폴리오에 저장된 작업물이 없습니다.' : 'No items saved to portfolio yet.'}</p>
+                    <p className="text-xs text-slate-500">{language === 'KR' ? '프로젝트나 문서를 포트폴리오에 추가해보세요.' : 'Try adding projects or documents to your portfolio.'}</p>
+                </div>
+            ) : (
+                <>
+                    {/* Hero Item */}
+                    {heroItem && (
+                        <div 
+                            onClick={() => navigate(`/ppt/${heroItem.projectId}`)}
+                            className="relative w-full aspect-[2/1] rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-white/10 mb-6"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 to-blue-500/20 mix-blend-overlay group-hover:scale-105 transition-transform duration-500"></div>
+                            <StableArtworkPreview src={heroItemCover} alt="Hero" className="absolute inset-0 opacity-60 mix-blend-luminosity group-hover:scale-105 transition-transform duration-700" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+                            <div className="absolute bottom-0 left-0 p-5 flex flex-col">
+                                <span className="text-[10px] font-bold text-primary-light uppercase tracking-widest mb-1 shadow-black drop-shadow-md">
+                                    {language === 'KR' ? '대표작' : 'HERO WORK'}
+                                </span>
+                                <h4 className="text-xl font-bold text-white shadow-black drop-shadow-lg leading-tight group-hover:text-primary-light transition-colors">
+                                    {heroItem.title || 'Untitled'}
+                                </h4>
+                                <p className="text-xs text-slate-300 mt-2 flex items-center gap-1 shadow-black drop-shadow-md">
+                                    <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                    {new Date(heroItem.date).toLocaleDateString()}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Export Button */}
+                    <button
+                        type="button"
+                        onClick={handleExportPortfolio}
+                        disabled={isExporting}
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-[linear-gradient(180deg,rgba(91,19,236,0.3)_0%,rgba(91,19,236,0.1)_100%)] px-6 py-4 mb-6 text-[13px] font-semibold tracking-wide text-white shadow-[0_0_20px_rgba(91,19,236,0.15)] transition-all hover:bg-[linear-gradient(180deg,rgba(91,19,236,0.4)_0%,rgba(91,19,236,0.15)_100%)] disabled:opacity-50"
+                    >
+                        {isExporting ? (
+                            <div className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                        ) : (
+                            <span className="material-symbols-outlined text-[18px]">ios_share</span>
+                        )}
+                        {t.exportPortfolioBtn}
+                    </button>
+
+                    {/* Portfolio Items List */}
+                    <div className="grid gap-3">
+                        {portfolioItems.map(item => (
+                            <div key={item.id} className="relative rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2 relative">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex-1 min-w-0 pr-4 cursor-pointer" onClick={() => navigate(`/ppt/${item.projectId}`)}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary-light text-[9px] font-bold uppercase tracking-wider border border-primary/20">
+                                                {item.docType || 'PROJECT'}
+                                            </span>
+                                            {item.id === heroItemId && <span className="material-symbols-outlined text-[14px] text-yellow-500 fill-current">star</span>}
+                                        </div>
+                                        <h4 className="text-[14px] font-bold text-white truncate">{item.title}</h4>
+                                        <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-1">
+                                            <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                            {new Date(item.date).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === item.id ? null : item.id); }}
+                                        className="size-8 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                                    </button>
+                                </div>
+
+                                {/* Menu Dropdown */}
+                                {activeMenuId === item.id && (
+                                    <div className="absolute top-12 right-4 w-44 rounded-xl border border-white/10 bg-[#151221] shadow-2xl overflow-hidden z-20">
+                                        <button onClick={() => navigate(`/ppt/${item.projectId}`)} className="w-full text-left px-4 py-3 text-xs font-semibold text-white hover:bg-white/5 transition-colors flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                                            {language === 'KR' ? '열기' : 'Open'}
+                                        </button>
+                                        <button onClick={() => {
+                                            const newTitle = prompt(language === 'KR' ? '새 이름을 입력하세요' : 'Enter new name', item.title);
+                                            if (newTitle) renameItem(item.id, newTitle);
+                                            setActiveMenuId(null);
+                                        }} className="w-full text-left px-4 py-3 text-xs font-semibold text-white hover:bg-white/5 transition-colors flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                                            {language === 'KR' ? '이름 변경' : 'Rename'}
+                                        </button>
+                                        <button onClick={() => { setHeroItem(item.id); setActiveMenuId(null); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-white hover:bg-white/5 transition-colors flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-[16px]">star</span>
+                                            {language === 'KR' ? '대표작으로 설정' : 'Set as Representative'}
+                                        </button>
+                                        <div className="h-[1px] bg-white/5"></div>
+                                        <button onClick={() => { removeFromPortfolio(item.id); setActiveMenuId(null); }} className="w-full text-left px-4 py-3 text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                                            {language === 'KR' ? '포트폴리오에서 제거' : 'Remove'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
         </section>
 
         {/* Recent Projects (List) */}
