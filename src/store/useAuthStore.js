@@ -3,13 +3,16 @@ import {
   clearAuthStorage,
   getAccessToken,
   getAuthHeaders,
+  getRefreshToken,
   getStoredUser,
   isLoggedIn,
   setAccessToken,
+  setRefreshToken,
   setStoredUser,
 } from '../lib/authClient';
 import { setClientPlan } from '../lib/subscriptionContext';
 import { apiUrl } from '../lib/apiClient';
+import { reportRuntimeDiagnostic } from '../services/runtimeDiagnostics.js';
 
 async function parseResponseJson(res, url) {
   const contentType = res.headers.get('content-type') || '';
@@ -21,6 +24,24 @@ async function parseResponseJson(res, url) {
   return res.json();
 }
 
+function applySessionPayload(data, set) {
+  if (data?.accessToken) setAccessToken(data.accessToken);
+  if (Object.prototype.hasOwnProperty.call(data || {}, 'refreshToken')) {
+    setRefreshToken(data?.refreshToken || '');
+  }
+  if (data?.user) {
+    setStoredUser(data.user);
+    setClientPlan(data.user?.plan || 'free');
+  }
+  set({
+    user: data?.user || null,
+    token: data?.accessToken || getAccessToken(),
+    error: null,
+    loading: false,
+    hydrated: true,
+  });
+}
+
 const useAuthStore = create((set, get) => ({
   user: getStoredUser(),
   token: getAccessToken(),
@@ -30,11 +51,69 @@ const useAuthStore = create((set, get) => ({
 
   isAuthenticated: () => isLoggedIn() && Boolean(get().user),
 
+  refreshSession: async ({ silent = true, reason = 'auth_refresh' } = {}) => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+      reportRuntimeDiagnostic({
+        category: 'missing_refresh_token',
+        severity: 'warn',
+        message: `Refresh token missing during ${reason}`,
+        meta: { reason },
+      });
+      clearAuthStorage();
+      set({ user: null, token: '', error: null, loading: false, hydrated: true });
+      return null;
+    }
+
+    try {
+      if (!silent) set({ loading: true, error: null });
+      const url = apiUrl('/api/auth/refresh');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const data = await parseResponseJson(res, url);
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || 'Session refresh failed.');
+      }
+
+      applySessionPayload(data, set);
+      reportRuntimeDiagnostic({
+        category: 'session_refreshed',
+        severity: 'info',
+        message: `Session refresh succeeded during ${reason}`,
+        meta: { reason },
+      });
+      return data.user;
+    } catch (error) {
+      reportRuntimeDiagnostic({
+        category: 'refresh_token_failed',
+        severity: 'error',
+        message: error?.message || 'Session refresh failed.',
+        meta: { reason },
+      });
+      clearAuthStorage();
+      set({
+        user: null,
+        token: '',
+        error: silent ? null : (error.message || 'Session refresh failed.'),
+        loading: false,
+        hydrated: true,
+      });
+      return null;
+    }
+  },
+
   hydrate: async () => {
     set({ loading: true });
     const token = getAccessToken();
-    const user = getStoredUser();
-    if (!token || !user) {
+    const refreshToken = getRefreshToken();
+    if (!token) {
+      if (refreshToken) {
+        const refreshedUser = await get().refreshSession({ silent: true, reason: 'hydrate_missing_access_token' });
+        if (refreshedUser) return refreshedUser;
+      }
       set({ token: '', user: null, loading: false, hydrated: true });
       return null;
     }
@@ -43,13 +122,25 @@ const useAuthStore = create((set, get) => ({
       const url = apiUrl('/api/auth/me');
       const res = await fetch(url, { headers: { ...getAuthHeaders() } });
       const data = await parseResponseJson(res, url);
-      if (!res.ok || !data.ok) throw new Error(data?.error || 'Session expired.');
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || 'Session expired.');
+      }
 
       setStoredUser(data.user);
       setClientPlan(data.user?.plan || 'free');
-      set({ user: data.user, token, error: null, loading: false, hydrated: true });
+      set({ user: data.user, token: getAccessToken(), error: null, loading: false, hydrated: true });
       return data.user;
-    } catch (_error) {
+    } catch (error) {
+      if (refreshToken) {
+        const refreshedUser = await get().refreshSession({ silent: true, reason: 'hydrate_after_me_failed' });
+        if (refreshedUser) return refreshedUser;
+      }
+      reportRuntimeDiagnostic({
+        category: 'expired_token',
+        severity: 'warn',
+        message: error?.message || 'Stored access token is no longer valid.',
+        meta: { reason: 'hydrate' },
+      });
       clearAuthStorage();
       set({ user: null, token: '', error: null, loading: false, hydrated: true });
       return null;
@@ -68,10 +159,7 @@ const useAuthStore = create((set, get) => ({
       const data = await parseResponseJson(res, url);
       if (!res.ok || !data.ok) throw new Error(data?.error || 'Signup failed.');
 
-      setAccessToken(data.accessToken);
-      setStoredUser(data.user);
-      setClientPlan(data.user?.plan || 'free');
-      set({ loading: false, user: data.user, token: data.accessToken });
+      applySessionPayload(data, set);
       return data.user;
     } catch (error) {
       set({ loading: false, error: error.message || 'Signup failed.' });
@@ -91,10 +179,7 @@ const useAuthStore = create((set, get) => ({
       const data = await parseResponseJson(res, url);
       if (!res.ok || !data.ok) throw new Error(data?.error || 'Login failed.');
 
-      setAccessToken(data.accessToken);
-      setStoredUser(data.user);
-      setClientPlan(data.user?.plan || 'free');
-      set({ loading: false, user: data.user, token: data.accessToken });
+      applySessionPayload(data, set);
       return data.user;
     } catch (error) {
       set({ loading: false, error: error.message || 'Login failed.' });

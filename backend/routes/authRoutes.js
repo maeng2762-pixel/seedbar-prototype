@@ -6,6 +6,7 @@ import {
   loginController,
   logoutController,
   meController,
+  refreshController,
   setPlanForTestingController,
   signupController,
 } from '../controllers/authController.js';
@@ -15,6 +16,7 @@ const router = Router();
 
 router.post('/signup', signupController);
 router.post('/login', loginController);
+router.post('/refresh', refreshController);
 router.post('/logout', logoutController);
 router.get('/me', requireAuth, meController);
 router.delete('/account', requireAuth, deleteAccountController);

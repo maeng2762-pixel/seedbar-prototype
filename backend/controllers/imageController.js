@@ -1,6 +1,8 @@
 // using global fetch available in node18+
 import { persistArtworkAsset } from '../services/artworkStorageService.js';
 
+const IMAGE_REQUEST_TIMEOUT_MS = Number(process.env.IMAGE_GENERATION_TIMEOUT_MS || 50000);
+
 function sanitizePromptFragment(value = '') {
   return String(value || '')
     .replace(/\b(sensual|erotic|revealing|revealed|seductive|provocative|lingerie|underwear|bikini|cleavage|nude|naked|fetish)\b/gi, '')
@@ -35,41 +37,88 @@ CRITICAL REQUIREMENTS:
     // We can call OpenAI DALL-E 3 directly using the stored OPENAI_API_KEY
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "OpenAI API key missing" });
+      return res.status(503).json({
+        ok: false,
+        code: 'image_provider_unconfigured',
+        error: 'Image generation server is not configured.',
+        detail: 'OPENAI_API_KEY is missing.',
+        retryable: true,
+      });
     }
 
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: basePrompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard"
-      })
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), IMAGE_REQUEST_TIMEOUT_MS);
+    let response;
+    try {
+      response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: basePrompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'standard',
+        }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error?.name === 'AbortError') {
+        return res.status(504).json({
+          ok: false,
+          code: 'image_generation_timeout',
+          error: 'Image generation timed out.',
+          retryable: true,
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("DALL-E generation failed:", errorText);
-      throw new Error(`Image API error: ${response.statusText}`);
+      let providerError = {};
+      try {
+        providerError = await response.json();
+      } catch {
+        providerError = { raw: await response.text() };
+      }
+      console.error('DALL-E generation failed:', providerError);
+      const providerMessage = providerError?.error?.message || providerError?.raw || response.statusText;
+      return res.status(response.status >= 500 ? 502 : response.status).json({
+        ok: false,
+        code: response.status === 401 ? 'image_provider_auth_failed' : 'image_provider_request_failed',
+        error: 'Image generation server could not create a visual.',
+        detail: providerMessage,
+        retryable: response.status >= 500 || response.status === 429,
+      });
     }
 
     const data = await response.json();
     const imageUrl = data.data?.[0]?.url;
 
     if (!imageUrl) {
-      throw new Error("No image URL returned");
+      return res.status(502).json({
+        ok: false,
+        code: 'image_provider_empty',
+        error: 'Image generation did not return a valid image URL.',
+        retryable: true,
+      });
     }
 
-    res.json({ imageUrl, promptUsed: basePrompt });
+    res.json({ ok: true, imageUrl, promptUsed: basePrompt });
   } catch (error) {
     console.error('Artwork generation error:', error);
-    res.status(500).json({ error: error.message || 'Failed to generate image' });
+    res.status(500).json({
+      ok: false,
+      code: 'image_generation_failed',
+      error: error.message || 'Failed to generate image',
+      retryable: true,
+    });
   }
 };
 

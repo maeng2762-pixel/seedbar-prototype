@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { getPlanHeaders } from '../lib/subscriptionContext';
 import { apiUrl } from '../lib/apiClient';
 import { buildArtworkPatch } from '../lib/artworkMedia.js';
+import { requestJsonWithSession } from '../lib/sessionRequest.js';
 
 const defaultSliders = {
   intensity: 50,
@@ -255,44 +256,51 @@ const useChoreographyStudioStore = create((set, get) => ({
   fetchFullPackage: async () => {
     const projectId = get().projectId;
     if (!projectId) throw new Error('Project is not initialized');
-    const url = apiUrl(`/api/choreography/projects/${projectId}/full-package`);
-    const res = await fetch(url, {
+    const { data } = await requestJsonWithSession(`/api/choreography/projects/${projectId}/full-package`, {
       headers: { ...getPlanHeaders() },
+    }, {
+      featureKey: 'package_fetch',
+      timeoutMs: 45000,
     });
-    const data = await parseResponseJson(res, url);
-    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to fetch package');
+    if (!data?.ok) throw new Error(data?.error || 'Failed to fetch package');
     set({ packageData: data.package });
     return data.package;
   },
 
   generatePPTForProject: async (targetProjectId) => {
     // 1. Fetch project data
-    const url = apiUrl(`/api/choreography/projects/${targetProjectId}`);
-    const res = await fetch(url, { headers: { ...getPlanHeaders() }, cache: 'no-store' });
-    const data = await parseResponseJson(res, url);
-    if (!res.ok || !data.ok) throw new Error(data?.error || 'Failed to load project');
+    const { data } = await requestJsonWithSession(`/api/choreography/projects/${targetProjectId}`, {
+      headers: { ...getPlanHeaders() },
+      cache: 'no-store',
+    }, {
+      featureKey: 'package_project_load',
+      timeoutMs: 30000,
+    });
+    if (!data?.ok) throw new Error(data?.error || 'Failed to load project');
     const project = data.project;
 
     // 2. Generate PPT via package endpoint
-    const packageUrl = apiUrl('/api/export/package');
-    const packageRes = await fetch(packageUrl, {
+    const { data: packageData } = await requestJsonWithSession('/api/export/package', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getPlanHeaders() },
-      body: JSON.stringify({ draftData: project.currentContent })
+      body: { draftData: project.currentContent },
+    }, {
+      featureKey: 'package_publish',
+      timeoutMs: 90000,
     });
-    const packageData = await parseResponseJson(packageRes, packageUrl);
-    if (!packageRes.ok || !packageData.ok) throw new Error(packageData?.error || 'Failed to generate package');
+    if (!packageData?.ok) throw new Error(packageData?.error || 'Failed to generate package');
     
     // 3. Save it to project's currentContent
     const updatedContent = { ...project.currentContent, generatedPackage: packageData.packageContent };
-    const updateUrl = apiUrl(`/api/choreography/projects/${targetProjectId}`);
-    const updateRes = await fetch(updateUrl, {
+    const { data: updateData } = await requestJsonWithSession(`/api/choreography/projects/${targetProjectId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...getPlanHeaders() },
-      body: JSON.stringify({ currentContent: updatedContent })
+      body: { currentContent: updatedContent },
+    }, {
+      featureKey: 'package_publish_save',
+      timeoutMs: 30000,
     });
-    const updateData = await parseResponseJson(updateRes, updateUrl);
-    if (!updateRes.ok || !updateData.ok) throw new Error(updateData?.error || 'Failed to save project package');
+    if (!updateData?.ok) throw new Error(updateData?.error || 'Failed to save project package');
 
     set((state) => ({
       projects: (state.projects || []).map((item) => (
@@ -450,20 +458,21 @@ const useChoreographyStudioStore = create((set, get) => ({
     const updatedAt = new Date().toISOString();
     set({ autosaveState: 'saving' });
 
-    const persistUrl = apiUrl('/api/image/persist');
-    const persistRes = await fetch(persistUrl, {
+    const { data: persistData } = await requestJsonWithSession('/api/image/persist', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getPlanHeaders(),
       },
-      body: JSON.stringify({
+      body: {
         imageUrl,
         projectId,
-      }),
+      },
+    }, {
+      featureKey: 'image_persist',
+      timeoutMs: 45000,
     });
-    const persistData = await parseResponseJson(persistRes, persistUrl);
-    if (!persistRes.ok || !persistData.ok) {
+    if (!persistData?.ok) {
       set({ autosaveState: 'failed' });
       throw new Error(persistData?.error || 'Failed to persist artwork image');
     }
@@ -483,24 +492,25 @@ const useChoreographyStudioStore = create((set, get) => ({
       lastEdited: updatedAt,
     };
 
-    const url = apiUrl(`/api/choreography/projects/${projectId}`);
-    const res = await fetch(url, {
+    const { data } = await requestJsonWithSession(`/api/choreography/projects/${projectId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         ...getPlanHeaders(),
       },
-      body: JSON.stringify({
+      body: {
         title: nextContent?.selectedWorkTitle
           || nextContent?.pamphlet?.coverTitle
           || nextContent?.titles?.mainTitle?.en
           || nextContent?.titles?.scientific?.en
           || 'Untitled Project',
         currentContent: nextContent,
-      }),
+      },
+    }, {
+      featureKey: 'image_persist_save',
+      timeoutMs: 30000,
     });
-    const data = await parseResponseJson(res, url);
-    if (!res.ok || !data.ok) {
+    if (!data?.ok) {
       set({ autosaveState: 'failed' });
       throw new Error(data?.error || 'Failed to save artwork image');
     }

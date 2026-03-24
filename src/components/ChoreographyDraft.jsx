@@ -1861,7 +1861,7 @@ export default function ChoreographyDraft({ data, projectId = null, currentPlan 
                         onDataUpdate?.(next);
                         setIsExportModalOpen(false);
                         const targetId = projectId || draftData?.id || draftData?.projectId;
-                        if (targetId) navigate(`/project/${targetId}/ppt`);
+                        if (targetId) navigate(`/ppt/${targetId}`);
                     }}
                 />
             </ErrorBoundary>

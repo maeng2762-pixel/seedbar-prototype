@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { getUserFacingApiMessage, requestJsonWithSession } from '../lib/sessionRequest.js';
+import { reportRuntimeDiagnostic } from '../services/runtimeDiagnostics.js';
 
 export default function ExportPackageModal({ isOpen, onClose, draftData, token, currentPlan, isKr, onSaveAndView }) {
     const [step, setStep] = useState(1); // 1: Select Type, 2: Generating, 3: Editor
@@ -8,69 +10,70 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
     const [activeTab, setActiveTab] = useState('ppt'); // 'ppt', 'script', 'stage', 'lighting'
     const [error, setError] = useState('');
     const [errorType, setErrorType] = useState(null); // 'auth', 'plan', 'server', 'network', null
+    const [statusNotice, setStatusNotice] = useState('');
 
     if (!isOpen) return null;
 
     const handleGenerate = async () => {
-        if (!token) {
-            setError(isKr ? '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.' : 'Login session expired. Please log in again.');
-            setErrorType('auth');
-            return;
-        }
-
-        if (!currentPlan || !['studio', 'team', 'team_starter', 'enterprise'].includes(currentPlan.toLowerCase())) {
-            setError(isKr ? '이 기능은 Studio 또는 Team 플랜에서 사용할 수 있습니다.' : 'This feature is available on Studio or Team plans.');
-            setErrorType('plan');
-            return;
-        }
-
         setStep(2);
         setError('');
         setErrorType(null);
+        setStatusNotice(
+            currentPlan && !['studio', 'team', 'team_starter', 'enterprise'].includes(String(currentPlan).toLowerCase())
+                ? (isKr ? '현재 플랜 권한을 서버에서 다시 확인하고 있습니다.' : 'Re-checking your plan entitlement with the server.')
+                : (isKr ? '세션과 발행 권한을 확인한 뒤 패키지 생성을 시작합니다.' : 'Checking session and publishing access before generating the package.')
+        );
 
         try {
-            const apiUrl = (path) => `${import.meta.env.VITE_API_BASE_URL || ''}${path}`;
-            const res = await fetch(apiUrl('/api/export/package'), {
+            const { data } = await requestJsonWithSession('/api/export/package', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
+                body: {
                     draftData,
                     options: { exportType, language }
-                })
+                },
+            }, {
+                featureKey: 'package_publish',
+                timeoutMs: 90000,
             });
 
-            if (!res.ok) {
-                if (res.status === 401) {
-                    setErrorType('auth');
-                    throw new Error(isKr ? '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.' : 'Login session expired. Please log in again.');
-                } else if (res.status === 403) {
-                    setErrorType('plan');
-                    throw new Error(isKr ? '발행 권한을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.' : 'Unable to verify publishing rights. Please try again later.');
-                } else if (res.status === 500) {
-                    setErrorType('server');
-                    throw new Error(isKr ? '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' : 'Server error occurred. Please try again later.');
-                } else {
-                    const data = await res.json().catch(() => ({}));
-                    setErrorType('server');
-                    throw new Error(data.error || (isKr ? '알 수 없는 오류가 발생했습니다.' : 'An unknown error occurred.'));
-                }
-            }
-
-            const data = await res.json();
             setGeneratedPackage(data.packageContent);
             setStep(3);
+            setStatusNotice(isKr ? '패키지가 생성되었습니다. 내용을 검토한 뒤 저장할 수 있습니다.' : 'The package is ready. Review it before saving.');
         } catch (err) {
-            if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-                setErrorType('network');
-                setError(isKr ? '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해 주세요.' : 'Network error occurred. Please check your connection.');
-            } else {
-                setError(err.message);
-                // default to server if not set
-                setErrorType(prev => prev || 'server'); 
-            }
+            reportRuntimeDiagnostic({
+                category: 'package_publish_failed',
+                severity: 'error',
+                message: err?.message || 'Package publishing failed.',
+                meta: {
+                    exportType,
+                    language,
+                    currentPlan: currentPlan || 'unknown',
+                },
+            });
+            if (err?.type === 'auth') setErrorType('auth');
+            else if (err?.type === 'plan') setErrorType('plan');
+            else if (err?.type === 'network') setErrorType('network');
+            else setErrorType('server');
+
+            setError(getUserFacingApiMessage(err, {
+                isKr,
+                messages: isKr ? {
+                    auth: '세션이 만료되어 자동 복구를 시도했습니다. 계속되지 않으면 다시 로그인해 주세요.',
+                    authRetryFailed: '세션 자동 복구에 실패했습니다. 다시 로그인 후 패키지 발행을 이어가 주세요.',
+                    plan: '현재 플랜에서 패키지 발행 권한을 확인할 수 없습니다.',
+                    timeout: '패키지 생성 시간이 길어지고 있습니다. 잠시 후 다시 시도해 주세요.',
+                    network: '서버 연결이 불안정합니다. 잠시 후 다시 시도해 주세요.',
+                    server: '패키지 생성 중 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+                } : {
+                    auth: 'Your session expired. We tried to recover it automatically, but please log in again if publishing does not continue.',
+                    authRetryFailed: 'Automatic session recovery failed. Please log in again to continue publishing the package.',
+                    plan: 'We could not verify package publishing permission for your plan.',
+                    timeout: 'Package generation is taking longer than expected. Please try again shortly.',
+                    network: 'The server connection is unstable. Please try again shortly.',
+                    server: 'The server hit an issue while generating the package. Please try again later.',
+                },
+            }));
+            setStatusNotice('');
             setStep(1);
         }
     };
@@ -79,26 +82,29 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
         // Save to backend directly here, or just let parent handle it? 
         // We will do both. Calling the API ensures the document is saved permanently.
         try {
-            const apiUrl = (path) => `${import.meta.env.VITE_API_BASE_URL || ''}${path}`;
             const targetId = draftData?._id || draftData?.id;
             
             if (targetId) {
                 // Background save to MongoDB
                 const updatedContent = { ...draftData, generatedPackage };
-                await fetch(apiUrl(`/api/choreography/projects/${targetId}`), {
+                await requestJsonWithSession(`/api/choreography/projects/${targetId}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
+                    body: {
                         title: draftData.title || 'Untitled',
-                        content: updatedContent
-                    })
+                        currentContent: updatedContent,
+                    },
+                }, {
+                    featureKey: 'package_publish_save',
+                    timeoutMs: 30000,
                 });
             }
         } catch (e) {
             console.error('Failed to auto-save generated package:', e);
+            reportRuntimeDiagnostic({
+                category: 'package_publish_save_failed',
+                severity: 'warn',
+                message: e?.message || 'Failed to save generated package.',
+            });
         }
 
         if (onSaveAndView) {
@@ -133,8 +139,8 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
                         <div className="text-red-400 text-sm">{error}</div>
                         <div className="flex gap-2">
                             {errorType === 'auth' && (
-                                <button onClick={onClose} className="px-4 py-2 bg-red-500/20 text-red-300 text-xs border border-red-500/30 hover:bg-red-500/30 transition-colors uppercase tracking-widest">
-                                    {isKr ? '다시 로그인하기' : 'Login Again'}
+                                <button onClick={handleGenerate} className="px-4 py-2 bg-red-500/20 text-red-300 text-xs border border-red-500/30 hover:bg-red-500/30 transition-colors uppercase tracking-widest">
+                                    {isKr ? '다시 시도' : 'Try Again'}
                                 </button>
                             )}
                             {errorType === 'plan' && (
@@ -202,7 +208,7 @@ export default function ExportPackageModal({ isOpen, onClose, draftData, token, 
                             {isKr ? 'AI가 전문가 수준의 패키지를 작성하고 있습니다...' : 'Generating professional package...'}
                         </h3>
                         <p className="text-slate-400 text-sm">
-                            {isKr ? '누락된 세부 정보를 보완하고 품질을 점검합니다. (최대 1분 소요)' : 'Synthesizing details and running quality checks.'}
+                            {statusNotice || (isKr ? '누락된 세부 정보를 보완하고 품질을 점검합니다. (최대 1분 소요)' : 'Synthesizing details and running quality checks.')}
                         </p>
                     </div>
                 )}

@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'seedbar_access_token';
+const REFRESH_TOKEN_KEY = 'seedbar_refresh_token';
 const USER_KEY = 'seedbar_user';
 
 function safeWindow() {
@@ -18,6 +19,21 @@ export function setAccessToken(token) {
     return;
   }
   w.localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getRefreshToken() {
+  const w = safeWindow();
+  return w?.localStorage.getItem(REFRESH_TOKEN_KEY) || '';
+}
+
+export function setRefreshToken(token) {
+  const w = safeWindow();
+  if (!w) return;
+  if (!token) {
+    w.localStorage.removeItem(REFRESH_TOKEN_KEY);
+    return;
+  }
+  w.localStorage.setItem(REFRESH_TOKEN_KEY, token);
 }
 
 export function getStoredUser() {
@@ -46,6 +62,7 @@ export function clearAuthStorage() {
   const w = safeWindow();
   if (!w) return;
   w.localStorage.removeItem(TOKEN_KEY);
+  w.localStorage.removeItem(REFRESH_TOKEN_KEY);
   w.localStorage.removeItem(USER_KEY);
 }
 

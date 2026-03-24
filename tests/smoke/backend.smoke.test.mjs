@@ -37,7 +37,18 @@ test('Seedbar core smoke flow stays healthy across auth, generation, save, studi
   assert.equal(login.response.status, 200);
   assert.equal(login.payload.ok, true);
   const token = login.payload.accessToken;
+  const refreshToken = login.payload.refreshToken;
   assert.ok(token);
+  assert.ok(refreshToken);
+
+  const refresh = await apiJson(harness.baseUrl, '/api/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken },
+  });
+  assert.equal(refresh.response.status, 200);
+  assert.equal(refresh.payload.ok, true);
+  assert.ok(refresh.payload.accessToken);
+  assert.ok(refresh.payload.refreshToken);
 
   const me = await apiJson(harness.baseUrl, '/api/auth/me', { token });
   assert.equal(me.response.status, 200);

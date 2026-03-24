@@ -7,6 +7,7 @@ import {
 } from '../models/userModel.js';
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '180d';
 
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
@@ -14,6 +15,10 @@ function getJwtSecret() {
     throw new Error('JWT_SECRET is missing or too short. Set at least 16 characters.');
   }
   return secret;
+}
+
+function getRefreshSecret() {
+  return process.env.JWT_REFRESH_SECRET || getJwtSecret();
 }
 
 export function signAccessToken(user) {
@@ -29,8 +34,31 @@ export function signAccessToken(user) {
   );
 }
 
+export function signRefreshToken(user) {
+  return jwt.sign(
+    {
+      sub: user.id,
+      email: user.email,
+      plan: user.plan,
+      type: 'refresh',
+    },
+    getRefreshSecret(),
+    { expiresIn: REFRESH_TOKEN_EXPIRES_IN },
+  );
+}
+
 export function verifyAccessToken(token) {
   return jwt.verify(token, getJwtSecret());
+}
+
+export function verifyRefreshToken(token) {
+  const payload = jwt.verify(token, getRefreshSecret());
+  if (payload?.type !== 'refresh') {
+    const error = new Error('Invalid refresh token.');
+    error.status = 401;
+    throw error;
+  }
+  return payload;
 }
 
 export function registerWithEmail({ email, password }) {
@@ -58,7 +86,8 @@ export function registerWithEmail({ email, password }) {
 
   const user = createUser({ email: normalizedEmail, password: rawPassword, plan: 'free' });
   const accessToken = signAccessToken(user);
-  return { user, accessToken };
+  const refreshToken = signRefreshToken(user);
+  return { user, accessToken, refreshToken };
 }
 
 export function loginWithEmail({ email, password }) {
@@ -71,7 +100,8 @@ export function loginWithEmail({ email, password }) {
   }
 
   const accessToken = signAccessToken(user);
-  return { user, accessToken };
+  const refreshToken = signRefreshToken(user);
+  return { user, accessToken, refreshToken };
 }
 
 export function getSessionUser(userId) {

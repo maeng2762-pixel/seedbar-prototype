@@ -1,5 +1,17 @@
-import { loginWithEmail, registerWithEmail } from '../services/authService.js';
-import { deleteUserById, ensureUser, listUsers, setUserPlanByEmail } from '../models/userModel.js';
+import {
+  loginWithEmail,
+  registerWithEmail,
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from '../services/authService.js';
+import {
+  deleteUserById,
+  ensureUser,
+  getUserById,
+  listUsers,
+  setUserPlanByEmail,
+} from '../models/userModel.js';
 
 function responseUser(user) {
   return {
@@ -14,8 +26,8 @@ function responseUser(user) {
 export function signupController(req, res) {
   try {
     const { email, password } = req.body || {};
-    const { user, accessToken } = registerWithEmail({ email, password });
-    return res.status(201).json({ ok: true, user: responseUser(user), accessToken });
+    const { user, accessToken, refreshToken } = registerWithEmail({ email, password });
+    return res.status(201).json({ ok: true, user: responseUser(user), accessToken, refreshToken });
   } catch (error) {
     return res.status(error?.status || 500).json({ ok: false, error: error.message || 'Signup failed.' });
   }
@@ -24,10 +36,36 @@ export function signupController(req, res) {
 export function loginController(req, res) {
   try {
     const { email, password } = req.body || {};
-    const { user, accessToken } = loginWithEmail({ email, password });
-    return res.json({ ok: true, user: responseUser(user), accessToken });
+    const { user, accessToken, refreshToken } = loginWithEmail({ email, password });
+    return res.json({ ok: true, user: responseUser(user), accessToken, refreshToken });
   } catch (error) {
     return res.status(error?.status || 500).json({ ok: false, error: error.message || 'Login failed.' });
+  }
+}
+
+export function refreshController(req, res) {
+  try {
+    const refreshToken = String(req.body?.refreshToken || '').trim();
+    if (!refreshToken) {
+      return res.status(401).json({ ok: false, error: 'Refresh token is required.' });
+    }
+
+    const payload = verifyRefreshToken(refreshToken);
+    const user = getUserById(payload.sub);
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Refresh session is no longer valid.' });
+    }
+
+    const nextAccessToken = signAccessToken(user);
+    const nextRefreshToken = signRefreshToken(user);
+    return res.json({
+      ok: true,
+      user: responseUser(user),
+      accessToken: nextAccessToken,
+      refreshToken: nextRefreshToken,
+    });
+  } catch (error) {
+    return res.status(error?.status || 401).json({ ok: false, error: error.message || 'Failed to refresh session.' });
   }
 }
 
