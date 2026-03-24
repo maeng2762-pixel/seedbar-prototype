@@ -1,6 +1,7 @@
 import { createApp } from './backend/app.js';
 import fs from 'fs';
 import path from 'path';
+import { ensureUser } from './backend/models/userModel.js';
 
 function loadDotEnv() {
   const envPath = path.join(process.cwd(), '.env');
@@ -33,6 +34,19 @@ function validateEnv() {
 }
 
 validateEnv();
+
+function bootstrapReviewAccounts() {
+  const reviewAccounts = [
+    { email: 'studio@seedbar.dev', plan: 'studio', password: 'seedbar1234' },
+    { email: 'expert@seedbar.dev', plan: 'studio', password: 'seedbar1234' },
+  ];
+
+  for (const account of reviewAccounts) {
+    ensureUser(account.email, account.plan, account.password);
+  }
+}
+
+bootstrapReviewAccounts();
 
 const PORT = Number(process.env.PORT || 3001);
 const HOST = process.env.HOST || '0.0.0.0';
