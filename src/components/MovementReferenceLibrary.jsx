@@ -95,6 +95,7 @@ const MOVEMENT_BUILDERS = {
       const g = ctx.genre || (isKr ? '움직임' : 'movement');
       const e = ctx.emotionTone || (isKr ? '감정' : 'emotion');
       const m = ctx.mood || (isKr ? '분위기' : 'mood');
+      const i = ctx.intention || (isKr ? '의도' : 'intention');
       const c = ctx.dancerCount || 1;
       const countText = typeof c === 'number' && c > 1 ? (isKr ? `${c}인의 다인원` : `${c}-dancer`) : (isKr ? `솔로` : `solo`);
       
